@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "gfx",
+    "core",
+    "x11",
+    "ui",
+    "wm",
+    "antibox",
+]
+
+[profile.release]

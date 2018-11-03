@@ -1,0 +1,54 @@
+#![allow(clippy::incompatible_msrv)]
+#[macro_use]
+extern crate antibox_core;
+
+#[macro_use]
+pub mod tooltip;
+
+pub mod action;
+pub mod applet;
+pub mod bindings;
+pub mod compat;
+pub mod client;
+pub mod clientmsg;
+pub mod clock_applet;
+pub mod container;
+pub mod cursors;
+pub mod dock;
+pub mod dockmenu;
+pub mod drag;
+pub mod drag_outline;
+pub mod ewmh;
+pub mod focus;
+pub mod fonts;
+pub mod frame;
+pub mod frame_store;
+pub mod geom;
+pub mod handler;
+pub mod id;
+pub mod keys_parser;
+pub mod layout;
+pub mod layout_preferences;
+pub mod manager;
+pub mod menu;
+pub mod mouse_parser;
+pub mod option;
+pub mod paintbuf;
+pub mod panic_guard;
+pub mod placement;
+pub mod preview;
+pub mod render;
+pub mod resize_popup;
+pub mod snap;
+pub mod switcher;
+pub mod taskbar;
+pub mod taskpane;
+#[cfg(feature = "tray")]
+pub mod tray_applet;
+pub mod winlist;
+pub mod winmenu;
+pub mod wmaction;
+pub mod wmapp;
+pub mod wmconfig;
+pub mod wmstate;
+pub mod workspace_pane;

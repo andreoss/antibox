@@ -1,0 +1,32 @@
+antibox
+=======
+
+A window manager for X11 (xcb)
+
+Features
+--------
+
+- Stacking window managment 
+- Taskbar 
+- Pager with window previews 
+- Alt+Tab switching
+
+Building
+--------
+    cargo build --release
+
+Usage
+-----
+
+    antibox [OPTIONS]
+
+Options:
+
+    -h, --help                   print help
+    -V, --version                print version
+
+
+License
+-------
+
+GPL-3
