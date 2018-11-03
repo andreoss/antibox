@@ -1,0 +1,15 @@
+[package]
+name = "antibox-wm"
+version = "0.0.1"
+edition = "2018"
+
+[dependencies]
+antibox-core = { path = "../core" }
+antibox-ui = { path = "../ui" }
+
+[dev-dependencies]
+antibox-x11 = { path = "../x11" }
+
+[features]
+default = ["tray"]
+tray = []

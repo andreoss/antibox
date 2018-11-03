@@ -1,0 +1,8 @@
+[package]
+name = "antibox-x11"
+version = "0.0.1"
+edition = "2018"
+
+[dependencies]
+antibox-core = { path = "../core" }
+

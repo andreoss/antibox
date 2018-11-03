@@ -1,0 +1,18 @@
+[package]
+name = "antibox"
+version = "0.0.1"
+edition = "2018"
+
+[lib]
+name = "antibox"
+path = "src/lib.rs"
+
+[[bin]]
+name = "antibox"
+path = "src/main.rs"
+
+[dependencies]
+antibox-core = { path = "../core" }
+antibox-ui = { path = "../ui" }
+antibox-x11 = { path = "../x11" }
+antibox-wm = { path = "../wm" }
