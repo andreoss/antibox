@@ -493,6 +493,32 @@ pub fn constrain_resize(
     r
 }
 
+fn try_unsnap<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, frame_id: FrameId, init_rect: Rect, start: Point, cur: Point) -> Option<(Rect, Point)> {
+    let mut found = None;
+    for (id, fw) in wm.frames.iter() {
+        if fw.frame_id() == frame_id && fw.snap_zone.is_some() {
+            found = Some((*id, fw.snap_saved));
+            break;
+        }
+    }
+    let (id, saved) = found?;
+    let saved = saved?;
+    let moved = (cur.x - start.x).abs() + (cur.y - start.y).abs();
+    if moved < antibox_core::scale::scaled(8) {
+        return None;
+    }
+    let gx = (start.x - init_rect.x).clamped(0, init_rect.w.max(1));
+    let gy = (start.y - init_rect.y).clamped(0, init_rect.h.max(1));
+    let new_gx = (gx as i64 * saved.w.max(1) as i64 / init_rect.w.max(1) as i64) as i32;
+    let new_gy = gy.min((saved.h - 1).max(0));
+    let restored = Rect::new(cur.x - new_gx, cur.y - new_gy, saved.w, saved.h);
+    crate::snap::set_snap_zone(wm, id, None);
+    if let Some(fw) = wm.frame_mut(id) {
+        fw.snap_saved = None;
+    }
+    Some((restored, cur))
+}
+
 pub fn motion_notify<H: DisplayBackend + 'static + ?Sized>(
     wm: &mut WindowManager<H>,
     w: u32,
@@ -514,6 +540,17 @@ pub fn motion_notify<H: DisplayBackend + 'static + ?Sized>(
         _ => return,
     };
     let cur = root;
+    let (start, init_rect) = if edge == ResizeEdge::None {
+        match try_unsnap(wm, dw, init_rect, start, cur) {
+            Some((r, o)) => {
+                wm.drag_state = Some((dw, o, edge, r));
+                (o, r)
+            }
+            None => (start, init_rect),
+        }
+    } else {
+        (start, init_rect)
+    };
 
     let dx = cur.x - start.x;
     let dy = cur.y - start.y;
@@ -570,6 +607,17 @@ pub fn motion_notify<H: DisplayBackend + 'static + ?Sized>(
     if let Some(text) = readout {
         let center = crate::geom::center_of(new_rect);
         crate::resize_popup::show(wm, &text, center);
+    }
+    if edge == ResizeEdge::None {
+        let mon = crate::snap::monitor_at(wm, cur);
+        let zone = crate::snap::zone_at(cur, mon).or_else(|| crate::snap::zone_for_window(new_rect, mon));
+        let target = zone.and_then(|z| {
+            crate::snap::zone_rect(z, crate::snap::snap_area(wm, cur)).map(|r| (z, r))
+        });
+        match target {
+            Some((z, r)) => crate::snap::show_preview(wm, z, r),
+            None => crate::snap::clear_preview(wm),
+        }
     }
 }
 
@@ -850,6 +898,7 @@ fn end_keyboard_drag<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManage
     }
     wm.drag_state = None;
     wm.drag_pending = None;
+    crate::snap::clear_preview(wm);
     crate::resize_popup::hide(wm);
     crate::drag_outline::hide(wm);
 }
@@ -923,8 +972,34 @@ pub fn button_release<H: DisplayBackend + 'static + ?Sized>(
         let _ = backend.ungrab_pointer(0);
         let _ = backend.ungrab_keyboard(0);
     }
-
-    if !wm.config.opaque_move {
+    let snap_target = wm.snap_preview.as_ref().map(|(z, r, _)| (*z, *r));
+    crate::snap::clear_preview(wm);
+    let snapped = _edge == ResizeEdge::None && snap_target.is_some();
+    if _edge == ResizeEdge::None {
+        if let Some((zone, target)) = snap_target {
+            let mut cid_opt = None;
+            for (id, fw) in wm.frames.iter() {
+                if fw.frame_id() == drag_frame_id {
+                    cid_opt = Some(*id);
+                    break;
+                }
+            }
+            if let Some(cid) = cid_opt {
+                let needs_save = match wm.frame(cid) {
+                    Some(fw) => fw.snap_zone.is_none(),
+                    None => false,
+                };
+                if needs_save {
+                    if let Some(fw) = wm.frame_mut(cid) {
+                        fw.snap_saved = Some(_init_rect);
+                    }
+                }
+                crate::snap::apply_snap_rect(wm, cid, target);
+                crate::snap::set_snap_zone(wm, cid, Some(zone));
+            }
+        }
+    }
+    if !wm.config.opaque_move && !snapped {
         if let Some(pending) = pending {
             apply_frame_rect(wm, drag_frame_id, pending);
         }

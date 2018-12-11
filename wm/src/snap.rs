@@ -1,6 +1,6 @@
 use crate::id::ClientId;
 use crate::manager::WindowManager;
-use antibox_core::backend::DisplayBackend;
+use antibox_core::backend::{DisplayBackend, EventMask, WindowHandle, WmWindowClass};
 use antibox_core::point::Point;
 use antibox_core::rect::Rect;
 
@@ -104,6 +104,128 @@ pub fn current_zone(fr: Rect, area: Rect) -> Option<SnapZone> {
         }
     }
     None
+}
+
+pub(crate) type Preview = (SnapZone, Rect, Vec<Box<dyn WindowHandle>>);
+
+fn snap_margin() -> i32 {
+    antibox_core::scale::scaled(8).max(2)
+}
+
+pub fn zone_at(p: Point, mon: Rect) -> Option<SnapZone> {
+    let m = snap_margin();
+    let corner = (mon.w.min(mon.h) / 4).max(m * 4);
+    let near_l = p.x <= mon.x + m;
+    let near_r = p.x >= mon.x + mon.w - 1 - m;
+    let near_t = p.y <= mon.y + m;
+    let near_b = p.y >= mon.y + mon.h - 1 - m;
+    let mut z = SnapZone::default();
+    if near_l {
+        z.h = Some(Horz::Left);
+    } else if near_r {
+        z.h = Some(Horz::Right);
+    }
+    if near_t {
+        z.v = Some(Vert::Top);
+    } else if near_b {
+        z.v = Some(Vert::Bottom);
+    }
+    if z.h.is_some() && z.v.is_none() {
+        if p.y <= mon.y + corner {
+            z.v = Some(Vert::Top);
+        } else if p.y >= mon.y + mon.h - corner {
+            z.v = Some(Vert::Bottom);
+        }
+    } else if z.v.is_some() && z.h.is_none() {
+        if p.x <= mon.x + corner {
+            z.h = Some(Horz::Left);
+        } else if p.x >= mon.x + mon.w - corner {
+            z.h = Some(Horz::Right);
+        }
+    }
+    if z.is_none() {
+        None
+    } else {
+        Some(z)
+    }
+}
+
+pub fn zone_for_window(fr: Rect, mon: Rect) -> Option<SnapZone> {
+    let m = snap_margin();
+    let over_l = mon.x + m - fr.x;
+    let over_r = (fr.x + fr.w) - (mon.x + mon.w - m);
+    let over_t = mon.y + m - fr.y;
+    let over_b = (fr.y + fr.h) - (mon.y + mon.h - m);
+    let mut z = SnapZone::default();
+    if over_l > 0 || over_r > 0 {
+        if over_l >= over_r {
+            z.h = Some(Horz::Left);
+        } else {
+            z.h = Some(Horz::Right);
+        }
+    }
+    if over_t > 0 || over_b > 0 {
+        if over_t >= over_b {
+            z.v = Some(Vert::Top);
+        } else {
+            z.v = Some(Vert::Bottom);
+        }
+    }
+    if z.is_none() {
+        None
+    } else {
+        Some(z)
+    }
+}
+
+pub fn show_preview<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, zone: SnapZone, rect: Rect) {
+    if let Some((ref z, ref r, _)) = wm.snap_preview {
+        if *z == zone && *r == rect {
+            return;
+        }
+    }
+    clear_preview(wm);
+    let b = match wm.backend.clone() {
+        Some(b) => b,
+        None => return,
+    };
+    let t = antibox_core::scale::scaled(3).max(2) as u16;
+    let w = rect.w.max(1) as u16;
+    let h = rect.h.max(1) as u16;
+    let mut wins: Vec<Box<dyn WindowHandle>> = Vec::with_capacity(4);
+    for (sx, sy, sw, sh) in crate::drag_outline::ring_rectangles(w, h, t) {
+        let strip = Rect::new(
+            rect.x + sx as i32,
+            rect.y + sy as i32,
+            (sw as i32).max(1),
+            (sh as i32).max(1),
+        );
+        let win = match b.create_window(b.root().as_parent(), strip, WmWindowClass::InputOutput, true, EventMask::EXPOSURE) {
+            Ok(win) => win,
+            Err(_) => continue,
+        };
+        let _ = win.map();
+        let _ = win.raise();
+        if let Ok(g) = b.create_graphics(win.id()) {
+            let _ = g.set_foreground(antibox_ui::theme::sel_line());
+            let _ = g.fill_rect(0, 0, sw.max(1), sh.max(1));
+        }
+        wins.push(win);
+    }
+    let _ = b.flush();
+    wm.snap_preview = Some((zone, rect, wins));
+}
+
+pub fn clear_preview<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
+    if let Some((_, _, wins)) = wm.snap_preview.take() {
+        for win in wins {
+            let _ = win.unmap();
+            let _ = win.destroy();
+        }
+        if let Some(b) = wm.backend() {
+            let _ = b.flush();
+        }
+    }
 }
 
 pub fn monitor_at<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManager<H>, at: Point) -> Rect {

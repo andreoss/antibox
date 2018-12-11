@@ -489,6 +489,7 @@ pub fn destroy<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, 
     if dragged_frame.is_some() && wm.drag_state.map(|d| d.0) == dragged_frame {
         wm.drag_state = None;
         wm.drag_pending = None;
+        crate::snap::clear_preview(wm);
         crate::drag_outline::hide(wm);
         crate::resize_popup::hide(wm);
         if let Some(b) = wm.backend() {

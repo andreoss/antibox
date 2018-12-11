@@ -41,3 +41,26 @@
         assert_eq!(right.h, Some(Horz::Right));
     }
 
+    #[test]
+    fn zone_at_detects_edges_and_corners() {
+        let mon = Rect::new(0, 0, 1280, 800);
+        let l = zone_at(Point::new(0, 400), mon).unwrap();
+        assert_eq!(l.h, Some(Horz::Left));
+        assert_eq!(l.v, None);
+        let t = zone_at(Point::new(640, 0), mon).unwrap();
+        assert_eq!(t.h, None);
+        assert_eq!(t.v, Some(Vert::Top));
+        let tl = zone_at(Point::new(0, 0), mon).unwrap();
+        assert_eq!(tl.h, Some(Horz::Left));
+        assert_eq!(tl.v, Some(Vert::Top));
+        assert!(zone_at(Point::new(640, 400), mon).is_none());
+    }
+
+    #[test]
+    fn zone_for_window_detects_overhang() {
+        let mon = Rect::new(0, 0, 1280, 800);
+        assert_eq!(zone_for_window(Rect::new(0, 300, 200, 200), mon).unwrap().h, Some(Horz::Left));
+        assert_eq!(zone_for_window(Rect::new(1080, 300, 200, 200), mon).unwrap().h, Some(Horz::Right));
+        assert!(zone_for_window(Rect::new(500, 300, 200, 200), mon).is_none());
+    }
+
