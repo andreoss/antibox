@@ -161,7 +161,10 @@ fn query_font_metrics(conn: *mut xcb_connection_t, id: u32) -> Option<(i16, i16,
 }
 
 pub fn resolve_font(conn: &XcbConnection, family: &str, px: u16) -> Option<XcbFont> {
-    let primary = resolve(conn, family, px).or_else(|| resolve(conn, "fixed", px));
+    if let Some(f) = resolve(conn, family, px) {
+        return Some(f);
+    }
+    let primary = resolve(conn, "fixed", px);
     if let Some(f) = &primary {
         if f.metrics().2 + 2 >= px {
             return primary;
