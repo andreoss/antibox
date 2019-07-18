@@ -26,6 +26,22 @@ impl Config {
         dirs.extend(antibox_core::paths::system_config_dirs());
         dirs
     }
+
+    pub fn keyboard_layouts() -> Vec<String> {
+        for d in Self::search_dirs() {
+            if let Ok(s) = std::fs::read_to_string(d.join("keyboard_layouts")) {
+                let list: Vec<String> = s
+                    .split(|c: char| c == ',' || c.is_whitespace())
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string())
+                    .collect();
+                if !list.is_empty() {
+                    return list;
+                }
+            }
+        }
+        Vec::new()
+    }
 }
 
 pub fn parse_workspace_name_list(pref: &str) -> Vec<String> {

@@ -21,7 +21,10 @@ fn make_display_and_window() -> (MockDisplay, Box<dyn WindowHandle>) {
 fn test_client_new() {
     let (_display, window) = make_display_and_window();
     let client = ClientWindow::new(window);
-    assert_eq!(client.id().raw(), 1);
+    assert!(client.id().raw() > 0);
+    let (_display2, window2) = make_display_and_window();
+    let client2 = ClientWindow::new(window2);
+    assert!(client2.id().raw() > client.id().raw());
     assert_eq!(client.window_type(), WindowType::Normal);
     assert!(client.protocols().is_empty());
     assert!(client.wm_hints().is_none());

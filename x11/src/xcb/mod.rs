@@ -7,6 +7,7 @@ pub mod event_loop;
 pub mod font;
 pub mod graphics;
 pub mod window;
+pub mod xkb;
 
 pub use self::connection::{XcbConnection, XcbError};
 pub use self::event_loop::XcbEventLoop;

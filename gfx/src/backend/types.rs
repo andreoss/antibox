@@ -212,6 +212,9 @@ pub struct KeyboardInfo {
 }
 
 impl KeyboardInfo {
+    pub fn active_layout(&self) -> Option<&str> {
+        self.layouts.split(',').nth(self.group).map(str::trim)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

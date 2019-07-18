@@ -26,6 +26,7 @@ pub mod frame_store;
 pub mod geom;
 pub mod handler;
 pub mod id;
+pub mod keyboard_applet;
 pub mod keys_parser;
 pub mod layout;
 pub mod layout_preferences;

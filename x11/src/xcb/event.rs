@@ -31,8 +31,13 @@ const XCB_CLIENT_MESSAGE: u8 = 33;
 const XCB_MAPPING_NOTIFY: u8 = 34;
 
 pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<BackendEvent> {
-    let _ = conn;
     let code = ev.response_type & 0x7f;
+    if conn.xkb_event_base() != 0 && code == conn.xkb_event_base() {
+        if ev.pad0 == XCB_XKB_STATE_NOTIFY {
+            return Some(BackendEvent::KeyboardChanged);
+        }
+        return None;
+    }
     match code {
         XCB_MAP_REQUEST => {
             let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_map_request_event_t) };

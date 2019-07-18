@@ -135,6 +135,16 @@ impl App {
             self.handle_screen_resize(*width, *height);
             return;
         }
+        if let BackendEvent::KeyboardChanged = event {
+            if let Some(ref mut tb) = self.taskbar {
+                let dirty = tb.update_keyboard();
+                for wid in &dirty {
+                    let _ = tb.paint_window(*wid);
+                }
+            }
+            let _ = self.backend.flush();
+            return;
+        }
         if self.group_menu.as_ref().map_or(false, |m| m.visible) && self.handle_group_menu_event(event)
         {
             return;

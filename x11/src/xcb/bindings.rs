@@ -1162,3 +1162,85 @@ pub struct xcb_point_t {
     pub x: i16,
     pub y: i16,
 }
+
+pub const XCB_XKB_ID_USE_CORE_KBD: u16 = 0x100;
+pub const XCB_XKB_EVENT_TYPE_STATE_NOTIFY: u16 = 1 << 2;
+pub const XCB_XKB_STATE_NOTIFY: u8 = 2;
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct xcb_xkb_use_extension_reply_t {
+    pub response_type: u8,
+    pub supported: u8,
+    pub sequence: u16,
+    pub length: u32,
+    pub server_major: u16,
+    pub server_minor: u16,
+    pub pad0: [u8; 20],
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct xcb_xkb_get_state_reply_t {
+    pub response_type: u8,
+    pub device_id: u8,
+    pub sequence: u16,
+    pub length: u32,
+    pub mods: u8,
+    pub base_mods: u8,
+    pub latched_mods: u8,
+    pub locked_mods: u8,
+    pub group: u8,
+    pub locked_group: u8,
+    pub base_group: i16,
+    pub latched_group: i16,
+    pub compat_state: u8,
+    pub grab_mods: u8,
+    pub compat_grab_mods: u8,
+    pub lookup_mods: u8,
+    pub compat_lookup_mods: u8,
+    pub pad0: u8,
+    pub ptr_btn_state: u16,
+    pub pad1: [u8; 6],
+}
+
+#[link(name = "xcb-xkb")]
+extern "C" {
+    pub fn xcb_xkb_use_extension(
+        c: *mut xcb_connection_t,
+        wanted_major: u16,
+        wanted_minor: u16,
+    ) -> c_uint;
+    pub fn xcb_xkb_use_extension_reply(
+        c: *mut xcb_connection_t,
+        cookie: c_uint,
+        e: *mut *mut xcb_generic_event_t,
+    ) -> *mut xcb_xkb_use_extension_reply_t;
+    pub fn xcb_xkb_select_events(
+        c: *mut xcb_connection_t,
+        device_spec: u16,
+        affect_which: u16,
+        clear: u16,
+        select_all: u16,
+        affect_map: u16,
+        map: u16,
+        details: *const c_void,
+    ) -> c_uint;
+    pub fn xcb_xkb_get_state(c: *mut xcb_connection_t, device_spec: u16) -> c_uint;
+    pub fn xcb_xkb_get_state_reply(
+        c: *mut xcb_connection_t,
+        cookie: c_uint,
+        e: *mut *mut xcb_generic_event_t,
+    ) -> *mut xcb_xkb_get_state_reply_t;
+    pub fn xcb_xkb_latch_lock_state(
+        c: *mut xcb_connection_t,
+        device_spec: u16,
+        affect_mod_locks: u8,
+        mod_locks: u8,
+        lock_group: u8,
+        group_lock: u8,
+        affect_mod_latches: u8,
+        latch_group: u8,
+        group_latch: u16,
+    ) -> c_uint;
+}
