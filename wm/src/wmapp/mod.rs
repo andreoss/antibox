@@ -684,6 +684,16 @@ impl App {
                 core.push(Box::new(c));
             }
         }
+        if taskbar_wants(Widget::Keyboard) {
+            if let Ok(Some(kb)) = crate::keyboard_applet::KeyboardApplet::new(
+                conn,
+                wid,
+                wmconfig::Config::keyboard_layouts(),
+                &wm.theme_colours,
+            ) {
+                core.push(Box::new(kb));
+            }
+        }
         for a in core {
             let _ = a.window().map();
             tb.add_applet(a);

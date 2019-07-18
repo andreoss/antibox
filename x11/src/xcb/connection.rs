@@ -18,6 +18,7 @@ pub struct XcbConnection {
     keycode_min: u8,
     keycode_max: u8,
     cursor_font: u32,
+    xkb_event_base: u8,
     atom_cache: std::cell::RefCell<std::collections::HashMap<String, u32>>,
     last_event_time: antibox_core::sync::atomic::AtomicU32,
 }
@@ -101,6 +102,7 @@ impl XcbConnection {
         unsafe {
             xcb_open_font(conn, cursor_font, font_name.len() as u16, font_name.as_ptr() as *const _)
         };
+        let xkb_event_base = super::xkb::init(conn);
         Ok(Arc::new(XcbConnection {
             conn,
             screen,
@@ -109,6 +111,7 @@ impl XcbConnection {
             keycode_min,
             keycode_max,
             cursor_font,
+            xkb_event_base,
             atom_cache: std::cell::RefCell::new(std::collections::HashMap::new()),
             last_event_time: antibox_core::sync::atomic::AtomicU32::new(0),
         }))
@@ -116,6 +119,10 @@ impl XcbConnection {
 
     pub fn raw(&self) -> *mut xcb_connection_t {
         self.conn
+    }
+
+    pub(crate) fn xkb_event_base(&self) -> u8 {
+        self.xkb_event_base
     }
 
     fn screen(&self) -> &xcb_screen_t {
@@ -444,6 +451,20 @@ impl DisplayBackend for XcbConnection {
             self.screen().width_in_millimeters as u32,
             self.screen().height_in_millimeters as u32,
         )
+    }
+
+    fn keyboard_layout(&self) -> Option<String> {
+        let (group, value) = super::xkb::group_and_rules(self)?;
+        super::xkb::parse_xkb_layout(&value, group)
+    }
+
+    fn keyboard_info(&self) -> Option<KeyboardInfo> {
+        let (group, value) = super::xkb::group_and_rules(self)?;
+        super::xkb::parse_xkb_rules(&value, group)
+    }
+
+    fn set_keyboard_group(&self, group: usize) -> bool {
+        self.xkb_event_base != 0 && super::xkb::set_group(self, group)
     }
 
     fn root_visual(&self) -> u32 {
