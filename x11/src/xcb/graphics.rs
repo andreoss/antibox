@@ -70,16 +70,23 @@ impl GraphicsContext for XcbGraphics {
     }
 
     fn draw_text(&self, x: i16, y: i16, text: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let bytes: Vec<u8> = text.chars().filter(|c| *c as u32 <= 0xFF).map(|c| c as u8).collect();
+        let chars: Vec<xcb_char2b_t> = text
+            .chars()
+            .take(255)
+            .map(|c| {
+                let code = if c as u32 <= 0xFFFF { c as u32 as u16 } else { b'?' as u16 };
+                xcb_char2b_t { byte1: (code >> 8) as u8, byte2: (code & 0xFF) as u8 }
+            })
+            .collect();
         unsafe {
-            xcb_image_text_8(
+            xcb_image_text_16(
                 self.conn.raw(),
-                bytes.len() as u8,
+                chars.len() as u8,
                 self.drawable,
                 self.gc,
                 x,
                 y,
-                bytes.as_ptr() as *const _,
+                chars.as_ptr(),
             )
         };
         self.conn.flush()

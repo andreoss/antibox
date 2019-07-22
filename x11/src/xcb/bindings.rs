@@ -895,6 +895,15 @@ extern "C" {
         y: i16,
         string: *const c_char,
     ) -> c_uint;
+    pub fn xcb_image_text_16(
+        c: *mut xcb_connection_t,
+        string_len: u8,
+        drawable: xcb_drawable_t,
+        gc: xcb_gcontext_t,
+        x: i16,
+        y: i16,
+        string: *const xcb_char2b_t,
+    ) -> c_uint;
     pub fn xcb_fill_poly(
         c: *mut xcb_connection_t,
         drawable: xcb_drawable_t,
@@ -1161,6 +1170,13 @@ pub struct xcb_rectangle_t {
 pub struct xcb_point_t {
     pub x: i16,
     pub y: i16,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct xcb_char2b_t {
+    pub byte1: u8,
+    pub byte2: u8,
 }
 
 pub const XCB_XKB_ID_USE_CORE_KBD: u16 = 0x100;

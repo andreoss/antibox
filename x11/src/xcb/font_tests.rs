@@ -19,3 +19,34 @@
         assert_eq!(names[1], "-adobe-helvetica");
     }
 
+
+    fn font(min_char: u16, max_char: u16, min_byte1: u8, max_byte1: u8, widths: Vec<i16>) -> super::XcbFont {
+        super::XcbFont {
+            id: 1,
+            ascent: 10,
+            descent: 2,
+            min_char,
+            max_char,
+            min_byte1,
+            max_byte1,
+            widths,
+            default_width: 7,
+        }
+    }
+
+    #[test]
+    fn linear_font_width() {
+        let f = font(32, 126, 0, 0, vec![5; 95]);
+        assert_eq!(f.text_width("AB"), 10);
+        assert_eq!(f.text_width("\u{044F}"), 7);
+    }
+
+    #[test]
+    fn two_byte_font_width() {
+        let mut widths = vec![6; 2 * 256];
+        widths[256 + 0x4F] = 9;
+        let f = font(0, 255, 3, 4, widths);
+        assert_eq!(f.text_width("\u{044F}"), 9);
+        assert_eq!(f.text_width("\u{0301}"), 6);
+        assert_eq!(f.text_width("A"), 7);
+    }
