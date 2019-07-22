@@ -10,6 +10,9 @@ pub struct XcbFont {
     ascent: i16,
     descent: i16,
     min_char: u16,
+    max_char: u16,
+    min_byte1: u8,
+    max_byte1: u8,
     widths: Vec<i16>,
     default_width: i16,
 }
@@ -18,17 +21,37 @@ const FONTPROP_SIZE: usize = 8;
 const REPLY_HEADER_LEN: usize = 32;
 
 impl XcbFont {
+    fn glyph_index(&self, code: u32) -> Option<usize> {
+        if code > 0xFFFF {
+            return None;
+        }
+        let code = code as u16;
+        if self.max_byte1 == 0 {
+            if code < self.min_char || code > self.max_char {
+                return None;
+            }
+            Some((code - self.min_char) as usize)
+        } else {
+            let row = (code >> 8) as u8;
+            let col = code & 0xFF;
+            if row < self.min_byte1
+                || row > self.max_byte1
+                || col < self.min_char
+                || col > self.max_char
+            {
+                return None;
+            }
+            let ncols = (self.max_char - self.min_char + 1) as usize;
+            Some((row - self.min_byte1) as usize * ncols + (col - self.min_char) as usize)
+        }
+    }
+
     fn char_width(&self, c: char) -> i32 {
-        let code = c as u32;
-        if code <= 0xFFFF && !self.widths.is_empty() {
-            let cc = code as u16;
-            if cc >= self.min_char {
-                let idx = (cc - self.min_char) as usize;
-                if idx < self.widths.len() {
-                    let w = self.widths[idx];
-                    if w != 0 {
-                        return w as i32;
-                    }
+        if let Some(idx) = self.glyph_index(c as u32) {
+            if idx < self.widths.len() {
+                let w = self.widths[idx];
+                if w != 0 {
+                    return w as i32;
                 }
             }
         }
@@ -132,7 +155,18 @@ fn open_font(conn: *mut xcb_connection_t, id: u32, name: &str) -> bool {
     true
 }
 
-fn query_font_metrics(conn: *mut xcb_connection_t, id: u32) -> Option<(i16, i16, u16, u16, i16, Vec<i16>)> {
+struct FontMetrics {
+    ascent: i16,
+    descent: i16,
+    min_char: u16,
+    max_char: u16,
+    min_byte1: u8,
+    max_byte1: u8,
+    default_width: i16,
+    widths: Vec<i16>,
+}
+
+fn query_font_metrics(conn: *mut xcb_connection_t, id: u32) -> Option<FontMetrics> {
     let cookie = unsafe { xcb_query_font(conn, id) };
     let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
     let r = unsafe { xcb_query_font_reply(conn, cookie, &mut e) };
@@ -142,6 +176,9 @@ fn query_font_metrics(conn: *mut xcb_connection_t, id: u32) -> Option<(i16, i16,
     let ascent = unsafe { (*r).font_ascent };
     let descent = unsafe { (*r).font_descent };
     let min_char = unsafe { (*r).min_char_or_byte2 };
+    let max_char = unsafe { (*r).max_char_or_byte2 };
+    let min_byte1 = unsafe { (*r).min_byte1 };
+    let max_byte1 = unsafe { (*r).max_byte1 };
     let char_infos_len = unsafe { (*r).char_infos_len } as usize;
     let properties_len = unsafe { (*r).properties_len } as usize;
     let default_width = unsafe { (*r).max_bounds.character_width };
@@ -157,7 +194,16 @@ fn query_font_metrics(conn: *mut xcb_connection_t, id: u32) -> Option<(i16, i16,
         widths.push(unsafe { (*ci_ptr.add(i)).character_width });
     }
     unsafe { libc::free(r as *mut libc::c_void) };
-    Some((ascent, descent, min_char, char_infos_len as u16, default_width, widths))
+    Some(FontMetrics {
+        ascent,
+        descent,
+        min_char,
+        max_char,
+        min_byte1,
+        max_byte1,
+        default_width,
+        widths,
+    })
 }
 
 pub fn resolve_font(conn: &XcbConnection, family: &str, px: u16) -> Option<XcbFont> {
@@ -205,8 +251,12 @@ fn cache() -> &'static FontCache {
 
 fn resolve_uncached(conn: &XcbConnection, family: &str, px: u16) -> Option<XcbFont> {
     let raw = conn.raw();
-    let pattern = format!("-*-{}-*-*-*-*-*-*-*-*-*-*-*-*", family);
-    let names = list_font_names(raw, &pattern).unwrap_or_default();
+    let unicode = format!("-*-{}-*-*-*-*-*-*-*-*-*-*-iso10646-1", family);
+    let mut names = list_font_names(raw, &unicode).unwrap_or_default();
+    if names.is_empty() {
+        let pattern = format!("-*-{}-*-*-*-*-*-*-*-*-*-*-*-*", family);
+        names = list_font_names(raw, &pattern).unwrap_or_default();
+    }
     if names.is_empty() {
         return None;
     }
@@ -238,14 +288,16 @@ fn resolve_uncached(conn: &XcbConnection, family: &str, px: u16) -> Option<XcbFo
         }
     })?;
 
-    let (ascent, descent, min_char, _len, default_width, widths) = metrics;
     Some(XcbFont {
         id,
-        ascent,
-        descent,
-        min_char,
-        widths,
-        default_width,
+        ascent: metrics.ascent,
+        descent: metrics.descent,
+        min_char: metrics.min_char,
+        max_char: metrics.max_char,
+        min_byte1: metrics.min_byte1,
+        max_byte1: metrics.max_byte1,
+        widths: metrics.widths,
+        default_width: metrics.default_width,
     })
 }
 
