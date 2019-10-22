@@ -27,6 +27,18 @@ impl Config {
         dirs
     }
 
+    pub fn workspace_layouts_pref() -> String {
+        for d in Self::search_dirs() {
+            if let Ok(s) = std::fs::read_to_string(d.join("workspace_layouts")) {
+                let t = s.trim().to_string();
+                if !t.is_empty() {
+                    return t;
+                }
+            }
+        }
+        String::new()
+    }
+
     pub fn keyboard_layouts() -> Vec<String> {
         for d in Self::search_dirs() {
             if let Ok(s) = std::fs::read_to_string(d.join("keyboard_layouts")) {

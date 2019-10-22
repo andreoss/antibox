@@ -137,6 +137,13 @@ pub fn handle_wm_action<H: DisplayBackend + 'static + ?Sized>(
         Action::Workspace(WorkspaceOp::HideAll) => hide_all(wm),
         Action::Workspace(WorkspaceOp::ShowDesktop) => show_desktop(wm),
         Action::Workspace(WorkspaceOp::OccupyAllOrCurrent) => occupy_all(wm),
+        Action::Workspace(WorkspaceOp::NextLayout) => next_layout(wm),
+        Action::Workspace(WorkspaceOp::SetLayout(ws, idx)) => {
+            if let Some(&layout) = crate::layout::Layout::ALL.get(*idx as usize) {
+                wm.set_layout(*ws, layout);
+            }
+        }
+        Action::Workspace(WorkspaceOp::WorkspaceMenu(_)) => {}
         Action::Focus(FocusOp::ClickToFocus) => set_focus_mode(wm, 1),
         Action::Focus(FocusOp::Explicit) => set_focus_mode(wm, 3),
         Action::Focus(FocusOp::MouseSloppy) => set_focus_mode(wm, 2),
@@ -782,6 +789,12 @@ fn depth<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
 fn occupy_all<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
     let id = match fid(wm) { Some(v) => v, None => return };
     toggle_occupy_all(wm, id);
+}
+
+fn next_layout<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
+    let ws = wm.active_workspace;
+    let next = wm.layout_for(ws).next();
+    wm.set_layout(ws, next);
 }
 
 pub(crate) fn toggle_occupy_all<H: DisplayBackend + 'static + ?Sized>(

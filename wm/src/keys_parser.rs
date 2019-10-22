@@ -124,6 +124,7 @@ pub fn parse_action(name: &str) -> Option<Action> {
         ("MinimizeAll", Action::Workspace(WorkspaceOp::MinimizeAll)),
         ("Move", Action::Window(WindowOp::Move)),
         ("Raise", Action::Window(WindowOp::Raise)),
+        ("NextLayout", Action::Workspace(WorkspaceOp::NextLayout)),
         ("ReloadKeys", Action::Misc(MiscOp::ReloadKeys)),
         ("Resize", Action::Window(WindowOp::Resize)),
         ("Restore", Action::Window(WindowOp::Restore)),
