@@ -99,3 +99,74 @@
         assert_eq!(t[0].w, 800);
         assert_eq!(t[1].w, 800);
     }
+
+    fn wm_with_maximized_frame() -> (
+        crate::manager::WindowManager<antibox_core::mock::MockDisplay>,
+        ClientId,
+    ) {
+        use crate::client::ClientWindow;
+        use crate::frame::FrameWindow;
+        use antibox_core::backend::{EventMask, RenderBackend, WmWindowClass};
+        use antibox_core::mock::MockDisplay;
+        use std::sync::Arc;
+
+        let d = Arc::new(MockDisplay::new(1280, 720, 24));
+        let mut wm = crate::manager::WindowManager::<MockDisplay>::new_test();
+        wm.backend = Some(Arc::clone(&d));
+        let mk = |w: i32, h: i32| {
+            d.create_window(
+                1,
+                Rect::new(0, 0, w, h),
+                WmWindowClass::InputOutput,
+                false,
+                EventMask::NO_EVENT,
+            )
+            .unwrap()
+        };
+        let client = mk(400, 300);
+        let client_xid = client.id();
+        let frame = mk(406, 322);
+        let frame_xid = frame.id();
+        let mut fw = FrameWindow::new(ClientWindow::new(client), frame);
+        let cid = fw.client_id();
+        wm.xid_index.insert(cid, client_xid, frame_xid);
+        fw.set_frame_rect(Rect::new(0, 0, 1280, 720));
+        fw.state_mut().maximized = true;
+        fw.state_mut().max_vert = true;
+        fw.state_mut().max_horz = true;
+        wm.frames.insert(cid, fw);
+        wm.insertion_order.push(cid);
+        wm.map_order.push(cid);
+        (wm, cid)
+    }
+
+    #[test]
+    fn arrange_clears_maximized_state() {
+        let (mut wm, cid) = wm_with_maximized_frame();
+        Layout::Tall.arrange(&mut wm, 0);
+        let s = wm.frames[&cid].state();
+        assert!(!s.maximized, "tiled frames must not stay maximized");
+        assert!(!s.max_vert);
+        assert!(!s.max_horz);
+    }
+
+    #[test]
+    fn maximize_refused_on_tiled_workspace() {
+        let (mut wm, cid) = wm_with_maximized_frame();
+        wm.set_layout(0, Layout::Tall);
+        assert!(!wm.frames[&cid].state().maximized);
+        crate::wmaction::set_max_state(&mut wm, cid, true, true);
+        let s = wm.frames[&cid].state();
+        assert!(!s.maximized, "maximize must be ignored while tiled");
+        assert!(!s.max_vert && !s.max_horz);
+    }
+
+    #[test]
+    fn maximize_allowed_on_floating_workspace() {
+        let (mut wm, cid) = wm_with_maximized_frame();
+        wm.set_layout(0, Layout::Floating);
+        crate::wmaction::set_max_state(&mut wm, cid, false, false);
+        assert!(!wm.frames[&cid].state().maximized);
+        crate::wmaction::set_max_state(&mut wm, cid, true, true);
+        assert!(wm.frames[&cid].state().maximized);
+    }

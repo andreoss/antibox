@@ -209,6 +209,13 @@ pub(crate) fn set_max_state_ext<H: DisplayBackend + 'static + ?Sized>(
     want_horz: bool,
     force: bool,
 ) {
+    if want_vert || want_horz {
+        let ws = wm.frames.get(&id).map_or(0, |f| f.workspace());
+        let ws = if ws == !0 { wm.active_workspace } else { ws };
+        if wm.layout_for(ws).is_tiled() {
+            return;
+        }
+    }
     let (fr, cl, was_v, was_h, cur, hints, decorated) = match wm.frame(id) {
         Some(f) => (
             f.frame().id(),

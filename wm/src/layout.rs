@@ -203,10 +203,21 @@ where
     }
     let rects = compute(work_area(wm), ids.len());
     for (slot, (id, rect)) in ids.into_iter().zip(rects).enumerate() {
+        clear_maximized(wm, id);
         if let Some(frame_id) = wm.frame(id).map(crate::frame::FrameWindow::frame_id) {
             crate::drag::apply_frame_rect(wm, frame_id, rect);
         }
         set_tile_slot(wm, id, Some(slot as u32));
+    }
+}
+
+fn clear_maximized<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, id: ClientId) {
+    let maxed = wm
+        .frames
+        .get(&id)
+        .map_or(false, |f| f.state().max_vert || f.state().max_horz);
+    if maxed {
+        crate::wmaction::set_max_state(wm, id, false, false);
     }
 }
 

@@ -27,6 +27,9 @@ pub fn net_wm_state_request<H: DisplayBackend + 'static + ?Sized>(
         ),
         None => return,
     };
+    let ws = wm.frame(cid).map_or(0, |f| f.workspace());
+    let ws = if ws == !0 { wm.active_workspace } else { ws };
+    let tiled = wm.layout_for(ws).is_tiled();
     let want = |cur: bool| match action {
         0 => false,
         1 => true,
@@ -55,6 +58,15 @@ pub fn net_wm_state_request<H: DisplayBackend + 'static + ?Sized>(
         if let Some(fw) = wm.frames.get_mut(&cid) {
             fw.client_mut()
                 .net_state_request(b.as_ref(), &wm.atoms, action, a1, a2);
+            if tiled {
+                fw.client_mut().net_state_request(
+                    b.as_ref(),
+                    &wm.atoms,
+                    0,
+                    a_maxv.unwrap_or(0),
+                    a_maxh.unwrap_or(0),
+                );
+            }
         }
     }
     if let Some(want_full) = do_full {
