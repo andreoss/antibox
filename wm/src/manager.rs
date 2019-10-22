@@ -62,6 +62,7 @@ pub struct WindowManager<H: DisplayBackend + 'static + ?Sized> {
     pub focused_window: Option<ClientId>,
     pub(crate) last_focused_window: Option<ClientId>,
     pub(crate) workspace_names: Vec<String>,
+    pub(crate) workspace_layouts: Vec<crate::layout::Layout>,
     pub(crate) backend: Option<Arc<H>>,
     pub atoms: AtomManager,
     pub drag_state: Option<(FrameId, Point, crate::wmstate::ResizeEdge, Rect)>,
@@ -162,6 +163,7 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
             focused_window: None,
             last_focused_window: None,
             workspace_names,
+            workspace_layouts: Vec::new(),
             backend: Some(Arc::clone(backend)),
             atoms: AtomManager::new(),
             drag_state: None,
@@ -210,6 +212,7 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
             focused_window: None,
             last_focused_window: None,
             workspace_names: vec![],
+            workspace_layouts: Vec::new(),
             backend: None,
             atoms: AtomManager::new(),
             drag_state: None,
@@ -247,8 +250,29 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
         self.backend.as_ref().map(|v| v.as_ref())
     }
 
-    pub fn layout_for(&self, _ws: u32) -> crate::layout::Layout {
-        crate::layout::Layout::default()
+    pub fn layout_for(&self, ws: u32) -> crate::layout::Layout {
+        self.workspace_layouts
+            .get(ws as usize)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    pub fn set_workspace_layouts(&mut self, layouts: Vec<crate::layout::Layout>) {
+        self.workspace_layouts = layouts;
+        let ws = self.active_workspace;
+        self.layout_for(ws).arrange(self, ws);
+    }
+
+    pub fn set_layout(&mut self, ws: u32, layout: crate::layout::Layout) {
+        let len = self
+            .workspace_layouts
+            .len()
+            .max(ws as usize + 1)
+            .max(self.config.workspace_count as usize);
+        self.workspace_layouts
+            .resize(len, crate::layout::Layout::default());
+        self.workspace_layouts[ws as usize] = layout;
+        layout.arrange(self, ws);
     }
 
     fn undock_and_close(&mut self, w: u32) {
@@ -619,6 +643,8 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
                 }
                 self.apply_workspace_visibility();
                 crate::focus::recover_focus(self);
+                self.layout_for(self.active_workspace)
+                    .arrange(self, self.active_workspace);
             }
         }
     }

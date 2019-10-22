@@ -55,6 +55,9 @@ pub enum WorkspaceOp {
     HideAll,
     ShowDesktop,
     OccupyAllOrCurrent,
+    NextLayout,
+    SetLayout(u32, u8),
+    WorkspaceMenu(u32),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -167,6 +170,9 @@ fn workspace_name(op: &WorkspaceOp) -> &'static str {
         WorkspaceOp::HideAll => "Hide All",
         WorkspaceOp::ShowDesktop => "Show Desktop",
         WorkspaceOp::OccupyAllOrCurrent => "Occupy All/Current",
+        WorkspaceOp::NextLayout => "Next Layout",
+        WorkspaceOp::SetLayout(..) => "Set Layout",
+        WorkspaceOp::WorkspaceMenu(_) => "Workspace Menu",
     }
 }
 

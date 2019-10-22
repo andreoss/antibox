@@ -546,6 +546,29 @@ impl TaskBar {
         self.menu = Some(menu);
     }
 
+    pub fn show_workspace_menu(&mut self, ws: u32, current: crate::layout::Layout) {
+        let items: Vec<(String, Action)> = crate::layout::Layout::ALL
+            .iter()
+            .enumerate()
+            .map(|(i, l)| {
+                let mark = if *l == current { "\u{2022} " } else { "  " };
+                (
+                    format!("{}{}", mark, l.title()),
+                    Action::Workspace(WorkspaceOp::SetLayout(ws, i as u8)),
+                )
+            })
+            .collect();
+        let pos = self
+            .conn
+            .query_pointer(self.conn.root().read_id())
+            .map(|p| Point::new(p.root_x as i32, p.root_y as i32))
+            .unwrap_or_else(|_| Point::new(self.window_x, self.window_y));
+        let mut menu = TaskBarMenu::new();
+        menu.colours = self.menu_colours;
+        menu.show(self.conn.as_ref(), pos, items);
+        self.menu = Some(menu);
+    }
+
     pub fn strut(&self) -> Strut {
         let h = self.height as u32;
         match self.position {

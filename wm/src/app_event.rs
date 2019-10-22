@@ -285,6 +285,12 @@ impl App {
         {
             match action {
                 Action::Menu(MenuOp::WindowPickerList) => self.show_window_list(),
+                Action::Workspace(WorkspaceOp::WorkspaceMenu(ws)) => {
+                    let current = self.wm.layout_for(ws);
+                    if let Some(ref mut tb) = self.taskbar {
+                        tb.show_workspace_menu(ws, current);
+                    }
+                }
                 _ => self.wm.handle_action(&action),
             }
         }

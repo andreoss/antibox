@@ -280,10 +280,16 @@ impl Applet for WorkspacesPane {
         for (i, btn) in self.buttons.iter().enumerate() {
             let (bx, _, bw, _) = btn.rect;
             if x >= bx as i32 && x < (bx + bw as i16) as i32 {
-                self.active_workspace = i as u32;
-                self.pending = Some(crate::action::Action::Workspace(WorkspaceOp::Workspace(
-                    i as u32,
-                )));
+                if button == 3 {
+                    self.pending = Some(crate::action::Action::Workspace(
+                        WorkspaceOp::WorkspaceMenu(i as u32),
+                    ));
+                } else {
+                    self.active_workspace = i as u32;
+                    self.pending = Some(crate::action::Action::Workspace(WorkspaceOp::Workspace(
+                        i as u32,
+                    )));
+                }
                 break;
             }
         }
