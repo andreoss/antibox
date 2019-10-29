@@ -360,18 +360,21 @@ impl App {
         let mut atom_manager = AtomManager::new();
         let _ = atom_manager.intern_all(&*b);
 
+        let prefs = wmconfig::Config::load_prefs();
         crate::fonts::apply_fonts();
+        if !prefs.font.name.is_empty() {
+            antibox_core::backend::set_ui_font(&prefs.font.name);
+        }
+        if prefs.font.size > 0 {
+            antibox_ui::metrics::set_font_pt(prefs.font.size);
+        }
         crate::layout_preferences::apply();
         crate::tooltip::set_show_delay_ms(500);
         crate::tooltip::set_lifetime_ms(0);
         crate::drag::set_multi_click_ms(400);
 
-        let named = wmconfig::parse_workspace_name_list("Workspace 1:Workspace 2:Workspace 3:Workspace 4");
-        let ws_count = 4.max(named.len() as u32).max(1);
-        let ws_names = wmconfig::parse_workspace_names(
-            "Workspace 1:Workspace 2:Workspace 3:Workspace 4",
-            ws_count as usize,
-        );
+        let ws_count = prefs.workspace.count.max(1);
+        let ws_names = wmconfig::parse_workspace_names("", ws_count as usize);
 
         let root_mask = EventMask::SUBSTRUCTURE_REDIRECT
             | EventMask::SUBSTRUCTURE_NOTIFY
