@@ -170,3 +170,31 @@
         crate::wmaction::set_max_state(&mut wm, cid, true, true);
         assert!(wm.frames[&cid].state().maximized);
     }
+
+    #[test]
+    fn tile_directional_clears_maximized() {
+        let (mut wm, cid) = wm_with_maximized_frame();
+        wm.focused_window = Some(cid);
+        wm.handle_action(&crate::action::Action::Tile(crate::action::TileOp::TileLeft));
+        let s = wm.frames[&cid].state();
+        assert!(!s.maximized, "half-tiled frames must not stay maximized");
+        assert!(!s.max_vert && !s.max_horz);
+    }
+
+    #[test]
+    fn keyboard_snap_clears_maximized() {
+        let (mut wm, cid) = wm_with_maximized_frame();
+        wm.focused_window = Some(cid);
+        crate::snap::keyboard_snap(&mut wm, crate::snap::SnapDir::Left);
+        let s = wm.frames[&cid].state();
+        assert!(!s.maximized, "snapped frames must not stay maximized");
+        assert!(!s.max_vert && !s.max_horz);
+    }
+
+    #[test]
+    fn tile_all_clears_maximized() {
+        let (mut wm, cid) = wm_with_maximized_frame();
+        wm.focused_window = Some(cid);
+        wm.handle_action(&crate::action::Action::Tile(crate::action::TileOp::TileVertical));
+        assert!(!wm.frames[&cid].state().maximized);
+    }

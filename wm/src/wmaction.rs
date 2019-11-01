@@ -202,6 +202,19 @@ pub(crate) fn set_max_state<H: DisplayBackend + 'static + ?Sized>(
     set_max_state_ext(wm, id, want_vert, want_horz, false);
 }
 
+pub(crate) fn clear_max_state<H: DisplayBackend + 'static + ?Sized>(
+    wm: &mut WindowManager<H>,
+    id: ClientId,
+) {
+    let maxed = wm
+        .frames
+        .get(&id)
+        .map_or(false, |f| f.state().max_vert || f.state().max_horz);
+    if maxed {
+        set_max_state(wm, id, false, false);
+    }
+}
+
 pub(crate) fn set_max_state_ext<H: DisplayBackend + 'static + ?Sized>(
     wm: &mut WindowManager<H>,
     id: ClientId,
@@ -1064,12 +1077,12 @@ fn cascade<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
 
     let bw = crate::frame::border_width();
     let th = crate::frame::title_bar_height();
+    for id in &order {
+        clear_max_state(wm, *id);
+    }
     let mut ops = Vec::new();
     for (id, r) in order.iter().zip(rects.iter()) {
         if let Some(fw) = wm.frames.get_mut(id) {
-            fw.state_mut().max_vert = false;
-            fw.state_mut().max_horz = false;
-            fw.state_mut().maximized = false;
             fw.set_frame_rect(*r);
             ops.push((*id, fw.frame().id(), *r));
         }
@@ -1111,6 +1124,10 @@ fn apply_tile_rects<H: DisplayBackend + 'static + ?Sized>(
     wm: &mut WindowManager<H>,
     placed: impl IntoIterator<Item = (ClientId, Rect)>,
 ) {
+    let placed: Vec<(ClientId, Rect)> = placed.into_iter().collect();
+    for (id, _) in &placed {
+        clear_max_state(wm, *id);
+    }
     let mut ops = Vec::new();
     for (id, r) in placed {
         let client_xid = wm.xid_index.xid_of(id);
@@ -1235,6 +1252,7 @@ fn tile_directional<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager
         Some(fid) => fid,
         None => return,
     };
+    clear_max_state(wm, id);
     crate::drag::apply_frame_rect(wm, frame_id, r);
     wm.reposition_resize_handles(id);
     if let Some(b) = wm.backend() {
@@ -1250,6 +1268,7 @@ fn tile_center<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) 
         Some(fid) => fid,
         None => return,
     };
+    clear_max_state(wm, id);
     crate::drag::apply_frame_rect(wm, frame_id, r);
     wm.reposition_resize_handles(id);
     if let Some(b) = wm.backend() {
