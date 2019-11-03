@@ -362,12 +362,8 @@ impl App {
 
         let prefs = wmconfig::Config::load_prefs();
         crate::fonts::apply_fonts();
-        if !prefs.font.name.is_empty() {
-            antibox_core::backend::set_ui_font(&prefs.font.name);
-        }
-        if prefs.font.size > 0 {
-            antibox_ui::metrics::set_font_pt(prefs.font.size);
-        }
+        antibox_core::backend::set_ui_font(&prefs.font.name);
+        antibox_ui::metrics::set_font_pt(prefs.font.size);
         crate::layout_preferences::apply();
         crate::tooltip::set_show_delay_ms(500);
         crate::tooltip::set_lifetime_ms(0);
