@@ -22,16 +22,27 @@ impl Default for Prefs {
     fn default() -> Prefs {
         Prefs {
             font: FontPrefs {
-                name: String::new(),
-                size: 0,
+                name: "fixed".to_string(),
+                size: 9,
             },
             workspace: WorkspacePrefs { count: 4 },
         }
     }
 }
 
+const DEFAULTS_INI: &str = include_str!("../../defaults.ini");
+
+pub fn default_prefs() -> Prefs {
+    parse_prefs(DEFAULTS_INI)
+}
+
 pub fn parse_prefs(text: &str) -> Prefs {
     let mut p = Prefs::default();
+    apply_prefs(&mut p, text);
+    p
+}
+
+pub fn apply_prefs(p: &mut Prefs, text: &str) {
     let mut section = String::new();
     for line in text.lines() {
         let line = line.trim();
@@ -54,7 +65,10 @@ pub fn parse_prefs(text: &str) -> Prefs {
                 None => raw.trim_matches('"'),
             }
         } else {
-            raw.split(|c| c == '#' || c == ';').next().unwrap_or("").trim()
+            raw.split(|c| c == '#' || c == ';')
+                .next()
+                .unwrap_or("")
+                .trim()
         };
         match (section.as_str(), key.as_str()) {
             ("font", "name") => p.font.name = value.to_string(),
@@ -73,7 +87,6 @@ pub fn parse_prefs(text: &str) -> Prefs {
             _ => {}
         }
     }
-    p
 }
 
 pub struct Config;
@@ -103,12 +116,14 @@ impl Config {
     }
 
     pub fn load_prefs() -> Prefs {
+        let mut p = default_prefs();
         for d in Self::search_dirs() {
             if let Ok(s) = std::fs::read_to_string(d.join("config.toml")) {
-                return parse_prefs(&s);
+                apply_prefs(&mut p, &s);
+                break;
             }
         }
-        Prefs::default()
+        p
     }
 
     pub fn workspace_layouts_pref() -> String {
