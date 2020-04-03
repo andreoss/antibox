@@ -61,7 +61,16 @@
         let d = default_prefs();
         assert_eq!(d.font, Prefs::default().font);
         assert_eq!(d.workspace, Prefs::default().workspace);
+        assert_eq!(d.keyboard, Prefs::default().keyboard);
         assert!(!d.keys.is_empty());
+    }
+
+    #[test]
+    fn test_parse_prefs_layouts() {
+        let p = parse_prefs("[workspace]\nlayouts = \"tall,floating\"\n[keyboard]\nlayouts = \"us,ru\"\n");
+        assert_eq!(p.workspace.layouts, "tall,floating");
+        assert_eq!(p.keyboard.layouts, "us,ru");
+        assert_eq!(p.workspace.count, 4);
     }
 
     #[test]
