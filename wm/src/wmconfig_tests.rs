@@ -58,7 +58,34 @@
 
     #[test]
     fn test_defaults_ini_matches_builtin_defaults() {
-        assert_eq!(default_prefs(), Prefs::default());
+        let d = default_prefs();
+        assert_eq!(d.font, Prefs::default().font);
+        assert_eq!(d.workspace, Prefs::default().workspace);
+        assert!(!d.keys.is_empty());
+    }
+
+    #[test]
+    fn test_defaults_ini_keys_all_parse() {
+        for (combo, action) in default_prefs().keys {
+            assert!(
+                crate::keys_parser::parse_key_binding(&combo, &action).is_some(),
+                "{} = {}",
+                combo,
+                action
+            );
+        }
+    }
+
+    #[test]
+    fn test_keys_merge_overrides_and_unbinds() {
+        let mut p = parse_prefs("[keys]\nAlt+F4 = \"Close\"\nSuper+D = \"ShowDesktop\"\n");
+        assert_eq!(p.keys.len(), 2);
+        apply_prefs(&mut p, "[keys]\nalt+f4 = \"Kill\"\nSuper+K = \"Kill\"\nSuper+D = \"\"\n");
+        assert_eq!(p.keys.len(), 3);
+        assert_eq!(p.keys[0], ("Alt+F4".to_string(), "Kill".to_string()));
+        assert_eq!(p.keys[1], ("Super+D".to_string(), String::new()));
+        assert_eq!(p.keys[2], ("Super+K".to_string(), "Kill".to_string()));
+        assert!(crate::keys_parser::parse_key_binding("Super+D", "").is_none());
     }
 
     #[test]
