@@ -452,7 +452,12 @@ impl App {
                 position: taskbar_position,
             },
         );
-        let _ = wm.key_bindings.register_all(&b);
+        let key_entries: Vec<crate::keys_parser::KeyEntry> = prefs
+            .keys
+            .iter()
+            .filter_map(|(c, a)| crate::keys_parser::parse_key_binding(c, a))
+            .collect();
+        let _ = wm.key_bindings.register_all(&b, &key_entries);
         wm.monitors = b.query_monitors().unwrap_or_default();
 
         let _ = crate::ewmh::init_ewmh(&*b, &atom_manager, wm.config.workspace_count);

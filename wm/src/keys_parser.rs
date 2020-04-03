@@ -64,41 +64,42 @@ pub fn keysym_from_name(name: &str) -> Option<u32> {
         ("Pointer_Button4", 0x010017),
         ("Pointer_Button5", 0x010018),
     ];
-    table.iter().find(|(k, _)| *k == name).map(|(_, v)| *v)
+    if let Some(sym) = table
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case(name))
+        .map(|(_, v)| *v)
+    {
+        return Some(sym);
+    }
+    let mut chars = name.chars();
+    match (chars.next(), chars.next()) {
+        (Some(c), None) if c.is_ascii_graphic() => Some(c.to_ascii_lowercase() as u32),
+        _ => None,
+    }
 }
 
 pub fn parse_modifiers(s: &str) -> (u16, &str) {
+    const PREFIXES: &[(&str, u16)] = &[
+        ("Ctrl+", 0x04),
+        ("Control+", 0x04),
+        ("Alt+", 0x08),
+        ("Shift+", 0x01),
+        ("Super+", 0x40),
+        ("Meta+", 0x80),
+        ("Hyper+", 0x100),
+        ("Mod1+", 0x08),
+        ("Mod4+", 0x40),
+    ];
     let mut mods = 0u16;
     let mut rest = s;
     loop {
         let original = rest;
-        if rest.starts_with("Ctrl+") { let tail = &rest[5..];
-            mods |= 0x04;
-            rest = tail;
-        } else if rest.starts_with("Control+") { let tail = &rest[8..];
-            mods |= 0x04;
-            rest = tail;
-        } else if rest.starts_with("Alt+") { let tail = &rest[4..];
-            mods |= 0x08;
-            rest = tail;
-        } else if rest.starts_with("Shift+") { let tail = &rest[6..];
-            mods |= 0x01;
-            rest = tail;
-        } else if rest.starts_with("Super+") { let tail = &rest[6..];
-            mods |= 0x40;
-            rest = tail;
-        } else if rest.starts_with("Meta+") { let tail = &rest[5..];
-            mods |= 0x80;
-            rest = tail;
-        } else if rest.starts_with("Hyper+") { let tail = &rest[6..];
-            mods |= 0x100;
-            rest = tail;
-        } else if rest.starts_with("Mod1+") { let tail = &rest[5..];
-            mods |= 0x08;
-            rest = tail;
-        } else if rest.starts_with("Mod4+") { let tail = &rest[5..];
-            mods |= 0x40;
-            rest = tail;
+        for &(p, m) in PREFIXES {
+            if rest.len() >= p.len() && rest[..p.len()].eq_ignore_ascii_case(p) {
+                mods |= m;
+                rest = &rest[p.len()..];
+                break;
+            }
         }
         if rest == original {
             break;
@@ -149,6 +150,7 @@ pub fn parse_action(name: &str) -> Option<Action> {
         ("TileVertical", Action::Tile(TileOp::TileVertical)),
         ("TileHorizontal", Action::Tile(TileOp::TileHorizontal)),
         ("UndoArrange", Action::Tile(TileOp::UndoArrange)),
+        ("WindowActionMenu", Action::Menu(MenuOp::WindowActionMenu)),
         ("WindowPickerList", Action::Menu(MenuOp::WindowPickerList)),
         ("WinOptions", Action::Misc(MiscOp::WinOptions)),
         (
@@ -201,6 +203,11 @@ pub fn parse_action(name: &str) -> Option<Action> {
     ];
     if let Some((_, action)) = table.iter().find(|(k, _)| *k == name) {
         return Some(action.clone());
+    }
+    if name.starts_with("Exec ") { let cmd = name[5..].trim();
+        if !cmd.is_empty() {
+            return Some(Action::Misc(MiscOp::Command(cmd.to_string())));
+        }
     }
     if name.starts_with("Workspace") { let n = &name[9..];
         if let Ok(num) = n.trim().parse::<u32>() {

@@ -1041,8 +1041,14 @@ fn reload_keys<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) 
     eprintln!("Reload keys triggered");
     let backend = wm.backend.clone();
     if let Some(b) = backend.as_ref() {
+        let prefs = crate::wmconfig::Config::load_prefs();
+        let entries: Vec<crate::keys_parser::KeyEntry> = prefs
+            .keys
+            .iter()
+            .filter_map(|(c, a)| crate::keys_parser::parse_key_binding(c, a))
+            .collect();
         wm.key_bindings = crate::bindings::KeyBindings::new();
-        let _ = wm.key_bindings.register_all(b);
+        let _ = wm.key_bindings.register_all(b, &entries);
         let _ = b.flush();
     }
 }

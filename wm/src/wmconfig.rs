@@ -5,6 +5,7 @@ use std::path::PathBuf;
 pub struct Prefs {
     pub font: FontPrefs,
     pub workspace: WorkspacePrefs,
+    pub keys: Vec<(String, String)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,6 +27,7 @@ impl Default for Prefs {
                 size: 9,
             },
             workspace: WorkspacePrefs { count: 4 },
+            keys: Vec::new(),
         }
     }
 }
@@ -57,7 +59,8 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
             Some(v) => v,
             None => continue,
         };
-        let key = line[..eq].trim().to_ascii_lowercase();
+        let raw_key = line[..eq].trim();
+        let key = raw_key.to_ascii_lowercase();
         let raw = line[eq + 1..].trim();
         let value = if raw.starts_with('"') {
             match raw[1..].find('"') {
@@ -70,6 +73,15 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                 .unwrap_or("")
                 .trim()
         };
+        if section == "keys" {
+            let combo = raw_key.to_string();
+            let action = value.to_string();
+            match p.keys.iter_mut().find(|(c, _)| c.eq_ignore_ascii_case(&combo)) {
+                Some(entry) => entry.1 = action,
+                None => p.keys.push((combo, action)),
+            }
+            continue;
+        }
         match (section.as_str(), key.as_str()) {
             ("font", "name") => p.font.name = value.to_string(),
             ("font", "size") => {
