@@ -429,7 +429,7 @@ impl App {
         wm.render_backend = Some(render_backend);
         let _ = wm.atoms.intern_all(&*b);
         wm.set_workspace_layouts(crate::layout::Layout::parse_list(
-            &wmconfig::Config::workspace_layouts_pref(),
+            &prefs.workspace.layouts,
             ws_count as usize,
         ));
 

@@ -5,6 +5,7 @@ use std::path::PathBuf;
 pub struct Prefs {
     pub font: FontPrefs,
     pub workspace: WorkspacePrefs,
+    pub keyboard: KeyboardPrefs,
     pub keys: Vec<(String, String)>,
 }
 
@@ -17,6 +18,12 @@ pub struct FontPrefs {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkspacePrefs {
     pub count: u32,
+    pub layouts: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeyboardPrefs {
+    pub layouts: String,
 }
 
 impl Default for Prefs {
@@ -26,7 +33,13 @@ impl Default for Prefs {
                 name: "fixed".to_string(),
                 size: 9,
             },
-            workspace: WorkspacePrefs { count: 4 },
+            workspace: WorkspacePrefs {
+                count: 4,
+                layouts: "floating".to_string(),
+            },
+            keyboard: KeyboardPrefs {
+                layouts: String::new(),
+            },
             keys: Vec::new(),
         }
     }
@@ -96,6 +109,8 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                     }
                 }
             }
+            ("workspace", "layouts") => p.workspace.layouts = value.to_string(),
+            ("keyboard", "layouts") => p.keyboard.layouts = value.to_string(),
             _ => {}
         }
     }
@@ -138,32 +153,14 @@ impl Config {
         p
     }
 
-    pub fn workspace_layouts_pref() -> String {
-        for d in Self::search_dirs() {
-            if let Ok(s) = std::fs::read_to_string(d.join("workspace_layouts")) {
-                let t = s.trim().to_string();
-                if !t.is_empty() {
-                    return t;
-                }
-            }
-        }
-        String::new()
-    }
-
     pub fn keyboard_layouts() -> Vec<String> {
-        for d in Self::search_dirs() {
-            if let Ok(s) = std::fs::read_to_string(d.join("keyboard_layouts")) {
-                let list: Vec<String> = s
-                    .split(|c: char| c == ',' || c.is_whitespace())
-                    .filter(|s| !s.is_empty())
-                    .map(|s| s.to_string())
-                    .collect();
-                if !list.is_empty() {
-                    return list;
-                }
-            }
-        }
-        Vec::new()
+        Self::load_prefs()
+            .keyboard
+            .layouts
+            .split(|c: char| c == ',' || c.is_whitespace())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+            .collect()
     }
 }
 
