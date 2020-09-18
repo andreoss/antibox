@@ -25,16 +25,20 @@ pub enum Widget {
     Workspaces,
     Windows,
     Tray,
+    Cpu,
+    Mem,
     Keyboard,
     Clock,
 }
 
 impl Widget {
-    pub const COUNT: usize = 5;
+    pub const COUNT: usize = 7;
     pub const ALL: [Self; Self::COUNT] = [
         Widget::Workspaces,
         Widget::Windows,
         Widget::Tray,
+        Widget::Cpu,
+        Widget::Mem,
         Widget::Keyboard,
         Widget::Clock,
     ];
@@ -48,6 +52,8 @@ fn widget_token(name: &str) -> Option<Widget> {
         "workspaces" | "pager" => Some(Widget::Workspaces),
         "windows" | "tasks" | "taskbar" | "windowlist" => Some(Widget::Windows),
         "tray" | "systray" | "systemtray" => Some(Widget::Tray),
+        "cpu" => Some(Widget::Cpu),
+        "mem" | "memory" | "ram" => Some(Widget::Mem),
         "keyboard" | "kbd" | "layout" => Some(Widget::Keyboard),
         "clock" | "time" => Some(Widget::Clock),
         _ => None,
@@ -83,6 +89,8 @@ pub fn apply() {
         Widget::Workspaces => true,
         Widget::Windows => true,
         Widget::Tray => true,
+        Widget::Cpu => true,
+        Widget::Mem => true,
         Widget::Keyboard => true,
         Widget::Clock => true,
     };
