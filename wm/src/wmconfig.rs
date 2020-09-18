@@ -6,6 +6,8 @@ pub struct Prefs {
     pub font: FontPrefs,
     pub workspace: WorkspacePrefs,
     pub keyboard: KeyboardPrefs,
+    pub cpu: GraphPrefs,
+    pub mem: GraphPrefs,
     pub keys: Vec<(String, String)>,
 }
 
@@ -26,6 +28,11 @@ pub struct KeyboardPrefs {
     pub layouts: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GraphPrefs {
+    pub width: u16,
+}
+
 impl Default for Prefs {
     fn default() -> Prefs {
         Prefs {
@@ -40,6 +47,8 @@ impl Default for Prefs {
             keyboard: KeyboardPrefs {
                 layouts: String::new(),
             },
+            cpu: GraphPrefs { width: 40 },
+            mem: GraphPrefs { width: 40 },
             keys: Vec::new(),
         }
     }
@@ -111,6 +120,20 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
             }
             ("workspace", "layouts") => p.workspace.layouts = value.to_string(),
             ("keyboard", "layouts") => p.keyboard.layouts = value.to_string(),
+            ("cpu", "width") => {
+                if let Ok(v) = value.parse::<u16>() {
+                    if v >= 8 && v <= 220 {
+                        p.cpu.width = v;
+                    }
+                }
+            }
+            ("mem", "width") => {
+                if let Ok(v) = value.parse::<u16>() {
+                    if v >= 8 && v <= 220 {
+                        p.mem.width = v;
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -145,7 +168,7 @@ impl Config {
     pub fn load_prefs() -> Prefs {
         let mut p = default_prefs();
         for d in Self::search_dirs() {
-            if let Ok(s) = std::fs::read_to_string(d.join("config.toml")) {
+            if let Ok(s) = std::fs::read_to_string(d.join("config.ini")) {
                 apply_prefs(&mut p, &s);
                 break;
             }

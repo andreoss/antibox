@@ -20,21 +20,27 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 #[derive(Clone, Copy)]
 enum AppletTick {
     Clock,
+    Cpu,
+    Mem,
 }
 
 impl AppletTick {
-    const COUNT: usize = 1;
-    const ALL: [Self; AppletTick::COUNT] = [AppletTick::Clock];
+    const COUNT: usize = 3;
+    const ALL: [Self; AppletTick::COUNT] = [AppletTick::Clock, AppletTick::Cpu, AppletTick::Mem];
 
     fn interval(self) -> Duration {
         match self {
             AppletTick::Clock => Duration::from_secs(1),
+            AppletTick::Cpu => Duration::from_secs(2),
+            AppletTick::Mem => Duration::from_secs(5),
         }
     }
 
     fn update(self, tb: &mut TaskBar) -> Vec<u32> {
         match self {
             AppletTick::Clock => tb.update_clocks(),
+            AppletTick::Cpu => tb.update_cpu(),
+            AppletTick::Mem => tb.update_mem(),
         }
     }
 }
@@ -86,6 +92,7 @@ impl AppletTickers {
         for (i, kind) in AppletTick::ALL.iter().enumerate() {
             let due = if match kind {
                 AppletTick::Clock => true,
+                _ => false,
             } {
                 let sec = Self::wall_secs();
                 if sec == self.last_clock_sec {
@@ -115,6 +122,7 @@ impl AppletTickers {
             .enumerate()
             .filter(|(_, kind)| match kind {
                 AppletTick::Clock => false,
+                _ => true,
             })
             .map(|(i, kind)| {
                 kind.interval()
@@ -690,6 +698,19 @@ impl App {
             if let Ok(mut c) = ClockApplet::new(conn, wid, Some(clock_fmt)) {
                 c.set_colours(&wm.theme_colours);
                 core.push(Box::new(c));
+            }
+        }
+        let prefs = wmconfig::Config::load_prefs();
+        if taskbar_wants(Widget::Cpu) {
+            if let Ok(c) = crate::cpu_status_applet::CpuStatusApplet::new(conn, wid, prefs.cpu.width)
+            {
+                core.push(Box::new(c));
+            }
+        }
+        if taskbar_wants(Widget::Mem) {
+            if let Ok(m) = crate::mem_status_applet::MemStatusApplet::new(conn, wid, prefs.mem.width)
+            {
+                core.push(Box::new(m));
             }
         }
         if taskbar_wants(Widget::Keyboard) {

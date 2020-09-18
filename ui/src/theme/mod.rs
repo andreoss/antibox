@@ -326,5 +326,14 @@ pub fn button_radius_px() -> u16 {
     }
 }
 
+pub fn graph_bg() -> Colour {
+    face()
+}
+
+pub fn graph_series(i: usize) -> Colour {
+    let derived = [sel_bg(), title_active(), tint_rgb(sel_bg(), 0.5), shadow()];
+    derived[i % 4]
+}
+
 #[cfg(test)]
 mod theme_gen;

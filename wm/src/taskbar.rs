@@ -733,6 +733,19 @@ impl TaskBar {
         self.update_applets::<ClockApplet, _>(ClockApplet::update)
     }
 
+    pub fn update_cpu(&mut self) -> Vec<u32> {
+        self.update_applets::<crate::cpu_status_applet::CpuStatusApplet, _>(
+            crate::cpu_status_applet::CpuStatusApplet::update,
+        )
+    }
+
+    pub fn update_mem(&mut self) -> Vec<u32> {
+        self.update_applets::<crate::mem_status_applet::MemStatusApplet, _>(|mem| {
+            mem.update();
+            true
+        })
+    }
+
     pub fn update_keyboard(&mut self) -> Vec<u32> {
         self.update_applets::<crate::keyboard_applet::KeyboardApplet, _>(
             crate::keyboard_applet::KeyboardApplet::update,
@@ -779,12 +792,20 @@ enum PanelSlot {
     Workspaces,
     Task,
     Tray,
+    Cpu,
+    Mem,
     Keyboard,
     Clock,
 }
 
 const DEFAULT_LEFT: [PanelSlot; 1] = [PanelSlot::Workspaces];
-const DEFAULT_RIGHT: [PanelSlot; 3] = [PanelSlot::Keyboard, PanelSlot::Tray, PanelSlot::Clock];
+const DEFAULT_RIGHT: [PanelSlot; 5] = [
+    PanelSlot::Cpu,
+    PanelSlot::Mem,
+    PanelSlot::Keyboard,
+    PanelSlot::Tray,
+    PanelSlot::Clock,
+];
 
 impl PanelSlot {
     fn from_widget(w: crate::layout_preferences::Widget) -> PanelSlot {
@@ -793,6 +814,8 @@ impl PanelSlot {
             Widget::Workspaces => PanelSlot::Workspaces,
             Widget::Windows => PanelSlot::Task,
             Widget::Tray => PanelSlot::Tray,
+            Widget::Cpu => PanelSlot::Cpu,
+            Widget::Mem => PanelSlot::Mem,
             Widget::Keyboard => PanelSlot::Keyboard,
             Widget::Clock => PanelSlot::Clock,
         }
@@ -803,6 +826,8 @@ impl PanelSlot {
         match self {
             PanelSlot::Workspaces => any.is::<WorkspacesPane>(),
             PanelSlot::Task => any.is::<crate::taskpane::TaskPane>(),
+            PanelSlot::Cpu => any.is::<crate::cpu_status_applet::CpuStatusApplet>(),
+            PanelSlot::Mem => any.is::<crate::mem_status_applet::MemStatusApplet>(),
             PanelSlot::Keyboard => any.is::<crate::keyboard_applet::KeyboardApplet>(),
             PanelSlot::Clock => any.is::<ClockApplet>(),
             #[cfg(feature = "tray")]

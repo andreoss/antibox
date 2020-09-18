@@ -55,4 +55,5 @@ extern "C" {
     pub fn sigaction(sig: c_int, act: *const sigaction, oldact: *mut sigaction) -> c_int;
     pub fn strftime(s: *mut c_char, max: usize, format: *const c_char, tm: *const tm) -> usize;
     pub fn localtime_r(time: *const time_t, result: *mut tm) -> *mut tm;
+    pub fn getloadavg(loadavg: *mut f64, nelem: c_int) -> c_int;
 }
