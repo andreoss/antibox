@@ -14,7 +14,6 @@ pub struct Prefs {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FontPrefs {
     pub name: String,
-    pub size: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,7 +37,6 @@ impl Default for Prefs {
         Prefs {
             font: FontPrefs {
                 name: "-misc-fixed-medium-r-semicondensed--13-*-*-*-*-*-iso10646-1".to_string(),
-                size: 9,
             },
             workspace: WorkspacePrefs {
                 count: 4,
@@ -106,11 +104,6 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
         }
         match (section.as_str(), key.as_str()) {
             ("font", "name") => p.font.name = value.to_string(),
-            ("font", "size") => {
-                if let Ok(v) = value.parse::<u16>() {
-                    p.font.size = v;
-                }
-            }
             ("workspace", "count") => {
                 if let Ok(v) = value.parse::<u32>() {
                     if v >= 1 && v <= 32 {
