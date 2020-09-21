@@ -371,7 +371,13 @@ impl App {
         let prefs = wmconfig::Config::load_prefs();
         crate::fonts::apply_fonts();
         antibox_core::backend::set_ui_font(&prefs.font.name);
-        antibox_ui::metrics::set_font_pt(prefs.font.size);
+        if let Ok(g) = b.create_graphics(b.root().read_id()) {
+            let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
+            let (_, _, fh) = g.font_metrics();
+            if fh > 0 {
+                antibox_ui::metrics::set_font_pt((fh as i32 * 3 / 4).max(6) as u16);
+            }
+        }
         crate::layout_preferences::apply();
         crate::tooltip::set_show_delay_ms(500);
         crate::tooltip::set_lifetime_ms(0);

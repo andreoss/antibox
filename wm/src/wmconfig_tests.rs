@@ -21,14 +21,12 @@
             p.font.name,
             "-misc-fixed-medium-r-semicondensed--13-*-*-*-*-*-iso10646-1"
         );
-        assert_eq!(p.font.size, 9);
     }
 
     #[test]
     fn test_parse_prefs_blocks() {
-        let p = parse_prefs("[font]\nname = \"6x13\"\nsize = 12\n\n[workspace]\ncount = 6\n");
+        let p = parse_prefs("[font]\nname = \"6x13\"\n\n[workspace]\ncount = 6\n");
         assert_eq!(p.font.name, "6x13");
-        assert_eq!(p.font.size, 12);
         assert_eq!(p.workspace.count, 6);
     }
 
@@ -41,9 +39,9 @@
 
     #[test]
     fn test_parse_prefs_ignores_unknown_and_invalid() {
-        let p = parse_prefs("[general]\ncount = 9\n[workspace]\ncount = zero\nname = x\n[font]\nsize = big\n");
+        let p = parse_prefs("[general]\ncount = 9\n[workspace]\ncount = zero\nname = x\n[font]\nsize = 12\n");
         assert_eq!(p.workspace.count, 4);
-        assert_eq!(p.font.size, 9);
+        assert_eq!(p.font, Prefs::default().font);
     }
 
     #[test]
@@ -102,13 +100,11 @@
 
     #[test]
     fn test_apply_prefs_merges_partial_config() {
-        let mut p = parse_prefs("[font]\nname = \"6x13\"\nsize = 12\n[workspace]\ncount = 6\n");
+        let mut p = parse_prefs("[font]\nname = \"6x13\"\n[workspace]\ncount = 6\n");
         apply_prefs(&mut p, "[workspace]\ncount = 8\n");
         assert_eq!(p.workspace.count, 8);
         assert_eq!(p.font.name, "6x13");
-        assert_eq!(p.font.size, 12);
-        apply_prefs(&mut p, "[font]\nsize = 10\n");
-        assert_eq!(p.font.size, 10);
-        assert_eq!(p.font.name, "6x13");
+        apply_prefs(&mut p, "[font]\nname = \"7x14\"\n");
+        assert_eq!(p.font.name, "7x14");
         assert_eq!(p.workspace.count, 8);
     }
