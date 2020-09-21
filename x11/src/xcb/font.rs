@@ -249,7 +249,28 @@ fn cache() -> &'static FontCache {
     unsafe { &*CACHE }
 }
 
+fn open_xlfd(conn: &XcbConnection, pattern: &str) -> Option<XcbFont> {
+    let raw = conn.raw();
+    let id = unsafe { xcb_generate_id(raw) };
+    open_font(raw, id, pattern);
+    let metrics = query_font_metrics(raw, id)?;
+    Some(XcbFont {
+        id,
+        ascent: metrics.ascent,
+        descent: metrics.descent,
+        min_char: metrics.min_char,
+        max_char: metrics.max_char,
+        min_byte1: metrics.min_byte1,
+        max_byte1: metrics.max_byte1,
+        widths: metrics.widths,
+        default_width: metrics.default_width,
+    })
+}
+
 fn resolve_uncached(conn: &XcbConnection, family: &str, px: u16) -> Option<XcbFont> {
+    if family.starts_with('-') {
+        return open_xlfd(conn, family);
+    }
     let raw = conn.raw();
     let unicode = format!("-*-{}-*-*-*-*-*-*-*-*-*-*-iso10646-1", family);
     let mut names = list_font_names(raw, &unicode).unwrap_or_default();

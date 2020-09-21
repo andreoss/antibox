@@ -17,7 +17,10 @@
     fn test_prefs_default() {
         let p = Prefs::default();
         assert_eq!(p.workspace.count, 4);
-        assert_eq!(p.font.name, "fixed");
+        assert_eq!(
+            p.font.name,
+            "-misc-fixed-medium-r-semicondensed--13-*-*-*-*-*-iso10646-1"
+        );
         assert_eq!(p.font.size, 9);
     }
 
