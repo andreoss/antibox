@@ -37,7 +37,7 @@ impl Default for Prefs {
     fn default() -> Prefs {
         Prefs {
             font: FontPrefs {
-                name: "fixed".to_string(),
+                name: "-misc-fixed-medium-r-semicondensed--13-*-*-*-*-*-iso10646-1".to_string(),
                 size: 9,
             },
             workspace: WorkspacePrefs {
