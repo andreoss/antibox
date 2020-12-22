@@ -22,16 +22,22 @@ enum AppletTick {
     Clock,
     Cpu,
     Mem,
+    Net,
 }
 
 impl AppletTick {
-    const COUNT: usize = 3;
-    const ALL: [Self; AppletTick::COUNT] = [AppletTick::Clock, AppletTick::Cpu, AppletTick::Mem];
+    const COUNT: usize = 4;
+    const ALL: [Self; AppletTick::COUNT] = [
+        AppletTick::Clock,
+        AppletTick::Cpu,
+        AppletTick::Mem,
+        AppletTick::Net,
+    ];
 
     fn interval(self) -> Duration {
         match self {
             AppletTick::Clock => Duration::from_secs(1),
-            AppletTick::Cpu => Duration::from_secs(2),
+            AppletTick::Cpu | AppletTick::Net => Duration::from_secs(2),
             AppletTick::Mem => Duration::from_secs(5),
         }
     }
@@ -41,6 +47,7 @@ impl AppletTick {
             AppletTick::Clock => tb.update_clocks(),
             AppletTick::Cpu => tb.update_cpu(),
             AppletTick::Mem => tb.update_mem(),
+            AppletTick::Net => tb.update_net(),
         }
     }
 }
@@ -717,6 +724,13 @@ impl App {
             if let Ok(m) = crate::mem_status_applet::MemStatusApplet::new(conn, wid, prefs.mem.width)
             {
                 core.push(Box::new(m));
+            }
+        }
+        if taskbar_wants(Widget::Net) {
+            crate::net_status_applet::set_net_device(&prefs.net.device);
+            if let Ok(n) = crate::net_status_applet::NetStatusApplet::new(conn, wid, prefs.net.width)
+            {
+                core.push(Box::new(n));
             }
         }
         if taskbar_wants(Widget::Keyboard) {

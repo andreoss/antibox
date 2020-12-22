@@ -27,18 +27,20 @@ pub enum Widget {
     Tray,
     Cpu,
     Mem,
+    Net,
     Keyboard,
     Clock,
 }
 
 impl Widget {
-    pub const COUNT: usize = 7;
+    pub const COUNT: usize = 8;
     pub const ALL: [Self; Self::COUNT] = [
         Widget::Workspaces,
         Widget::Windows,
         Widget::Tray,
         Widget::Cpu,
         Widget::Mem,
+        Widget::Net,
         Widget::Keyboard,
         Widget::Clock,
     ];
@@ -54,6 +56,7 @@ fn widget_token(name: &str) -> Option<Widget> {
         "tray" | "systray" | "systemtray" => Some(Widget::Tray),
         "cpu" => Some(Widget::Cpu),
         "mem" | "memory" | "ram" => Some(Widget::Mem),
+        "net" | "network" => Some(Widget::Net),
         "keyboard" | "kbd" | "layout" => Some(Widget::Keyboard),
         "clock" | "time" => Some(Widget::Clock),
         _ => None,
@@ -91,6 +94,7 @@ pub fn apply() {
         Widget::Tray => true,
         Widget::Cpu => true,
         Widget::Mem => true,
+        Widget::Net => true,
         Widget::Keyboard => true,
         Widget::Clock => true,
     };

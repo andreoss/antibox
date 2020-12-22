@@ -746,6 +746,13 @@ impl TaskBar {
         })
     }
 
+    pub fn update_net(&mut self) -> Vec<u32> {
+        self.update_applets::<crate::net_status_applet::NetStatusApplet, _>(|net| {
+            net.update();
+            true
+        })
+    }
+
     pub fn update_keyboard(&mut self) -> Vec<u32> {
         self.update_applets::<crate::keyboard_applet::KeyboardApplet, _>(
             crate::keyboard_applet::KeyboardApplet::update,
@@ -794,14 +801,16 @@ enum PanelSlot {
     Tray,
     Cpu,
     Mem,
+    Net,
     Keyboard,
     Clock,
 }
 
 const DEFAULT_LEFT: [PanelSlot; 1] = [PanelSlot::Workspaces];
-const DEFAULT_RIGHT: [PanelSlot; 5] = [
+const DEFAULT_RIGHT: [PanelSlot; 6] = [
     PanelSlot::Cpu,
     PanelSlot::Mem,
+    PanelSlot::Net,
     PanelSlot::Keyboard,
     PanelSlot::Tray,
     PanelSlot::Clock,
@@ -816,6 +825,7 @@ impl PanelSlot {
             Widget::Tray => PanelSlot::Tray,
             Widget::Cpu => PanelSlot::Cpu,
             Widget::Mem => PanelSlot::Mem,
+            Widget::Net => PanelSlot::Net,
             Widget::Keyboard => PanelSlot::Keyboard,
             Widget::Clock => PanelSlot::Clock,
         }
@@ -828,6 +838,7 @@ impl PanelSlot {
             PanelSlot::Task => any.is::<crate::taskpane::TaskPane>(),
             PanelSlot::Cpu => any.is::<crate::cpu_status_applet::CpuStatusApplet>(),
             PanelSlot::Mem => any.is::<crate::mem_status_applet::MemStatusApplet>(),
+            PanelSlot::Net => any.is::<crate::net_status_applet::NetStatusApplet>(),
             PanelSlot::Keyboard => any.is::<crate::keyboard_applet::KeyboardApplet>(),
             PanelSlot::Clock => any.is::<ClockApplet>(),
             #[cfg(feature = "tray")]

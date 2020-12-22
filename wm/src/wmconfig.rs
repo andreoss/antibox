@@ -8,6 +8,7 @@ pub struct Prefs {
     pub keyboard: KeyboardPrefs,
     pub cpu: GraphPrefs,
     pub mem: GraphPrefs,
+    pub net: NetPrefs,
     pub keys: Vec<(String, String)>,
 }
 
@@ -32,6 +33,12 @@ pub struct GraphPrefs {
     pub width: u16,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NetPrefs {
+    pub width: u16,
+    pub device: String,
+}
+
 impl Default for Prefs {
     fn default() -> Prefs {
         Prefs {
@@ -47,6 +54,10 @@ impl Default for Prefs {
             },
             cpu: GraphPrefs { width: 40 },
             mem: GraphPrefs { width: 40 },
+            net: NetPrefs {
+                width: 40,
+                device: "*".to_string(),
+            },
             keys: Vec::new(),
         }
     }
@@ -96,7 +107,11 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
         if section == "keys" {
             let combo = raw_key.to_string();
             let action = value.to_string();
-            match p.keys.iter_mut().find(|(c, _)| c.eq_ignore_ascii_case(&combo)) {
+            match p
+                .keys
+                .iter_mut()
+                .find(|(c, _)| c.eq_ignore_ascii_case(&combo))
+            {
                 Some(entry) => entry.1 = action,
                 None => p.keys.push((combo, action)),
             }
@@ -127,6 +142,14 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                     }
                 }
             }
+            ("net", "width") => {
+                if let Ok(v) = value.parse::<u16>() {
+                    if v >= 8 && v <= 220 {
+                        p.net.width = v;
+                    }
+                }
+            }
+            ("net", "device") => p.net.device = value.to_string(),
             _ => {}
         }
     }
