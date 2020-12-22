@@ -33,6 +33,7 @@ pub mod layout;
 pub mod layout_preferences;
 pub mod manager;
 pub mod mem_status_applet;
+pub mod net_status_applet;
 pub mod menu;
 pub mod mouse_parser;
 pub mod option;

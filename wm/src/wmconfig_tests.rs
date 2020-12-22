@@ -108,3 +108,11 @@
         assert_eq!(p.font.name, "7x14");
         assert_eq!(p.workspace.count, 8);
     }
+
+    #[test]
+    fn test_parse_prefs_net() {
+        let p = parse_prefs("[net]\nwidth = 60\ndevice = \"en* wlan0\"\n");
+        assert_eq!(p.net.width, 60);
+        assert_eq!(p.net.device, "en* wlan0");
+        assert_eq!(parse_prefs("").net.device, "*");
+    }
