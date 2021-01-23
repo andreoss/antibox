@@ -1260,3 +1260,137 @@ extern "C" {
         group_latch: u16,
     ) -> c_uint;
 }
+
+pub const XCB_RENDER_PICT_TYPE_DIRECT: u8 = 1;
+pub const XCB_RENDER_PICT_OP_OVER: u8 = 3;
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct xcb_render_color_t {
+    pub red: u16,
+    pub green: u16,
+    pub blue: u16,
+    pub alpha: u16,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct xcb_render_directformat_t {
+    pub red_shift: u16,
+    pub red_mask: u16,
+    pub green_shift: u16,
+    pub green_mask: u16,
+    pub blue_shift: u16,
+    pub blue_mask: u16,
+    pub alpha_shift: u16,
+    pub alpha_mask: u16,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct xcb_render_pictforminfo_t {
+    pub id: u32,
+    pub type_: u8,
+    pub depth: u8,
+    pub pad0: [u8; 2],
+    pub direct: xcb_render_directformat_t,
+    pub colormap: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct xcb_render_query_pict_formats_reply_t {
+    pub response_type: u8,
+    pub pad0: u8,
+    pub sequence: u16,
+    pub length: u32,
+    pub num_formats: u32,
+    pub num_screens: u32,
+    pub num_depths: u32,
+    pub num_visuals: u32,
+    pub num_subpixel: u32,
+    pub pad1: [u8; 4],
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct xcb_render_query_version_reply_t {
+    pub response_type: u8,
+    pub pad0: u8,
+    pub sequence: u16,
+    pub length: u32,
+    pub major_version: u32,
+    pub minor_version: u32,
+    pub pad1: [u8; 16],
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct xcb_render_glyphinfo_t {
+    pub width: u16,
+    pub height: u16,
+    pub x: i16,
+    pub y: i16,
+    pub x_off: i16,
+    pub y_off: i16,
+}
+
+#[link(name = "xcb-render")]
+extern "C" {
+    pub fn xcb_render_query_version(
+        c: *mut xcb_connection_t,
+        client_major_version: u32,
+        client_minor_version: u32,
+    ) -> c_uint;
+    pub fn xcb_render_query_version_reply(
+        c: *mut xcb_connection_t,
+        cookie: c_uint,
+        e: *mut *mut xcb_generic_event_t,
+    ) -> *mut xcb_render_query_version_reply_t;
+    pub fn xcb_render_query_pict_formats(c: *mut xcb_connection_t) -> c_uint;
+    pub fn xcb_render_query_pict_formats_reply(
+        c: *mut xcb_connection_t,
+        cookie: c_uint,
+        e: *mut *mut xcb_generic_event_t,
+    ) -> *mut xcb_render_query_pict_formats_reply_t;
+    pub fn xcb_render_create_picture(
+        c: *mut xcb_connection_t,
+        pid: u32,
+        drawable: xcb_drawable_t,
+        format: u32,
+        value_mask: u32,
+        value_list: *const u32,
+    ) -> c_uint;
+    pub fn xcb_render_free_picture(c: *mut xcb_connection_t, picture: u32) -> c_uint;
+    pub fn xcb_render_create_solid_fill(
+        c: *mut xcb_connection_t,
+        picture: u32,
+        color: xcb_render_color_t,
+    ) -> c_uint;
+    pub fn xcb_render_create_glyph_set(
+        c: *mut xcb_connection_t,
+        gsid: u32,
+        format: u32,
+    ) -> c_uint;
+    pub fn xcb_render_add_glyphs(
+        c: *mut xcb_connection_t,
+        glyphset: u32,
+        glyphs_len: u32,
+        glyphids: *const u32,
+        glyphs: *const xcb_render_glyphinfo_t,
+        data_len: u32,
+        data: *const u8,
+    ) -> c_uint;
+    pub fn xcb_render_composite_glyphs_32(
+        c: *mut xcb_connection_t,
+        op: u8,
+        src: u32,
+        dst: u32,
+        mask_format: u32,
+        glyphset: u32,
+        src_x: i16,
+        src_y: i16,
+        glyphcmds_len: u32,
+        glyphcmds: *const u8,
+    ) -> c_uint;
+}
