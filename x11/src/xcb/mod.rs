@@ -6,6 +6,7 @@ pub mod event;
 pub mod event_loop;
 pub mod font;
 pub mod graphics;
+pub mod ft;
 pub mod window;
 pub mod xkb;
 

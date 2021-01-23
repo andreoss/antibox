@@ -19,6 +19,9 @@ pub struct XcbConnection {
     keycode_max: u8,
     cursor_font: u32,
     xkb_event_base: u8,
+    render_a8: u32,
+    render_rgb24: u32,
+    render_argb32: u32,
     atom_cache: std::cell::RefCell<std::collections::HashMap<String, u32>>,
     last_event_time: antibox_core::sync::atomic::AtomicU32,
 }
@@ -48,6 +51,45 @@ fn event_time(ev: &xcb_generic_event_t) -> Option<u32> {
     };
     let base = ev as *const xcb_generic_event_t as *const u8;
     Some(unsafe { std::ptr::read_unaligned(base.add(off) as *const u32) })
+}
+
+fn render_init(conn: *mut xcb_connection_t) -> (u32, u32, u32) {
+    let cookie = unsafe { xcb_render_query_version(conn, 0, 11) };
+    let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+    let vr = unsafe { xcb_render_query_version_reply(conn, cookie, &mut e) };
+    if vr.is_null() {
+        return (0, 0, 0);
+    }
+    unsafe { libc::free(vr as *mut libc::c_void) };
+    let cookie = unsafe { xcb_render_query_pict_formats(conn) };
+    let r = unsafe { xcb_render_query_pict_formats_reply(conn, cookie, &mut e) };
+    if r.is_null() {
+        return (0, 0, 0);
+    }
+    let count = unsafe { (*r).num_formats } as usize;
+    let base = unsafe {
+        (r as *const u8).add(std::mem::size_of::<xcb_render_query_pict_formats_reply_t>())
+            as *const xcb_render_pictforminfo_t
+    };
+    let (mut a8, mut rgb24, mut argb32) = (0u32, 0u32, 0u32);
+    for i in 0..count {
+        let f = unsafe { &*base.add(i) };
+        if f.type_ != XCB_RENDER_PICT_TYPE_DIRECT {
+            continue;
+        }
+        if a8 == 0 && f.depth == 8 && f.direct.alpha_mask == 0xff && f.direct.red_mask == 0 {
+            a8 = f.id;
+        }
+        if rgb24 == 0 && f.depth == 24 && f.direct.red_mask == 0xff && f.direct.alpha_mask == 0 {
+            rgb24 = f.id;
+        }
+        if argb32 == 0 && f.depth == 32 && f.direct.red_mask == 0xff && f.direct.alpha_mask == 0xff
+        {
+            argb32 = f.id;
+        }
+    }
+    unsafe { libc::free(r as *mut libc::c_void) };
+    (a8, rgb24, argb32)
 }
 
 fn map_state(raw: u8) -> MapState {
@@ -103,6 +145,7 @@ impl XcbConnection {
             xcb_open_font(conn, cursor_font, font_name.len() as u16, font_name.as_ptr() as *const _)
         };
         let xkb_event_base = super::xkb::init(conn);
+        let (render_a8, render_rgb24, render_argb32) = render_init(conn);
         Ok(Arc::new(XcbConnection {
             conn,
             screen,
@@ -112,6 +155,9 @@ impl XcbConnection {
             keycode_max,
             cursor_font,
             xkb_event_base,
+            render_a8,
+            render_rgb24,
+            render_argb32,
             atom_cache: std::cell::RefCell::new(std::collections::HashMap::new()),
             last_event_time: antibox_core::sync::atomic::AtomicU32::new(0),
         }))
@@ -123,6 +169,18 @@ impl XcbConnection {
 
     pub(crate) fn xkb_event_base(&self) -> u8 {
         self.xkb_event_base
+    }
+
+    pub(crate) fn render_a8_format(&self) -> u32 {
+        self.render_a8
+    }
+
+    pub(crate) fn render_format_for(&self, depth: u8) -> u32 {
+        match depth {
+            24 => self.render_rgb24,
+            32 => self.render_argb32,
+            _ => 0,
+        }
     }
 
     fn screen(&self) -> &xcb_screen_t {

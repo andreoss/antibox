@@ -1,7 +1,7 @@
 
 use super::bindings::*;
 use super::connection::XcbConnection;
-use super::font::XcbFont;
+use super::font::ResolvedFont;
 use antibox_core::backend::{DisplayBackend, FontSpec, GraphicsContext, PixmapData};
 use antibox_core::colour::Colour;
 use antibox_core::point::Point;
@@ -15,7 +15,7 @@ pub struct XcbGraphics {
     depth: u8,
     fg: antibox_core::sync::atomic::AtomicU32,
     bg: antibox_core::sync::atomic::AtomicU32,
-    font: std::sync::Mutex<Option<XcbFont>>,
+    font: std::sync::Mutex<Option<ResolvedFont>>,
 }
 
 impl XcbGraphics {
@@ -33,6 +33,76 @@ impl XcbGraphics {
 
     fn change_gc(&self, mask: u32, vals: &[u32]) {
         unsafe { xcb_change_gc(self.conn.raw(), self.gc, mask, vals.as_ptr()) };
+    }
+
+    fn ft_font(&self) -> Option<std::sync::Arc<super::ft::FtFont>> {
+        match self.font.lock() {
+            Ok(g) => match &*g {
+                Some(ResolvedFont::Ft(f)) => Some(std::sync::Arc::clone(f)),
+                _ => None,
+            },
+            Err(_) => None,
+        }
+    }
+
+    fn composite_ft(
+        &self,
+        f: &super::ft::FtFont,
+        x: i16,
+        y: i16,
+        text: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        f.ensure_uploaded(&self.conn, text);
+        let gs = f.glyphset();
+        let dst_fmt = self.conn.render_format_for(self.depth);
+        if gs == 0 || dst_fmt == 0 {
+            return self.conn.flush();
+        }
+        let raw = self.conn.raw();
+        let pic = unsafe { xcb_generate_id(raw) };
+        unsafe { xcb_render_create_picture(raw, pic, self.drawable, dst_fmt, 0, std::ptr::null()) };
+        let fg = self.fg.load(std::sync::atomic::Ordering::Relaxed);
+        let colour = xcb_render_color_t {
+            red: (((fg >> 16) & 0xff) * 0x101) as u16,
+            green: (((fg >> 8) & 0xff) * 0x101) as u16,
+            blue: ((fg & 0xff) * 0x101) as u16,
+            alpha: 0xffff,
+        };
+        let src = unsafe { xcb_generate_id(raw) };
+        unsafe { xcb_render_create_solid_fill(raw, src, colour) };
+        let chars: Vec<u32> = text.chars().map(|c| c as u32).collect();
+        let mut first = true;
+        for chunk in chars.chunks(252) {
+            let mut buf: Vec<u8> = Vec::with_capacity(8 + chunk.len() * 4);
+            buf.push(chunk.len() as u8);
+            buf.extend_from_slice(&[0, 0, 0]);
+            let (dx, dy) = if first { (x, y) } else { (0, 0) };
+            buf.extend_from_slice(&dx.to_ne_bytes());
+            buf.extend_from_slice(&dy.to_ne_bytes());
+            for g in chunk {
+                buf.extend_from_slice(&g.to_ne_bytes());
+            }
+            unsafe {
+                xcb_render_composite_glyphs_32(
+                    raw,
+                    XCB_RENDER_PICT_OP_OVER,
+                    src,
+                    pic,
+                    0,
+                    gs,
+                    0,
+                    0,
+                    buf.len() as u32,
+                    buf.as_ptr(),
+                )
+            };
+            first = false;
+        }
+        unsafe {
+            xcb_render_free_picture(raw, src);
+            xcb_render_free_picture(raw, pic);
+        }
+        self.conn.flush()
     }
 }
 
@@ -70,6 +140,24 @@ impl GraphicsContext for XcbGraphics {
     }
 
     fn draw_text(&self, x: i16, y: i16, text: &str) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(f) = self.ft_font() {
+            let (a, d, _) = f.metrics();
+            let w = f.text_width(text) as u16;
+            if w > 0 {
+                let bg = self.bg.load(std::sync::atomic::Ordering::Relaxed);
+                let fg = self.fg.load(std::sync::atomic::Ordering::Relaxed);
+                self.change_gc(XCB_GC_FOREGROUND, &[bg]);
+                let r = xcb_rectangle_t {
+                    x,
+                    y: y - a as i16,
+                    width: w,
+                    height: a.saturating_add(d),
+                };
+                unsafe { xcb_poly_fill_rectangle(self.conn.raw(), self.drawable, self.gc, 1, &r) };
+                self.change_gc(XCB_GC_FOREGROUND, &[fg]);
+            }
+            return self.composite_ft(&f, x, y, text);
+        }
         let chars: Vec<xcb_char2b_t> = text
             .chars()
             .take(255)
@@ -93,6 +181,9 @@ impl GraphicsContext for XcbGraphics {
     }
 
     fn draw_text_transparent(&self, x: i16, y: i16, text: &str) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(f) = self.ft_font() {
+            return self.composite_ft(&f, x, y, text);
+        }
         self.draw_text(x, y, text)
     }
 
@@ -118,10 +209,11 @@ impl GraphicsContext for XcbGraphics {
         let px = (font.size as f32 * 96.0 / 72.0).round() as u16;
         let cf = super::font::resolve_font(&self.conn, &font.family, px);
         if let Some(f) = cf {
-            let id = f.id;
+            if let ResolvedFont::Core(ref c) = f {
+                let v = [c.id];
+                self.change_gc(XCB_GC_FONT, &v);
+            }
             *self.font.lock().unwrap() = Some(f);
-            let v = [id];
-            self.change_gc(XCB_GC_FONT, &v);
         }
         Ok(())
     }

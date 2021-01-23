@@ -69,6 +69,28 @@ impl XcbFont {
     }
 }
 
+#[derive(Clone)]
+pub enum ResolvedFont {
+    Core(XcbFont),
+    Ft(std::sync::Arc<super::ft::FtFont>),
+}
+
+impl ResolvedFont {
+    pub fn text_width(&self, text: &str) -> u32 {
+        match self {
+            ResolvedFont::Core(f) => f.text_width(text),
+            ResolvedFont::Ft(f) => f.text_width(text),
+        }
+    }
+
+    pub fn metrics(&self) -> (u16, u16, u16) {
+        match self {
+            ResolvedFont::Core(f) => f.metrics(),
+            ResolvedFont::Ft(f) => f.metrics(),
+        }
+    }
+}
+
 pub fn register_global_width_provider(conn: &std::sync::Arc<XcbConnection>) {
     use antibox_core::backend::{set_global_font_providers, FontSpec};
     let conn = std::sync::Arc::clone(conn);
@@ -206,7 +228,7 @@ fn query_font_metrics(conn: *mut xcb_connection_t, id: u32) -> Option<FontMetric
     })
 }
 
-pub fn resolve_font(conn: &XcbConnection, family: &str, px: u16) -> Option<XcbFont> {
+pub fn resolve_font(conn: &XcbConnection, family: &str, px: u16) -> Option<ResolvedFont> {
     if let Some(f) = resolve(conn, family, px) {
         return Some(f);
     }
@@ -225,7 +247,7 @@ pub fn resolve_font(conn: &XcbConnection, family: &str, px: u16) -> Option<XcbFo
     scaled.or(primary)
 }
 
-pub fn resolve(conn: &XcbConnection, family: &str, px: u16) -> Option<XcbFont> {
+pub fn resolve(conn: &XcbConnection, family: &str, px: u16) -> Option<ResolvedFont> {
     let key = (family.to_ascii_lowercase(), px);
     if let Some(hit) = cache().lock().ok().and_then(|g| g.get(&key).cloned()) {
         return hit;
@@ -237,7 +259,7 @@ pub fn resolve(conn: &XcbConnection, family: &str, px: u16) -> Option<XcbFont> {
     resolved
 }
 
-type FontCache = Mutex<std::collections::HashMap<(String, u16), Option<XcbFont>>>;
+type FontCache = Mutex<std::collections::HashMap<(String, u16), Option<ResolvedFont>>>;
 
 fn cache() -> &'static FontCache {
     use std::sync::Once;
@@ -267,10 +289,31 @@ fn open_xlfd(conn: &XcbConnection, pattern: &str) -> Option<XcbFont> {
     })
 }
 
-fn resolve_uncached(conn: &XcbConnection, family: &str, px: u16) -> Option<XcbFont> {
+fn resolve_uncached(conn: &XcbConnection, family: &str, px: u16) -> Option<ResolvedFont> {
     if family.starts_with('-') {
-        return open_xlfd(conn, family);
+        return open_xlfd(conn, family).map(ResolvedFont::Core);
     }
+    if family.trim().is_empty() {
+        return None;
+    }
+    let want_ft = family.contains(':');
+    if want_ft && conn.render_a8_format() != 0 {
+        if let Some(f) = super::ft::open(family) {
+            return Some(ResolvedFont::Ft(f));
+        }
+    }
+    if let Some(f) = resolve_core_family(conn, family, px) {
+        return Some(ResolvedFont::Core(f));
+    }
+    if !want_ft && conn.render_a8_format() != 0 {
+        if let Some(f) = super::ft::open(family) {
+            return Some(ResolvedFont::Ft(f));
+        }
+    }
+    None
+}
+
+fn resolve_core_family(conn: &XcbConnection, family: &str, px: u16) -> Option<XcbFont> {
     let raw = conn.raw();
     let unicode = format!("-*-{}-*-*-*-*-*-*-*-*-*-*-iso10646-1", family);
     let mut names = list_font_names(raw, &unicode).unwrap_or_default();
