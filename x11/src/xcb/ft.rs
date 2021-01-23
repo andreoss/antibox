@@ -216,7 +216,8 @@ pub fn match_pattern(pattern: &str) -> Option<(String, i32, u16)> {
     if file.is_empty() {
         return None;
     }
-    let px = px.round().max(6.0).min(96.0) as u16;
+    let px = px.round().max(6.0).min(96.0) as i32;
+    let px = antibox_core::scale::scaled(px).max(6).min(192) as u16;
     Some((file, index, px))
 }
 

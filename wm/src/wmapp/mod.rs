@@ -382,7 +382,8 @@ impl App {
             let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
             let (_, _, fh) = g.font_metrics();
             if fh > 0 {
-                antibox_ui::metrics::set_font_pt((fh as i32 * 3 / 4).max(6) as u16);
+                let logical = fh as i32 * 96 / antibox_core::scale::dpi();
+                antibox_ui::metrics::set_font_pt((logical * 3 / 4).max(6) as u16);
             }
         }
         crate::layout_preferences::apply();
