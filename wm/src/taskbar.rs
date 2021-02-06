@@ -569,6 +569,17 @@ impl TaskBar {
         self.menu = Some(menu);
     }
 
+    pub fn update_height(&mut self) -> bool {
+        let h = Self::bar_height();
+        if h == self.height {
+            return false;
+        }
+        self.height = h;
+        self.fit_to_screen();
+        self.relayout();
+        true
+    }
+
     pub fn strut(&self) -> Strut {
         let h = self.height as u32;
         match self.position {
