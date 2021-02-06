@@ -142,6 +142,10 @@ macro_rules! impl_status_applet {
             fn handle_click(&mut self, _x: i32, _y: i32, _button: u8) -> Option<u32> {
                 None
             }
+            fn set_graph_width(&mut self, w: u16) {
+                self.pref_w = w;
+                self.w = w;
+            }
             impl_applet_tooltip!(tooltip);
             fn set_geometry(&mut self, x: i16, y: i16, w: u16, h: u16) {
                 self.w = w;

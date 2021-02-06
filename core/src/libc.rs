@@ -56,4 +56,6 @@ extern "C" {
     pub fn strftime(s: *mut c_char, max: usize, format: *const c_char, tm: *const tm) -> usize;
     pub fn localtime_r(time: *const time_t, result: *mut tm) -> *mut tm;
     pub fn getloadavg(loadavg: *mut f64, nelem: c_int) -> c_int;
+    pub fn inotify_init1(flags: c_int) -> c_int;
+    pub fn inotify_add_watch(fd: c_int, pathname: *const c_char, mask: u32) -> c_int;
 }

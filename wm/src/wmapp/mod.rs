@@ -355,7 +355,10 @@ impl App {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let LaunchOptions { display } = options;
         let b = backend;
-        let event_loop = event_loop;
+        let mut event_loop = event_loop;
+        if let Some(wfd) = crate::config_watch::init_watch() {
+            event_loop.add_fd(wfd, Box::new(move || crate::config_watch::drain(wfd)));
+        }
         let sw = b.screen_width();
         let sh = b.screen_height();
         let (mm_w, mm_h) = b.screen_size_mm();
@@ -552,6 +555,10 @@ impl App {
             work.events += self.drain_pending_events_count();
         }
         self.event_loop.fire_timers();
+
+        if crate::config_watch::take_changed() {
+            self.reload_config();
+        }
 
         if let Some(e) = self.backend.check_for_error() {
             eprintln!("[antibox] X11 connection error: {}", e);

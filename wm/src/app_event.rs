@@ -117,6 +117,75 @@ impl App {
         }
     }
 
+    fn reload_config(&mut self) {
+        let prefs = wmconfig::Config::load_prefs();
+
+        antibox_core::backend::set_ui_font(&prefs.font.name);
+        if let Ok(g) = self.backend.create_graphics(self.backend.root().read_id()) {
+            let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
+            let (_, _, fh) = g.font_metrics();
+            if fh > 0 {
+                let logical = fh as i32 * 96 / antibox_core::scale::dpi();
+                antibox_ui::metrics::set_font_pt((logical * 3 / 4).max(6) as u16);
+            }
+        }
+
+        let entries: Vec<crate::keys_parser::KeyEntry> = prefs
+            .keys
+            .iter()
+            .filter_map(|(c, a)| crate::keys_parser::parse_key_binding(c, a))
+            .collect();
+        self.wm.key_bindings = crate::bindings::KeyBindings::new();
+        let _ = self.wm.key_bindings.register_all(&self.backend, &entries);
+
+        let count = prefs.workspace.count.max(1);
+        let names = wmconfig::parse_workspace_names("", count as usize);
+        let count_changed = count != self.wm.config.workspace_count;
+        if self.wm.active_workspace >= count {
+            self.wm.activate_workspace(count - 1);
+        }
+        self.wm.config.workspace_count = count;
+        self.wm.workspace_names = names.clone();
+        self.wm
+            .set_workspace_layouts(crate::layout::Layout::parse_list(
+                &prefs.workspace.layouts,
+                count as usize,
+            ));
+        if count_changed {
+            let _ = crate::ewmh::init_ewmh(&*self.backend, &self.wm.atoms, count);
+        }
+        crate::ewmh::update_desktop_names(&*self.backend, &self.wm.atoms, &names);
+
+        let mut strut_changed = false;
+        if let Some(tb) = self.taskbar.as_mut() {
+            tb.set_workspace_names(&names);
+            for a in &mut tb.applets {
+                let w = if a.as_any().is::<crate::cpu_status_applet::CpuStatusApplet>() {
+                    Some(prefs.cpu.width)
+                } else if a.as_any().is::<crate::mem_status_applet::MemStatusApplet>() {
+                    Some(prefs.mem.width)
+                } else if a.as_any().is::<crate::net_status_applet::NetStatusApplet>() {
+                    Some(prefs.net.width)
+                } else {
+                    None
+                };
+                if let Some(w) = w {
+                    a.set_graph_width(antibox_core::scale::scaled(w as i32) as u16);
+                }
+            }
+            if tb.update_height() {
+                strut_changed = true;
+            }
+            tb.reflow();
+            let _ = tb.paint();
+            self.wm.reserved_strut = tb.strut();
+        }
+        if strut_changed {
+            crate::placement::update_workarea_from_struts(&mut self.wm);
+        }
+        let _ = self.backend.flush();
+    }
+
     pub(crate) fn handle_backend_event(&mut self, event: &BackendEvent) {
         if let BackendEvent::SelectionClear { owner, selection, .. } = event {
             let ours = self.wm_sn_owner.as_ref().map(|w| w.id());
