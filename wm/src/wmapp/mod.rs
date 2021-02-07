@@ -225,6 +225,7 @@ pub struct App {
     pub group_menu: Option<crate::menu::MenuView<u32>>,
     pub last_pager_sync: Instant,
     pub taskbar: Option<TaskBar>,
+    pub(crate) keyboard_layouts_pref: String,
     pub running: bool,
     pub(crate) consecutive_panics: u32,
     #[cfg_attr(not(feature = "tray"), allow(dead_code))]
@@ -505,6 +506,7 @@ impl App {
             group_menu: None,
             last_pager_sync: Instant::now(),
             taskbar,
+            keyboard_layouts_pref: prefs.keyboard.layouts.clone(),
             running: true,
             consecutive_panics: 0,
             tray_opcode_atom,

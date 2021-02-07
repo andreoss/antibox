@@ -238,3 +238,12 @@ fn test_same_layout_set_ignores_order_and_case() {
     assert!(!same_layout_set(&[], &want));
     assert!(!same_layout_set(&["us".to_string(), "de".to_string()], &want));
 }
+
+#[test]
+fn test_shutdown_closes_menu() {
+    let mut app = make_applet();
+    app.handle_click(0, 0, 1);
+    assert!(app.menu_window.is_some());
+    app.shutdown();
+    assert!(app.menu_window.is_none());
+}
