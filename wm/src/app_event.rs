@@ -156,6 +156,11 @@ impl App {
         }
         crate::ewmh::update_desktop_names(&*self.backend, &self.wm.atoms, &names);
 
+        if prefs.keyboard.layouts != self.keyboard_layouts_pref {
+            self.keyboard_layouts_pref = prefs.keyboard.layouts.clone();
+            self.rebuild_keyboard_applet();
+        }
+
         let mut strut_changed = false;
         if let Some(tb) = self.taskbar.as_mut() {
             tb.set_workspace_names(&names);
@@ -184,6 +189,40 @@ impl App {
             crate::placement::update_workarea_from_struts(&mut self.wm);
         }
         let _ = self.backend.flush();
+    }
+
+    fn rebuild_keyboard_applet(&mut self) {
+        let colours = self.wm.theme_colours;
+        if let Some(tb) = self.taskbar.as_mut() {
+            if let Some(i) = tb
+                .applets
+                .iter()
+                .position(|a| a.as_any().is::<crate::keyboard_applet::KeyboardApplet>())
+            {
+                if let Some(kb) = tb.applets[i]
+                    .as_any_mut()
+                    .downcast_mut::<crate::keyboard_applet::KeyboardApplet>()
+                {
+                    kb.shutdown();
+                }
+                tb.remove_applet(i);
+            }
+            if crate::layout_preferences::taskbar_wants(crate::layout_preferences::Widget::Keyboard)
+            {
+                let parent = tb.window.id();
+                if let Ok(Some(kb)) = crate::keyboard_applet::KeyboardApplet::new(
+                    &self.backend,
+                    parent,
+                    wmconfig::Config::keyboard_layouts(),
+                    &colours,
+                ) {
+                    let a: Box<dyn crate::applet::Applet> = Box::new(kb);
+                    let _ = a.window().map();
+                    tb.add_applet(a);
+                }
+            }
+            let _ = tb.paint();
+        }
     }
 
     pub(crate) fn handle_backend_event(&mut self, event: &BackendEvent) {

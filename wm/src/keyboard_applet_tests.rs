@@ -211,3 +211,12 @@ fn test_set_geometry_updates_size() {
     assert_eq!(app.width, 48);
     assert_eq!(app.height, 32);
 }
+
+#[test]
+fn test_shutdown_closes_menu() {
+    let mut app = make_applet();
+    app.handle_click(0, 0, 1);
+    assert!(app.menu_window.is_some());
+    app.shutdown();
+    assert!(app.menu_window.is_none());
+}

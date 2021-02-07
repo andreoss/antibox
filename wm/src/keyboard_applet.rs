@@ -231,6 +231,12 @@ impl KeyboardApplet {
         self.hide_menu();
     }
 
+    pub fn shutdown(&mut self) {
+        self.hide_menu();
+        let _ = self.window.unmap();
+        let _ = self.window.destroy();
+    }
+
     fn show_menu(&mut self) {
         self.hide_menu();
         let n = self.layouts.len();
