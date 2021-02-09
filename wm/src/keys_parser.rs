@@ -133,7 +133,6 @@ pub fn parse_action(name: &str) -> Option<Action> {
         ("Shade", Action::Window(WindowOp::Shade)),
         ("Show", Action::Misc(MiscOp::Show)),
         ("ShowDesktop", Action::Workspace(WorkspaceOp::ShowDesktop)),
-        ("Tile", Action::Tile(TileOp::Tile)),
         ("TileLeft", Action::Tile(TileOp::TileLeft)),
         ("TileRight", Action::Tile(TileOp::TileRight)),
         ("TileTop", Action::Tile(TileOp::TileTop)),
@@ -228,6 +227,12 @@ pub struct KeyEntry {
     pub keysym: u32,
     pub modifiers: u16,
     pub action: Action,
+}
+
+pub fn entries_from(keys: &[(String, String)]) -> Vec<KeyEntry> {
+    keys.iter()
+        .filter_map(|(combo, action)| parse_key_binding(combo, action))
+        .collect()
 }
 
 pub fn parse_key_binding(combo: &str, action: &str) -> Option<KeyEntry> {

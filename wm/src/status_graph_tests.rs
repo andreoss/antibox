@@ -7,7 +7,6 @@
         assert_eq!(p.top(), INSET);
         assert_eq!(p.bottom(), INSET + p.gh);
         assert!(p.col_x(0) >= INSET);
-        assert_eq!(p.sample_idx(0, 0), MAX_SAMPLES - p.count());
     }
 
     #[test]

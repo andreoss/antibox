@@ -75,6 +75,18 @@ pub fn parse_prefs(text: &str) -> Prefs {
     p
 }
 
+pub fn workspaces_from(prefs: &Prefs) -> (u32, Vec<String>) {
+    let count = prefs.workspace.count.max(1);
+    (count, parse_workspace_names("", count as usize))
+}
+
+fn parse_width(value: &str) -> Option<u16> {
+    match value.parse::<u16>() {
+        Ok(v) if v >= 8 && v <= 220 => Some(v),
+        _ => None,
+    }
+}
+
 pub fn apply_prefs(p: &mut Prefs, text: &str) {
     let mut section = String::new();
     for line in text.lines() {
@@ -129,24 +141,18 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
             ("workspace", "layouts") => p.workspace.layouts = value.to_string(),
             ("keyboard", "layouts") => p.keyboard.layouts = value.to_string(),
             ("cpu", "width") => {
-                if let Ok(v) = value.parse::<u16>() {
-                    if v >= 8 && v <= 220 {
-                        p.cpu.width = v;
-                    }
+                if let Some(v) = parse_width(value) {
+                    p.cpu.width = v;
                 }
             }
             ("mem", "width") => {
-                if let Ok(v) = value.parse::<u16>() {
-                    if v >= 8 && v <= 220 {
-                        p.mem.width = v;
-                    }
+                if let Some(v) = parse_width(value) {
+                    p.mem.width = v;
                 }
             }
             ("net", "width") => {
-                if let Ok(v) = value.parse::<u16>() {
-                    if v >= 8 && v <= 220 {
-                        p.net.width = v;
-                    }
+                if let Some(v) = parse_width(value) {
+                    p.net.width = v;
                 }
             }
             ("net", "device") => p.net.device = value.to_string(),
@@ -184,7 +190,7 @@ impl Config {
     pub fn load_prefs() -> Prefs {
         let mut p = default_prefs();
         for d in Self::search_dirs() {
-            if let Ok(s) = std::fs::read_to_string(d.join("config.ini")) {
+            if let Ok(s) = std::fs::read_to_string(d.join(crate::config_watch::CONFIG_FILE)) {
                 apply_prefs(&mut p, &s);
                 break;
             }
