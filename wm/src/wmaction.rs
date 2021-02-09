@@ -1042,13 +1042,10 @@ fn reload_keys<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) 
     let backend = wm.backend.clone();
     if let Some(b) = backend.as_ref() {
         let prefs = crate::wmconfig::Config::load_prefs();
-        let entries: Vec<crate::keys_parser::KeyEntry> = prefs
-            .keys
-            .iter()
-            .filter_map(|(c, a)| crate::keys_parser::parse_key_binding(c, a))
-            .collect();
         wm.key_bindings = crate::bindings::KeyBindings::new();
-        let _ = wm.key_bindings.register_all(b, &entries);
+        let _ = wm
+            .key_bindings
+            .register_all(b, &crate::keys_parser::entries_from(&prefs.keys));
         let _ = b.flush();
     }
 }

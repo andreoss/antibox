@@ -120,26 +120,15 @@ impl App {
     fn reload_config(&mut self) {
         let prefs = wmconfig::Config::load_prefs();
 
-        antibox_core::backend::set_ui_font(&prefs.font.name);
-        if let Ok(g) = self.backend.create_graphics(self.backend.root().read_id()) {
-            let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
-            let (_, _, fh) = g.font_metrics();
-            if fh > 0 {
-                let logical = fh as i32 * 96 / antibox_core::scale::dpi();
-                antibox_ui::metrics::set_font_pt((logical * 3 / 4).max(6) as u16);
-            }
-        }
+        apply_font_prefs(&self.backend, &prefs);
 
-        let entries: Vec<crate::keys_parser::KeyEntry> = prefs
-            .keys
-            .iter()
-            .filter_map(|(c, a)| crate::keys_parser::parse_key_binding(c, a))
-            .collect();
         self.wm.key_bindings = crate::bindings::KeyBindings::new();
-        let _ = self.wm.key_bindings.register_all(&self.backend, &entries);
+        let _ = self
+            .wm
+            .key_bindings
+            .register_all(&self.backend, &crate::keys_parser::entries_from(&prefs.keys));
 
-        let count = prefs.workspace.count.max(1);
-        let names = wmconfig::parse_workspace_names("", count as usize);
+        let (count, names) = wmconfig::workspaces_from(&prefs);
         let count_changed = count != self.wm.config.workspace_count;
         if self.wm.active_workspace >= count {
             self.wm.activate_workspace(count - 1);
@@ -175,7 +164,7 @@ impl App {
                     None
                 };
                 if let Some(w) = w {
-                    a.set_graph_width(antibox_core::scale::scaled(w as i32) as u16);
+                    a.set_graph_width(w);
                 }
             }
             if tb.update_height() {

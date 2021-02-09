@@ -65,6 +65,18 @@ impl LoopWork {
     }
 }
 
+fn apply_font_prefs(b: &Arc<dyn DisplayBackend>, prefs: &wmconfig::Prefs) {
+    antibox_core::backend::set_ui_font(&prefs.font.name);
+    if let Ok(g) = b.create_graphics(b.root().read_id()) {
+        let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
+        let (_, _, fh) = g.font_metrics();
+        if fh > 0 {
+            let logical = fh as i32 * 96 / antibox_core::scale::dpi();
+            antibox_ui::metrics::set_font_pt((logical * 3 / 4).max(6) as u16);
+        }
+    }
+}
+
 struct AppletTickers {
     last: [Instant; AppletTick::COUNT],
     last_clock_sec: u64,
@@ -381,22 +393,13 @@ impl App {
 
         let prefs = wmconfig::Config::load_prefs();
         crate::fonts::apply_fonts();
-        antibox_core::backend::set_ui_font(&prefs.font.name);
-        if let Ok(g) = b.create_graphics(b.root().read_id()) {
-            let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
-            let (_, _, fh) = g.font_metrics();
-            if fh > 0 {
-                let logical = fh as i32 * 96 / antibox_core::scale::dpi();
-                antibox_ui::metrics::set_font_pt((logical * 3 / 4).max(6) as u16);
-            }
-        }
+        apply_font_prefs(&b, &prefs);
         crate::layout_preferences::apply();
         crate::tooltip::set_show_delay_ms(500);
         crate::tooltip::set_lifetime_ms(0);
         crate::drag::set_multi_click_ms(400);
 
-        let ws_count = prefs.workspace.count.max(1);
-        let ws_names = wmconfig::parse_workspace_names("", ws_count as usize);
+        let (ws_count, ws_names) = wmconfig::workspaces_from(&prefs);
 
         let root_mask = EventMask::SUBSTRUCTURE_REDIRECT
             | EventMask::SUBSTRUCTURE_NOTIFY
@@ -478,12 +481,9 @@ impl App {
                 position: taskbar_position,
             },
         );
-        let key_entries: Vec<crate::keys_parser::KeyEntry> = prefs
-            .keys
-            .iter()
-            .filter_map(|(c, a)| crate::keys_parser::parse_key_binding(c, a))
-            .collect();
-        let _ = wm.key_bindings.register_all(&b, &key_entries);
+        let _ = wm
+            .key_bindings
+            .register_all(&b, &crate::keys_parser::entries_from(&prefs.keys));
         wm.monitors = b.query_monitors().unwrap_or_default();
 
         let _ = crate::ewmh::init_ewmh(&*b, &atom_manager, wm.config.workspace_count);

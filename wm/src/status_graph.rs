@@ -45,9 +45,6 @@ impl Plot {
     pub fn col_x(&self, col: usize) -> i16 {
         self.inset + ((self.cols - self.n + col) as u16 * self.cw) as i16
     }
-    pub fn sample_idx(&self, col: usize, head: usize) -> usize {
-        (head + MAX_SAMPLES - self.n + col) % MAX_SAMPLES
-    }
 
     pub fn bar_up(
         &self,
@@ -143,6 +140,7 @@ macro_rules! impl_status_applet {
                 None
             }
             fn set_graph_width(&mut self, w: u16) {
+                let w = antibox_core::scale::scaled(w as i32) as u16;
                 self.pref_w = w;
                 self.w = w;
             }

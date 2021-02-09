@@ -172,7 +172,7 @@ fn ft_lib() -> &'static Mutex<Option<FtLib>> {
     unsafe { &*LIB }
 }
 
-pub fn match_pattern(pattern: &str) -> Option<(String, i32, u16)> {
+fn match_pattern(pattern: &str) -> Option<(String, i32, u16)> {
     let guard = ft_lib().lock().ok()?;
     let lib = guard.as_ref()?;
     if !lib.fc_ok {
