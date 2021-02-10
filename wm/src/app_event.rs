@@ -147,7 +147,7 @@ impl App {
 
         if prefs.keyboard.layouts != self.keyboard_layouts_pref {
             self.keyboard_layouts_pref = prefs.keyboard.layouts.clone();
-            self.rebuild_keyboard_applet();
+            self.rebuild_keyboard_applet(wmconfig::split_layout_list(&prefs.keyboard.layouts));
         }
 
         let mut strut_changed = false;
@@ -180,7 +180,7 @@ impl App {
         let _ = self.backend.flush();
     }
 
-    fn rebuild_keyboard_applet(&mut self) {
+    fn rebuild_keyboard_applet(&mut self, layouts: Vec<String>) {
         let colours = self.wm.theme_colours;
         if let Some(tb) = self.taskbar.as_mut() {
             if let Some(i) = tb
@@ -202,7 +202,7 @@ impl App {
                 if let Ok(Some(kb)) = crate::keyboard_applet::KeyboardApplet::new(
                     &self.backend,
                     parent,
-                    wmconfig::Config::keyboard_layouts(),
+                    layouts,
                     &colours,
                 ) {
                     let a: Box<dyn crate::applet::Applet> = Box::new(kb);

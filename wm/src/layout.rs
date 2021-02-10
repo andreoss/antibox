@@ -24,14 +24,6 @@ const TALL_FRAC_PCT: i32 = 50;
 impl Layout {
     pub const ALL: &'static [Self] = &[Layout::Floating, Layout::Tall, Layout::Wide];
 
-    pub fn name(self) -> &'static str {
-        match self {
-            Layout::Floating => "floating",
-            Layout::Tall => "tall",
-            Layout::Wide => "wide",
-        }
-    }
-
     pub fn title(self) -> &'static str {
         match self {
             Layout::Floating => "Floating",

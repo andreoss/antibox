@@ -747,7 +747,7 @@ impl App {
             if let Ok(Some(kb)) = crate::keyboard_applet::KeyboardApplet::new(
                 conn,
                 wid,
-                wmconfig::Config::keyboard_layouts(),
+                wmconfig::split_layout_list(&prefs.keyboard.layouts),
                 &wm.theme_colours,
             ) {
                 core.push(Box::new(kb));
