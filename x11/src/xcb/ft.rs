@@ -228,7 +228,6 @@ struct GlyphState {
 
 pub struct FtFont {
     face: *mut FT_FaceRec,
-    pub px: u16,
     ascent: i16,
     descent: i16,
     glyphset: antibox_core::sync::atomic::AtomicU32,
@@ -261,7 +260,6 @@ pub fn open(pattern: &str) -> Option<std::sync::Arc<FtFont>> {
     let descent = (-(m.descender >> 6)) as i16;
     Some(std::sync::Arc::new(FtFont {
         face,
-        px,
         ascent,
         descent,
         glyphset: antibox_core::sync::atomic::AtomicU32::new(0),

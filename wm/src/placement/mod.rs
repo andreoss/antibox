@@ -170,9 +170,9 @@ pub(crate) fn requested_position(
 ) -> Option<Point> {
     use antibox_core::backend::hints::size_hints_flags::{P_POSITION, US_POSITION};
     hints.and_then(|h| {
-        if h.flags & US_POSITION != 0 {
-            Some(Point::new(h.x, h.y))
-        } else if h.flags & P_POSITION != 0 && (h.x != 0 || h.y != 0) {
+        let user_set = h.flags & US_POSITION != 0;
+        let program_set = h.flags & P_POSITION != 0 && (h.x != 0 || h.y != 0);
+        if user_set || program_set {
             Some(Point::new(h.x, h.y))
         } else {
             None

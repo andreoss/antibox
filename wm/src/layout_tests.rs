@@ -51,7 +51,6 @@
         assert_eq!(Layout::parse("wide"), Some(Layout::Wide));
         assert_eq!(Layout::parse("mirror"), Some(Layout::Wide));
         assert!(Layout::Wide.is_tiled());
-        assert_eq!(Layout::Wide.name(), "wide");
     }
 
     #[test]

@@ -247,7 +247,7 @@ pub fn resolve_font(conn: &XcbConnection, family: &str, px: u16) -> Option<Resol
     scaled.or(primary)
 }
 
-pub fn resolve(conn: &XcbConnection, family: &str, px: u16) -> Option<ResolvedFont> {
+fn resolve(conn: &XcbConnection, family: &str, px: u16) -> Option<ResolvedFont> {
     let key = (family.to_ascii_lowercase(), px);
     if let Some(hit) = cache().lock().ok().and_then(|g| g.get(&key).cloned()) {
         return hit;

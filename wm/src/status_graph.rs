@@ -1,7 +1,7 @@
 pub const MAX_SAMPLES: usize = 256;
 pub const INSET: i16 = 3;
 
-pub fn col_w() -> u16 {
+fn col_w() -> u16 {
     antibox_core::scale::scaled(1).max(1) as u16
 }
 

@@ -75,6 +75,13 @@ pub fn parse_prefs(text: &str) -> Prefs {
     p
 }
 
+pub fn split_layout_list(s: &str) -> Vec<String> {
+    s.split(|c: char| c == ',' || c.is_whitespace())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect()
+}
+
 pub fn workspaces_from(prefs: &Prefs) -> (u32, Vec<String>) {
     let count = prefs.workspace.count.max(1);
     (count, parse_workspace_names("", count as usize))
@@ -196,16 +203,6 @@ impl Config {
             }
         }
         p
-    }
-
-    pub fn keyboard_layouts() -> Vec<String> {
-        Self::load_prefs()
-            .keyboard
-            .layouts
-            .split(|c: char| c == ',' || c.is_whitespace())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string())
-            .collect()
     }
 }
 
