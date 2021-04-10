@@ -18,10 +18,22 @@ pub fn configure_request<H: DisplayBackend + 'static + ?Sized>(
     let id = match key {
         Some(id) => id,
         None => {
-            let _ = wm
-                .backend()
-                .unwrap()
-                .configure_window(w, &[r.x as u32, r.y as u32, r.w as u32, r.h as u32]);
+            if let Ok(xw) = wm.backend().unwrap().wrap_window(w) {
+                let _ = xw.configure(
+                    if value_mask & CFG_X != 0 { Some(r.x) } else { None },
+                    if value_mask & CFG_Y != 0 { Some(r.y) } else { None },
+                    if value_mask & CFG_WIDTH != 0 {
+                        Some(r.w.max(1) as u16)
+                    } else {
+                        None
+                    },
+                    if value_mask & CFG_HEIGHT != 0 {
+                        Some(r.h.max(1) as u16)
+                    } else {
+                        None
+                    },
+                );
+            }
             return;
         }
     };
