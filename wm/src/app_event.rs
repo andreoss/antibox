@@ -294,6 +294,24 @@ impl App {
                     }
                 }
             }
+            if let BackendEvent::ConfigureRequest { window, .. } = event {
+                let is_sub = self.taskbar.as_ref().map_or(false, |tb| {
+                    tb.applets
+                        .iter()
+                        .any(|a| a.owns_window(*window) && a.window().id() != *window)
+                });
+                if is_sub {
+                    let backend = &self.backend;
+                    let _ = self.taskbar.as_mut().map(|tb| {
+                        for a in &mut tb.applets {
+                            if a.owns_window(*window) && a.window().id() != *window {
+                                a.handle_other_event(event, backend);
+                            }
+                        }
+                    });
+                    return;
+                }
+            }
             self.wm.handle_event(event);
             if std::mem::replace(&mut self.wm.workspace_names_dirty, false) {
                 let names = self.wm.workspace_names.clone();
@@ -369,6 +387,7 @@ impl App {
             if let BackendEvent::DestroyNotify { window } = event {
                 if let Some(tb) = self.taskbar.as_mut() {
                     if tb.tray_forget(*window) {
+                        tb.reflow();
                         let _ = tb.paint();
                     }
                 }

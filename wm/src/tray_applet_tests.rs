@@ -59,3 +59,32 @@
         assert!(!app.owns_window(999));
     }
 
+    #[test]
+    fn test_set_geometry_resizes_slots() {
+        let mut app = make_tray();
+        app.set_geometry(0, 0, 60, 16);
+        let icon = app.icon_size() as u32;
+        let pad = app.tpad() as u32;
+        let gap = app.tgap() as u32;
+        assert!(icon <= 16);
+        assert_eq!(app.preferred_width(), 2 * pad + 2 * icon + gap);
+    }
+
+    #[test]
+    fn test_configure_request_keeps_slots() {
+        let conn = Arc::new(MockDisplay::new(800, 600, 24)) as Arc<dyn DisplayBackend>;
+        let mut app = make_tray();
+        app.set_geometry(0, 0, 60, 16);
+        let before = app.preferred_width();
+        let ev = BackendEvent::ConfigureRequest {
+            window: 200,
+            parent: 100,
+            rect: Rect::new(0, 0, 100, 100),
+            border_width: 0,
+            value_mask: 0xC,
+        };
+        app.handle_other_event(&ev, &conn);
+        assert_eq!(app.embedded[0].width, 100);
+        assert_eq!(app.preferred_width(), before);
+    }
+

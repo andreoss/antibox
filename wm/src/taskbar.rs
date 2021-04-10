@@ -907,11 +907,12 @@ impl AppletContainer for TaskBar {
         for slot in left_slots {
             if let Some(i) = idx(self, slot) {
                 let w = self.applets[i].preferred_width() as u16;
+                let (ay, ah) = (edge, bar_h);
                 if w == 0 {
+                    self.applets[i].set_geometry(left_x, ay, 1, ah);
                     let _ = self.applets[i].window().unmap();
                     continue;
                 }
-                let (ay, ah) = (edge, bar_h);
                 self.applets[i].set_geometry(left_x, ay, w, ah);
                 self.geom_cache
                     .borrow_mut()
@@ -941,6 +942,7 @@ impl AppletContainer for TaskBar {
             if let Some(i) = idx(self, slot) {
                 let w = self.applets[i].preferred_width() as u16;
                 if w == 0 {
+                    self.applets[i].set_geometry(rx, inset_y, 1, inset_h);
                     let _ = self.applets[i].window().unmap();
                     continue;
                 }
