@@ -4,6 +4,7 @@ use super::bindings::*;
 use super::connection::XcbConnection;
 use antibox_core::backend::{DisplayBackend, EventMask, PropMode, RenderBackend, StackMode, WindowHandle};
 use antibox_core::point::Point;
+use antibox_core::rect::Rect;
 use std::sync::Arc;
 
 pub struct XcbWindow {
@@ -138,6 +139,25 @@ impl WindowHandle for XcbWindow {
         let h = unsafe { (*r).height };
         unsafe { libc::free(r as *mut libc::c_void) };
         Ok((w, h))
+    }
+
+    fn get_geometry_rect(&self) -> Result<Rect, Box<dyn std::error::Error>> {
+        let cookie = unsafe { xcb_get_geometry(self.conn.raw(), self.id) };
+        let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        let r = unsafe { xcb_get_geometry_reply(self.conn.raw(), cookie, &mut e) };
+        if r.is_null() {
+            return Err("get_geometry failed".into());
+        }
+        let rect = unsafe {
+            Rect::new(
+                (*r).x as i32,
+                (*r).y as i32,
+                (*r).width as i32,
+                (*r).height as i32,
+            )
+        };
+        unsafe { libc::free(r as *mut libc::c_void) };
+        Ok(rect)
     }
 
     fn move_window(&self, point: Point) -> Result<(), Box<dyn std::error::Error>> {

@@ -63,6 +63,7 @@
         assert_eq!(d.font, Prefs::default().font);
         assert_eq!(d.workspace, Prefs::default().workspace);
         assert_eq!(d.keyboard, Prefs::default().keyboard);
+        assert_eq!(d.winlist, Prefs::default().winlist);
         assert!(!d.keys.is_empty());
     }
 
@@ -115,4 +116,14 @@
         assert_eq!(p.net.width, 60);
         assert_eq!(p.net.device, "en* wlan0");
         assert_eq!(parse_prefs("").net.device, "*");
+    }
+
+    #[test]
+    fn test_parse_prefs_winlist_position() {
+        assert_eq!(parse_prefs("").winlist.position, "centre");
+        let p = |t: &str| parse_prefs(t).winlist.position;
+        assert_eq!(p("[winlist]\nposition = \"pointer\"\n"), "pointer");
+        assert_eq!(p("[winlist]\nposition = \"center\"\n"), "centre");
+        assert_eq!(p("[winlist]\nposition = \"mouse\"\n"), "centre");
+        assert_eq!(p("[winlist]\nposition = \"bogus\"\n"), "centre");
     }

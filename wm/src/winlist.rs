@@ -141,6 +141,21 @@ impl WinListMenu {
         self.client_id
     }
 
+    fn placement(&self, conn: &Arc<dyn DisplayBackend>) -> (i32, i32) {
+        let sw = conn.screen_width() as i32;
+        let sh = conn.screen_height() as i32;
+        let (w, h) = (self.w as i32, self.h as i32);
+        let prefs = crate::wmconfig::Config::load_prefs();
+        if prefs.winlist.position == "pointer" {
+            if let Ok(p) = conn.query_pointer(conn.root().read_id()) {
+                let x = (p.root_x as i32 - w / 2).clamped(0, (sw - w).max(0));
+                let y = (p.root_y as i32 + scaled(8)).clamped(0, (sh - h).max(0));
+                return (x, y);
+            }
+        }
+        (((sw - w) / 2).max(0), ((sh - h) / 2).max(0))
+    }
+
     fn rebuild(&mut self, wm: &WindowManager<dyn DisplayBackend>) {
         let needle = self.filter.to_lowercase();
         let mut entries: Vec<WinListItem> = wm
@@ -207,9 +222,10 @@ impl WinListMenu {
         if self.w == 0 {
             self.w = scaled(280) as u16;
             self.h = scaled(340) as u16;
-            self.x = (conn.screen_width() as i32 / 2 - self.w as i32 / 2).max(0);
-            self.y = (conn.screen_height() as i32 / 4).max(0);
         }
+        let (x, y) = self.placement(conn);
+        self.x = x;
+        self.y = y;
         self.offset = 0;
         self.selected = self.next_win_row(None, 1);
 

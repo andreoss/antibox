@@ -9,6 +9,7 @@ pub struct Prefs {
     pub cpu: GraphPrefs,
     pub mem: GraphPrefs,
     pub net: NetPrefs,
+    pub winlist: WinlistPrefs,
     pub keys: Vec<(String, String)>,
 }
 
@@ -39,6 +40,11 @@ pub struct NetPrefs {
     pub device: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WinlistPrefs {
+    pub position: String,
+}
+
 impl Default for Prefs {
     fn default() -> Prefs {
         Prefs {
@@ -57,6 +63,9 @@ impl Default for Prefs {
             net: NetPrefs {
                 width: 40,
                 device: "*".to_string(),
+            },
+            winlist: WinlistPrefs {
+                position: "centre".to_string(),
             },
             keys: Vec::new(),
         }
@@ -163,6 +172,10 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                 }
             }
             ("net", "device") => p.net.device = value.to_string(),
+            ("winlist", "position") => match value {
+                "centre" | "pointer" => p.winlist.position = value.to_string(),
+                _ => {}
+            },
             _ => {}
         }
     }
