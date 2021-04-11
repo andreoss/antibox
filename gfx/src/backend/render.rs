@@ -265,7 +265,7 @@ pub trait GraphicsContext: std::any::Any + Send + Sync {
 }
 
 pub fn gradient_v_bands(h: u16, top: u32, bottom: u32) -> Vec<(u16, u16, u32)> {
-    let steps = h.max(4).min(32);
+    let steps = h.clamp(4, 32);
     let strip_h = (h as f32 / steps as f32).ceil() as u16;
     (0..steps)
         .map(|i| {
@@ -276,7 +276,7 @@ pub fn gradient_v_bands(h: u16, top: u32, bottom: u32) -> Vec<(u16, u16, u32)> {
 }
 
 pub fn gradient_h_bands(w: u16, left: u32, right: u32) -> Vec<(u16, u16, u32)> {
-    let steps = w.max(4).min(64);
+    let steps = w.clamp(4, 64);
     (0..steps)
         .map(|i| {
             let t = i as f32 / (steps - 1).max(1) as f32;

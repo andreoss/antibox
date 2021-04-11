@@ -5,7 +5,7 @@ use std::sync::atomic::Ordering;
 static FONT_PT: AtomicU16 = AtomicU16::new(9);
 
 pub fn set_font_pt(pt: u16) {
-    FONT_PT.store(pt.max(6).min(72), Ordering::Relaxed);
+    FONT_PT.store(pt.clamp(6, 72), Ordering::Relaxed);
 }
 
 pub fn font_px() -> i32 {

@@ -93,8 +93,7 @@ fn parse_colour(s: &str) -> [u8; 4] {
         }
         let (key, val) = (pair[0].trim(), pair[1].trim());
         if key == "c" || key == "g" {
-            if val.starts_with('#') {
-                let hex = &val[1..];
+            if let Some(hex) = val.strip_prefix('#') {
                 let clean: String = hex.chars().filter(|&c| c.is_ascii_hexdigit()).collect();
                 if clean.len() >= 6 {
                     if let Ok(rgb) = u32::from_str_radix(&clean[..6], 16) {

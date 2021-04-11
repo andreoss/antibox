@@ -175,7 +175,7 @@ impl InputLine {
         let text = self.edit.display_text();
         let target = x - Self::text_inset() as i32 + self.scroll_offset(&*g) as i32;
         let mut best = 0usize;
-        let mut best_d = std::i32::MAX;
+        let mut best_d = i32::MAX;
         for i in 0..=text.len() {
             if !text.is_char_boundary(i) {
                 continue;

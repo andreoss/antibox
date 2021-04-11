@@ -8,7 +8,7 @@ pub fn dpi() -> i32 {
 }
 
 pub fn set_dpi(n: i32) {
-    DPI.store(n.max(96).min(384), Ordering::Relaxed);
+    DPI.store(n.clamp(96, 384), Ordering::Relaxed);
 }
 
 pub fn scaled(base: i32) -> i32 {
@@ -18,7 +18,7 @@ pub fn scaled(base: i32) -> i32 {
 const COMFORT: f64 = 0.7;
 
 fn comfort_dpi(ratio: f64) -> i32 {
-    let factor = ((ratio * COMFORT * 10.0).round() / 10.0).max(1.0).min(4.0);
+    let factor = ((ratio * COMFORT * 10.0).round() / 10.0).clamp(1.0, 4.0);
     (96.0 * factor).round() as i32
 }
 
@@ -40,7 +40,7 @@ pub fn physical_dpi(width: u32, height: u32, width_mm: u32, height_mm: u32) -> O
     let dpi_x = width as f64 * 25.4 / width_mm as f64;
     let dpi_y = height as f64 * 25.4 / height_mm as f64;
     let real = dpi_x.max(dpi_y);
-    if real < 50.0 || real > 400.0 {
+    if !(50.0..=400.0).contains(&real) {
         return None;
     }
     Some(comfort_dpi(real / 96.0))

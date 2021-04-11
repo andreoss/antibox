@@ -1,6 +1,5 @@
 use super::data::{TaskButton, TaskSync};
 use super::TaskPane;
-use crate::compat::ClampExt;
 
 impl TaskPane {
     pub(super) fn button_bg(face: antibox_core::colour::Colour, active: bool) -> u32 {
@@ -53,7 +52,7 @@ impl TaskPane {
         let btn_w = if fill {
             ((pane_w as i32 - gap * (ni - 1)) / ni).max(min_w)
         } else {
-            ((pane_w as i32 - gap.max(0) * (ni - 1)) / ni).clamped(min_w, max_w)
+            ((pane_w as i32 - gap.max(0) * (ni - 1)) / ni).clamp(min_w, max_w)
         };
         let span = btn_w * ni + gap * (ni - 1);
         let leftover = (pane_w as i32 - span).max(0);

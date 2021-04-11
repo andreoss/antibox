@@ -47,7 +47,7 @@ impl Config {
     pub fn set_focus_mode(&mut self, mode: u32) {
         self.focus_mode = mode;
         self.click_to_focus = mode == 1;
-        self.focus_follows_mouse = does_match!(mode, 2 | 4 | 5);
+        self.focus_follows_mouse = matches!(mode, 2 | 4 | 5);
     }
 }
 type AfterEventCallback = Box<dyn FnMut(&BackendEvent) + Send>;
@@ -867,7 +867,7 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
     }
 
     pub fn restore_layout(&mut self) {
-        let snap = std::mem::replace(&mut self.saved_layout, Default::default());
+        let snap = std::mem::take(&mut self.saved_layout);
         for (id, rect) in snap {
             if let Some(fw) = self.frames.get_mut(&id) {
                 fw.set_frame_rect(rect);

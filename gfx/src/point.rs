@@ -36,8 +36,8 @@ impl Dimension {
 
     pub fn as_px(&self) -> (u16, u16) {
         (
-            self.w.max(0).min(std::u16::MAX as i32) as u16,
-            self.h.max(0).min(std::u16::MAX as i32) as u16,
+            self.w.max(0).min(u16::MAX as i32) as u16,
+            self.h.max(0).min(u16::MAX as i32) as u16,
         )
     }
 }

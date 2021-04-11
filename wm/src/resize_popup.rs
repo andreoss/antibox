@@ -1,4 +1,3 @@
-use crate::compat::{ClampExt};
 use crate::manager::WindowManager;
 use crate::wmstate::ResizeEdge;
 use antibox_core::backend::{
@@ -68,8 +67,8 @@ pub fn show<H: DisplayBackend + 'static + ?Sized>(
     let h = th + pad_y() * 2;
     let sw = b.screen_width() as i32;
     let sh = b.screen_height() as i32;
-    let x = (center.x - w / 2).clamped(0, (sw - w).max(0));
-    let y = (center.y - h / 2).clamped(0, (sh - h).max(0));
+    let x = (center.x - w / 2).clamp(0, (sw - w).max(0));
+    let y = (center.y - h / 2).clamp(0, (sh - h).max(0));
 
     if wm.moveresize_popup.is_none() {
         let win = match b.create_window(

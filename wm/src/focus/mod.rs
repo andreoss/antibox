@@ -44,10 +44,7 @@ fn should_focus_on_enter<H: DisplayBackend + 'static + ?Sized>(
 fn should_raise_on_focus<H: DisplayBackend + 'static + ?Sized>(
     wm: &WindowManager<H>,
 ) -> bool {
-    match wm.config.focus_mode {
-        4 | 5 => false,
-        _ => true,
-    }
+    !matches!(wm.config.focus_mode, 4 | 5)
 }
 
 pub fn focus_window<H: DisplayBackend + 'static + ?Sized>(

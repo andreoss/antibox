@@ -1,4 +1,3 @@
-use crate::compat::ClampExt;
 use crate::id::{ClientId, FrameId};
 use crate::manager::WindowManager;
 use crate::placement::{restack_windows, set_transients_minimized};
@@ -277,12 +276,12 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
                 (fw.frame_rect().w, fw.frame_rect().h)
             });
             let frac = if max_rect.w > 0 {
-                ((start.x - max_rect.x) as f32 / max_rect.w as f32).clamped(0.0, 1.0)
+                ((start.x - max_rect.x) as f32 / max_rect.w as f32).clamp(0.0, 1.0)
             } else {
                 0.5
             };
             let title_h = crate::frame::title_bar_height();
-            let off_y = (start.y - max_rect.y).clamped(0, (title_h - 1).max(0));
+            let off_y = (start.y - max_rect.y).clamp(0, (title_h - 1).max(0));
             let nx = (start.x as f32 - frac * new_w as f32) as i32;
             let ny = start.y - off_y;
             apply_frame_rect(
@@ -476,13 +475,13 @@ pub fn constrain_resize(
     let (cw, ch) = h.constrain(r.w - dec_w, r.h - dec_h);
     let nw = cw + dec_w;
     let nh = ch + dec_h;
-    if does_match!(
+    if matches!(
         edge,
         ResizeEdge::Left | ResizeEdge::TopLeft | ResizeEdge::BottomLeft
     ) {
         r.x += r.w - nw;
     }
-    if does_match!(
+    if matches!(
         edge,
         ResizeEdge::Top | ResizeEdge::TopLeft | ResizeEdge::TopRight
     ) {
@@ -507,8 +506,8 @@ fn try_unsnap<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, f
     if moved < antibox_core::scale::scaled(8) {
         return None;
     }
-    let gx = (start.x - init_rect.x).clamped(0, init_rect.w.max(1));
-    let gy = (start.y - init_rect.y).clamped(0, init_rect.h.max(1));
+    let gx = (start.x - init_rect.x).clamp(0, init_rect.w.max(1));
+    let gy = (start.y - init_rect.y).clamp(0, init_rect.h.max(1));
     let new_gx = (gx as i64 * saved.w.max(1) as i64 / init_rect.w.max(1) as i64) as i32;
     let new_gy = gy.min((saved.h - 1).max(0));
     let restored = Rect::new(cur.x - new_gx, cur.y - new_gy, saved.w, saved.h);
@@ -643,16 +642,16 @@ pub(crate) fn apply_frame_rect<H: DisplayBackend + 'static + ?Sized>(
                 &[
                     new_rect.x as u32,
                     new_rect.y as u32,
-                    new_rect.w.clamped(1, std::u16::MAX as i32) as u32,
-                    new_rect.h.clamped(1, std::u16::MAX as i32) as u32,
+                    new_rect.w.clamp(1, u16::MAX as i32) as u32,
+                    new_rect.h.clamp(1, u16::MAX as i32) as u32,
                 ],
             );
             if resized {
                 let cr = fw.client_rect();
                 let cx = (cr.x - new_rect.x).max(0);
                 let cy = (cr.y - new_rect.y).max(0);
-                let iw = cr.w.clamped(1, std::u16::MAX as i32) as u16;
-                let ih = cr.h.clamped(1, std::u16::MAX as i32) as u16;
+                let iw = cr.w.clamp(1, u16::MAX as i32) as u16;
+                let ih = cr.h.clamp(1, u16::MAX as i32) as u16;
                 let _ = fw
                     .client()
                     .xwindow

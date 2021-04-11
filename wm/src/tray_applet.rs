@@ -1,4 +1,3 @@
-use crate::compat::{ClampExt};
 use crate::applet::Applet;
 use crate::tooltip::ToolTip;
 use antibox_core::backend::*;
@@ -248,7 +247,7 @@ impl TrayApplet {
 
     fn icon_size(&self) -> u16 {
         let margin = antibox_ui::metrics::gap() as i16;
-        (self.height as i16 - 2 * margin).clamped(8, 64) as u16
+        (self.height as i16 - 2 * margin).clamp(8, 64) as u16
     }
 
     fn slot(&self) -> u16 {

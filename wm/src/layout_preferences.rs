@@ -1,4 +1,3 @@
-use crate::compat::ClampExt;
 use std::cell::RefCell;
 use antibox_core::sync::atomic::{AtomicI16, AtomicU8, LazyRwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -164,7 +163,7 @@ pub fn minimize_animation() -> bool {
 }
 
 pub fn set_title_height(base: i64) {
-    TITLE_HEIGHT.store(base.clamped(-1, 128) as i16, Ordering::Relaxed);
+    TITLE_HEIGHT.store(base.clamp(-1, 128) as i16, Ordering::Relaxed);
 }
 
 pub fn title_height_override() -> Option<u16> {
@@ -179,7 +178,7 @@ pub fn set_title_layout(left: &str, right: &str, justify: i64) {
     if let Ok(mut g) = TITLE_RIGHT.write() {
         *g = Some(right.to_string());
     }
-    TITLE_JUSTIFY.store(justify.clamped(-1, 100) as i16, Ordering::Relaxed);
+    TITLE_JUSTIFY.store(justify.clamp(-1, 100) as i16, Ordering::Relaxed);
 }
 
 const TASKBAR_ALIGN_THEME: u8 = 255;

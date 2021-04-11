@@ -123,7 +123,7 @@ impl EventLoopTrait for XcbEventLoop {
         }
         let timeout_ms = (timeout.as_secs().saturating_mul(1000)
             + timeout.subsec_millis() as u64)
-            .min(std::i32::MAX as u64) as i32;
+            .min(i32::MAX as u64) as i32;
         let rc = unsafe { libc::poll(pollfds.as_mut_ptr(), pollfds.len() as u64, timeout_ms) };
         if rc < 0 {
             let e = std::io::Error::last_os_error();

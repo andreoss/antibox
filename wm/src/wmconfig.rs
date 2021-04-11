@@ -98,7 +98,7 @@ pub fn workspaces_from(prefs: &Prefs) -> (u32, Vec<String>) {
 
 fn parse_width(value: &str) -> Option<u16> {
     match value.parse::<u16>() {
-        Ok(v) if v >= 8 && v <= 220 => Some(v),
+        Ok(v) if (8..=220).contains(&v) => Some(v),
         _ => None,
     }
 }
@@ -121,9 +121,9 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
         let raw_key = line[..eq].trim();
         let key = raw_key.to_ascii_lowercase();
         let raw = line[eq + 1..].trim();
-        let value = if raw.starts_with('"') {
-            match raw[1..].find('"') {
-                Some(end) => &raw[1..1 + end],
+        let value = if let Some(inner) = raw.strip_prefix('"') {
+            match inner.find('"') {
+                Some(end) => &inner[..end],
                 None => raw.trim_matches('"'),
             }
         } else {
@@ -149,7 +149,7 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
             ("font", "name") => p.font.name = value.to_string(),
             ("workspace", "count") => {
                 if let Ok(v) = value.parse::<u32>() {
-                    if v >= 1 && v <= 32 {
+                    if (1..=32).contains(&v) {
                         p.workspace.count = v;
                     }
                 }

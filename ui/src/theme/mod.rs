@@ -254,10 +254,7 @@ pub fn title_on_bottom() -> bool {
 }
 
 pub fn title_vertical() -> bool {
-    match title_side_name() {
-        "left" | "right" => true,
-        _ => false,
-    }
+    matches!(title_side_name(), "left" | "right")
 }
 
 pub fn title_offset_side() -> bool {
@@ -296,7 +293,7 @@ pub fn title_layout() -> (&'static str, &'static str) {
 }
 
 pub fn sunken_depth() -> u16 {
-    SUNKEN_DEPTH.max(1).min(2)
+    SUNKEN_DEPTH.clamp(1, 2)
 }
 
 pub fn corner_radius_px() -> u16 {

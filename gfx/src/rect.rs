@@ -31,10 +31,10 @@ impl Rect {
 
     pub fn as_px(&self) -> (i16, i16, u16, u16) {
         (
-            self.x.max(std::i16::MIN as i32).min(std::i16::MAX as i32) as i16,
-            self.y.max(std::i16::MIN as i32).min(std::i16::MAX as i32) as i16,
-            self.w.max(0).min(std::u16::MAX as i32) as u16,
-            self.h.max(0).min(std::u16::MAX as i32) as u16,
+            self.x.max(i16::MIN as i32).min(i16::MAX as i32) as i16,
+            self.y.max(i16::MIN as i32).min(i16::MAX as i32) as i16,
+            self.w.max(0).min(u16::MAX as i32) as u16,
+            self.h.max(0).min(u16::MAX as i32) as u16,
         )
     }
 

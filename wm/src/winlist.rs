@@ -1,4 +1,3 @@
-use crate::compat::{ClampExt};
 use crate::manager::WindowManager;
 use antibox_core::backend::*;
 use antibox_core::point::Point;
@@ -33,7 +32,7 @@ enum Row {
 
 impl crate::menu::MenuItem for Row {
     fn is_separator(&self) -> bool {
-        does_match!(self, Row::Header(_))
+        matches!(self, Row::Header(_))
     }
 }
 
@@ -110,7 +109,7 @@ impl WinListMenu {
         (self.total_rows() - self.vis_rows()).max(0)
     }
     fn clamp_offset(&mut self) {
-        self.offset = self.offset.clamped(0, self.max_offset());
+        self.offset = self.offset.clamp(0, self.max_offset());
     }
     fn sb_x(&self) -> i16 {
         self.list_w()
@@ -148,8 +147,8 @@ impl WinListMenu {
         let prefs = crate::wmconfig::Config::load_prefs();
         if prefs.winlist.position == "pointer" {
             if let Ok(p) = conn.query_pointer(conn.root().read_id()) {
-                let x = (p.root_x as i32 - w / 2).clamped(0, (sw - w).max(0));
-                let y = (p.root_y as i32 + scaled(8)).clamped(0, (sh - h).max(0));
+                let x = (p.root_x as i32 - w / 2).clamp(0, (sw - w).max(0));
+                let y = (p.root_y as i32 + scaled(8)).clamp(0, (sh - h).max(0));
                 return (x, y);
             }
         }
@@ -173,7 +172,7 @@ impl WinListMenu {
             .collect();
         entries.sort_by(|a, b| a.workspace.cmp(&b.workspace).then(a.title.cmp(&b.title)));
         let mut rows = Vec::new();
-        let mut cur = std::u32::MAX;
+        let mut cur = u32::MAX;
         for (i, e) in entries.iter().enumerate() {
             if e.workspace != cur {
                 cur = e.workspace;
@@ -194,7 +193,7 @@ impl WinListMenu {
             .and_then(|id| {
                 self.rows
                     .iter()
-                    .position(|r| does_match!(r, Row::Win(i) if self.items[*i].client_id == id))
+                    .position(|r| matches!(r, Row::Win(i) if self.items[*i].client_id == id))
             })
             .or_else(|| self.next_win_row(None, 1));
         self.clamp_offset();
@@ -411,12 +410,12 @@ impl WinListMenu {
         }
 
         if let Some(row) = self.row_at(py) {
-            if does_match!(self.rows.get(row), Some(Row::Win(_))) {
+            if matches!(self.rows.get(row), Some(Row::Win(_))) {
                 self.selected = Some(row);
             }
             self.activate(conn, wm, row);
             self.paint(conn);
-            return does_match!(self.rows.get(row), Some(Row::Win(_)) | Some(Row::Header(_)));
+            return matches!(self.rows.get(row), Some(Row::Win(_)) | Some(Row::Header(_)));
         }
         false
     }
@@ -428,7 +427,7 @@ impl WinListMenu {
         let bwid = sb_w();
         let (_, tht) = self.thumb();
         let span = (self.trough_h() - tht).max(1);
-        let rel = (p.y as i16 - bwid - tht / 2).clamped(0, span);
+        let rel = (p.y as i16 - bwid - tht / 2).clamp(0, span);
         let mo = self.max_offset();
         self.offset = if span > 0 { rel * mo / span } else { 0 };
         self.clamp_offset();

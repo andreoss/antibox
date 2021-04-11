@@ -1,4 +1,3 @@
-use crate::compat::ClampExt;
 pub mod configure;
 pub use self::configure::configure_request;
 
@@ -18,10 +17,10 @@ use antibox_core::rect::Rect;
 
 pub(crate) fn window_type_decorated(wt: crate::client::WindowType) -> bool {
     use crate::client::WindowType;
-    match wt {
-        WindowType::Dock | WindowType::Desktop | WindowType::Splash => false,
-        _ => true,
-    }
+    !matches!(
+        wt,
+        WindowType::Dock | WindowType::Desktop | WindowType::Splash
+    )
 }
 
 pub(crate) fn hide_from_taskbar_on_map(client: &ClientWindow) -> bool {
@@ -403,15 +402,15 @@ pub fn set_window_decorated<H: DisplayBackend + 'static + ?Sized>(
             &[
                 new_frame.x as u32,
                 new_frame.y as u32,
-                new_frame.w.clamped(1, std::u16::MAX as i32) as u32,
-                new_frame.h.clamped(1, std::u16::MAX as i32) as u32,
+                new_frame.w.clamp(1, u16::MAX as i32) as u32,
+                new_frame.h.clamp(1, u16::MAX as i32) as u32,
             ],
         );
         let _ = fw.client().xwindow.configure(
             Some(new_bw),
             Some(new_th + new_bw),
-            Some(cw.clamped(1, std::u16::MAX as i32) as u16),
-            Some(ch.clamped(1, std::u16::MAX as i32) as u16),
+            Some(cw.clamp(1, u16::MAX as i32) as u16),
+            Some(ch.clamp(1, u16::MAX as i32) as u16),
         );
         fw.layout_shape();
         fw.layout_pointer_windows(b);
@@ -468,15 +467,15 @@ pub(crate) fn apply_csd_extents<H: DisplayBackend + 'static + ?Sized>(
         &[
             new_frame.x as u32,
             new_frame.y as u32,
-            new_frame.w.clamped(1, std::u16::MAX as i32) as u32,
-            new_frame.h.clamped(1, std::u16::MAX as i32) as u32,
+            new_frame.w.clamp(1, u16::MAX as i32) as u32,
+            new_frame.h.clamp(1, u16::MAX as i32) as u32,
         ],
     );
     let _ = fw.client().xwindow.configure(
         Some(bw - il),
         Some(crate::frame::top_for(bw, th) - it),
-        Some(cr.w.clamped(1, std::u16::MAX as i32) as u16),
-        Some(cr.h.clamped(1, std::u16::MAX as i32) as u16),
+        Some(cr.w.clamp(1, u16::MAX as i32) as u16),
+        Some(cr.h.clamp(1, u16::MAX as i32) as u16),
     );
     fw.layout_pointer_windows(b);
     let _ = b.clear_area(true, frame_id, Rect::ZERO);
@@ -764,7 +763,7 @@ fn wm_state_value<H: DisplayBackend + 'static + ?Sized>(
     let b = wm.backend()?;
     if let Ok(Some(d)) = b.get_property(window, atom, 0, 0, 2) {
         if d.len() >= 4 {
-            return Some(crate::compat::u32_ne([d[0], d[1], d[2], d[3]]));
+            return Some(u32::from_ne_bytes([d[0], d[1], d[2], d[3]]));
         }
     }
     None
@@ -784,7 +783,7 @@ pub(crate) fn saved_stacking_order<H: DisplayBackend + 'static + ?Sized>(
     match b.get_property(b.root().read_id(), atom, 0, 0, 4096) {
         Ok(Some(data)) => data
             .chunks_exact(4)
-            .map(|c| crate::compat::u32_ne([c[0], c[1], c[2], c[3]]))
+            .map(|c| u32::from_ne_bytes([c[0], c[1], c[2], c[3]]))
             .collect(),
         _ => Vec::new(),
     }

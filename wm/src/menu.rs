@@ -622,7 +622,7 @@ impl<T: Clone> MenuView<T> {
                     MenuNav::Close
                 }
             }
-            _ if crate::compat::in_range(ks, 0x21, 0x7e) => {
+            _ if (0x21..=0x7e).contains(&ks) => {
                 let key = ks as u8 as char;
                 let (matched, count, is_sub, payload) = {
                     let d = self.deepest();

@@ -1,4 +1,3 @@
-use crate::compat::{ClampExt};
 use crate::frame::{border_width, bottom_border_width, title_bar_height};
 use crate::frame_store::FrameStore;
 use crate::id::ClientId;
@@ -221,8 +220,8 @@ pub fn cascade_layout(sizes: &[(i32, i32)], area: Rect, step: i32) -> Vec<Rect> 
     let mut out = Vec::with_capacity(sizes.len());
     let (mut cx, mut cy) = (area.x, area.y);
     for &(w, h) in sizes {
-        let w = w.clamped(1, area.w.max(1));
-        let h = h.clamped(1, area.h.max(1));
+        let w = w.clamp(1, area.w.max(1));
+        let h = h.clamp(1, area.h.max(1));
         if cx + w > area.x + area.w || cy + h > area.y + area.h {
             cx = area.x;
             cy = area.y;
@@ -277,9 +276,9 @@ pub fn smart_placement(
 
     let (cx0, cy0) = (mx + (mx2 - mx) / 2, my + (my2 - my) / 2);
     let mut best = Point::new(mx, my);
-    let mut best_cover = std::i64::MAX;
-    let mut best_clear = std::i64::MIN;
-    let mut best_cdist = std::i64::MAX;
+    let mut best_cover = i64::MAX;
+    let mut best_clear = i64::MIN;
+    let mut best_cdist = i64::MAX;
     for &ty in &ys {
         for &tx in &xs {
             let cover = coverage(tx, ty, fw, fh, &others);
@@ -332,7 +331,7 @@ fn axis_candidates(lo: i32, hi: i32, extra: impl Iterator<Item = i32>) -> Vec<i3
         .collect();
     v.push(hi);
     v.push(lo + (hi - lo) / 2);
-    v.extend(extra.map(|e| e.clamped(lo, hi)));
+    v.extend(extra.map(|e| e.clamp(lo, hi)));
     v.sort_unstable();
     v.dedup();
     v
@@ -370,7 +369,7 @@ fn clamp_window_y(pos_y: i32, client_h: i32, wa: Rect) -> i32 {
     let bw = border_width();
     let min_y = wa.y + title_bar_height() + bw;
     let max_y = (wa.y + wa.h - client_h - bottom_border_width()).max(min_y);
-    pos_y.clamped(min_y, max_y)
+    pos_y.clamp(min_y, max_y)
 }
 
 pub(crate) fn monitors_for_screen(mons: &[MonitorInfo], sw: i32, sh: i32) -> Vec<MonitorInfo> {
@@ -386,8 +385,8 @@ pub(crate) fn monitors_for_screen(mons: &[MonitorInfo], sw: i32, sh: i32) -> Vec
     let out: Vec<MonitorInfo> = mons
         .iter()
         .filter_map(|m| {
-            let mx = (m.x as i32).clamped(0, sw);
-            let my = (m.y as i32).clamped(0, sh);
+            let mx = (m.x as i32).clamp(0, sw);
+            let my = (m.y as i32).clamp(0, sh);
             let mw = (m.x as i32 + m.width as i32).min(sw) - mx;
             let mh = (m.y as i32 + m.height as i32).min(sh) - my;
             if mw > 0 && mh > 0 {

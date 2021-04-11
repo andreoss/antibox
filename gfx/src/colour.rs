@@ -110,8 +110,7 @@ impl FromStr for RgbColour {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s.trim();
-        if s.starts_with('#') {
-            let hex = &s[1..];
+        if let Some(hex) = s.strip_prefix('#') {
             if hex.len() == 6 {
                 let r =
                     u8::from_str_radix(&hex[0..2], 16).map_err(|e| format!("Invalid hex: {}", e))?;
@@ -122,8 +121,7 @@ impl FromStr for RgbColour {
                 return Ok(RgbColour { r, g, b });
             }
         }
-        if s.starts_with("rgb:") {
-            let rest = &s[4..];
+        if let Some(rest) = s.strip_prefix("rgb:") {
             let parts: Vec<&str> = rest.split('/').collect();
             if parts.len() == 3 {
                 let parse_hex = |s: &str| {

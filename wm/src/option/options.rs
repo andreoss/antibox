@@ -46,7 +46,7 @@ impl WindowOptions {
             }
             "opacity" => {
                 if let Ok(v) = arg.parse::<i32>() {
-                    if crate::compat::in_range(v, 0, 100) {
+                    if (0..=100).contains(&v) {
                         op.opacity = v;
                     }
                 }

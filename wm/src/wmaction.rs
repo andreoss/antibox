@@ -994,7 +994,7 @@ pub(crate) fn set_showing_desktop<H: DisplayBackend + 'static + ?Sized>(
         wm.desktop_hidden = hidden;
         wm.showing_desktop = true;
     } else {
-        for id in std::mem::replace(&mut wm.desktop_hidden, Vec::new()) {
+        for id in std::mem::take(&mut wm.desktop_hidden) {
             if let Some(fw) = wm.frame_mut(id) {
                 fw.state_mut().minimized = false;
             }

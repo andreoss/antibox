@@ -75,7 +75,7 @@ impl App {
                 self.winlist.on_destroyed(*window);
             }
             if self.winlist.visible
-                && does_match!(
+                && matches!(
                     event,
                     BackendEvent::DestroyNotify { .. }
                         | BackendEvent::MapNotify { .. }
@@ -430,7 +430,7 @@ impl App {
                 }
                 return;
             }
-            if does_match!(event, BackendEvent::ButtonPress { .. }) {
+            if matches!(event, BackendEvent::ButtonPress { .. }) {
                 if let Some(ref mut tb) = self.taskbar {
                     if let Some(ref mut m) = tb.menu {
                         m.hide();
@@ -739,8 +739,8 @@ impl App {
                     return None;
                 }
                 let r = fw.frame_rect();
-                let nx = r.x.clamped((MARGIN - r.w).min(0), (sw - MARGIN).max(0));
-                let ny = r.y.clamped(0, (sh - MARGIN).max(0));
+                let nx = r.x.clamp((MARGIN - r.w).min(0), (sw - MARGIN).max(0));
+                let ny = r.y.clamp(0, (sh - MARGIN).max(0));
                 if nx != r.x || ny != r.y { Some((id, nx, ny)) } else { None }
             })
             .collect();
