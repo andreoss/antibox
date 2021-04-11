@@ -1,4 +1,3 @@
-use crate::compat::{ClampExt};
 use super::TaskPane;
 
 impl TaskPane {
@@ -30,6 +29,6 @@ impl TaskPane {
 
     pub(super) fn float_x(&self, d: &super::data::Drag) -> i16 {
         let w = self.buttons[d.index].rect.2;
-        (d.cur_x - d.grab_dx).clamped(0, (self.pane_w.saturating_sub(w)) as i32) as i16
+        (d.cur_x - d.grab_dx).clamp(0, (self.pane_w.saturating_sub(w)) as i32) as i16
     }
 }

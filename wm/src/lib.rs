@@ -1,14 +1,9 @@
-#![allow(clippy::incompatible_msrv)]
-#[macro_use]
-extern crate antibox_core;
-
 #[macro_use]
 pub mod tooltip;
 
 pub mod action;
 pub mod applet;
 pub mod bindings;
-pub mod compat;
 pub mod config_watch;
 pub mod client;
 pub mod clientmsg;

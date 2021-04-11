@@ -2,7 +2,7 @@ fn read_gtk_extents(wh: &dyn WindowHandle, atom: u32) -> (bool, [i32; 4]) {
     if let Ok(Some(d)) = wh.get_property(atom, 0, 4) {
         if d.len() >= 16 {
             let e = |i: usize| {
-                crate::compat::i32_ne([d[i * 4], d[i * 4 + 1], d[i * 4 + 2], d[i * 4 + 3]])
+                i32::from_ne_bytes([d[i * 4], d[i * 4 + 1], d[i * 4 + 2], d[i * 4 + 3]])
             };
             return (true, [e(0), e(1), e(2), e(3)]);
         }
@@ -13,7 +13,7 @@ fn read_gtk_extents(wh: &dyn WindowHandle, atom: u32) -> (bool, [i32; 4]) {
 fn read_atom_list(wh: &dyn WindowHandle, atom: u32) -> Vec<u32> {
     if let Ok(Some(data)) = wh.get_property(atom, 0, 1024) {
         data.chunks_exact(4)
-            .map(|c| crate::compat::u32_ne([c[0], c[1], c[2], c[3]]))
+            .map(|c| u32::from_ne_bytes([c[0], c[1], c[2], c[3]]))
             .collect()
     } else {
         Vec::new()
@@ -37,7 +37,7 @@ impl ClientWindow {
     fn read_u32_prop(&self, atom: u32) -> Option<u32> {
         self.xwindow.get_property(atom, 0, 1).ok().and_then(|data| {
             data.filter(|d| d.len() >= 4)
-                .map(|d| crate::compat::u32_ne([d[0], d[1], d[2], d[3]]))
+                .map(|d| u32::from_ne_bytes([d[0], d[1], d[2], d[3]]))
         })
     }
 
@@ -79,7 +79,7 @@ impl ClientWindow {
         if let Some(atom) = atoms.get("_NET_WM_WINDOW_TYPE") {
             if let Ok(Some(data)) = self.xwindow.get_property(atom, 0, 1) {
                 if data.len() >= 4 {
-                    let type_atom = crate::compat::u32_ne([data[0], data[1], data[2], data[3]]);
+                    let type_atom = u32::from_ne_bytes([data[0], data[1], data[2], data[3]]);
                     let is_type = |name: &str| -> bool { atoms.get(name) == Some(type_atom) };
                     self.window_type = if is_type("_NET_WM_WINDOW_TYPE_DESKTOP") {
                         WindowType::Desktop
@@ -170,7 +170,7 @@ impl ClientWindow {
         if let Some(atom) = atoms.get("WM_CLIENT_LEADER") {
             if let Ok(Some(data)) = self.xwindow.get_property(atom, 0, 1) {
                 if data.len() >= 4 {
-                    self.leader_window = crate::compat::u32_ne([data[0], data[1], data[2], data[3]]);
+                    self.leader_window = u32::from_ne_bytes([data[0], data[1], data[2], data[3]]);
                 }
             }
         }
@@ -221,7 +221,7 @@ impl ClientWindow {
                 .ok()
                 .and_then(|v| v)
                 .filter(|d| d.len() >= 4)
-                .map(|d| crate::compat::u32_ne([d[0], d[1], d[2], d[3]])),
+                .map(|d| u32::from_ne_bytes([d[0], d[1], d[2], d[3]])),
             None => self.read_u32_prop(ut),
         };
         if let Some(v) = value {

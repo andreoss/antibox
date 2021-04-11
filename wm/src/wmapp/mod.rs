@@ -1,4 +1,3 @@
-use crate::compat::ClampExt;
 use crate::applet::Applet;
 use crate::applet::AppletContainer;
 use crate::clock_applet::ClockApplet;
@@ -109,10 +108,7 @@ impl AppletTickers {
         let now = Instant::now();
         let mut changed = Vec::new();
         for (i, kind) in AppletTick::ALL.iter().enumerate() {
-            let due = if match kind {
-                AppletTick::Clock => true,
-                _ => false,
-            } {
+            let due = if matches!(kind, AppletTick::Clock) {
                 let sec = Self::wall_secs();
                 if sec == self.last_clock_sec {
                     false
@@ -139,13 +135,11 @@ impl AppletTickers {
         let interval_min = AppletTick::ALL
             .iter()
             .enumerate()
-            .filter(|(_, kind)| match kind {
-                AppletTick::Clock => false,
-                _ => true,
-            })
+            .filter(|(_, kind)| !matches!(kind, AppletTick::Clock))
             .map(|(i, kind)| {
                 kind.interval()
-                    .saturating_sub(now.duration_since(self.last[i]))
+                    .checked_sub(now.duration_since(self.last[i]))
+                    .unwrap_or_default()
             })
             .min()
             .unwrap_or(Duration::from_secs(1));
@@ -259,7 +253,7 @@ fn incumbent_wm_name(b: &dyn DisplayBackend) -> Option<String> {
     if data.len() < 4 {
         return None;
     }
-    let check = crate::compat::u32_ne([data[0], data[1], data[2], data[3]]);
+    let check = u32::from_ne_bytes([data[0], data[1], data[2], data[3]]);
     if check == 0 {
         return None;
     }
@@ -323,7 +317,7 @@ pub(crate) fn apply_xft_dpi(b: &dyn DisplayBackend, dpi: i32) {
     };
     let root = b.root();
     let existing = b
-        .get_property(root.read_id(), rm_atom, str_atom, 0, std::u32::MAX / 4)
+        .get_property(root.read_id(), rm_atom, str_atom, 0, u32::MAX / 4)
         .ok()
         .and_then(|v| v)
         .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())

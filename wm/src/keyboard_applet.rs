@@ -61,8 +61,8 @@ fn detect_layout_info() -> (String, String) {
     let mut tooltip = String::new();
     if let Some(s) = capture_output("setxkbmap", &["-query"]) {
         for line in s.lines() {
-            if line.starts_with("layout:") {
-                layout = line["layout:".len()..].trim().to_uppercase();
+            if let Some(rest) = line.strip_prefix("layout:") {
+                layout = rest.trim().to_uppercase();
             }
             let trimmed = line.trim();
             if !trimmed.is_empty() {

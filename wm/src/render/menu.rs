@@ -1,4 +1,3 @@
-use crate::compat::ClampExt;
 use antibox_core::backend::FontSpec;
 use antibox_core::backend::GraphicsContext;
 use antibox_core::backend::WindowHandle;
@@ -38,7 +37,7 @@ pub fn menu_content_width<'a>(labels: impl Iterator<Item = &'a str>) -> u16 {
             w = w.max(tw as i32 + arrow_col);
         }
     }
-    w.clamped(
+    w.clamp(
         antibox_core::scale::scaled(96),
         antibox_core::scale::scaled(420),
     ) as u16
@@ -152,7 +151,7 @@ pub fn menu_hot_match(
 }
 
 pub fn menu_clamp_pos(pos: Point, w: i32, h: i32, sw: i32, sh: i32, flip_up: bool) -> Point {
-    let x = pos.x.clamped(0, (sw - w).max(0));
+    let x = pos.x.clamp(0, (sw - w).max(0));
     let y = if flip_up {
         if pos.y + h > sh {
             (pos.y - h).max(0)

@@ -203,20 +203,19 @@ pub fn parse_action(name: &str) -> Option<Action> {
     if let Some((_, action)) = table.iter().find(|(k, _)| *k == name) {
         return Some(action.clone());
     }
-    if name.starts_with("Exec ") { let cmd = name[5..].trim();
+    if let Some(rest) = name.strip_prefix("Exec ") {
+        let cmd = rest.trim();
         if !cmd.is_empty() {
             return Some(Action::Misc(MiscOp::Command(cmd.to_string())));
         }
     }
-    if name.starts_with("Workspace") { let n = &name[9..];
-        if let Ok(num) = n.trim().parse::<u32>() {
+    if let Some(n) = name.strip_prefix("Workspace") { if let Ok(num) = n.trim().parse::<u32>() {
             return Some(Action::Workspace(WorkspaceOp::Workspace(
                 num.wrapping_sub(1),
             )));
         }
     }
-    if name.starts_with("Layer") { let n = &name[5..];
-        if let Ok(num) = n.parse::<i32>() {
+    if let Some(n) = name.strip_prefix("Layer") { if let Ok(num) = n.parse::<i32>() {
             return Some(Action::Layer(LayerOp::Layer(num)));
         }
     }

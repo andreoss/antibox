@@ -19,10 +19,10 @@ pub fn mouse_button_from_keysym(keysym: u32) -> Option<u32> {
 }
 
 pub fn mouse_button_from_state(button: u8, keysym: u32) -> bool {
-    match (button, keysym) {
-        (1, 0x010014) | (2, 0x010015) | (3, 0x010016) | (4, 0x010017) | (5, 0x010018) => true,
-        _ => false,
-    }
+    matches!(
+        (button, keysym),
+        (1, 0x010014) | (2, 0x010015) | (3, 0x010016) | (4, 0x010017) | (5, 0x010018)
+    )
 }
 
 pub const fn match_mouse_modifiers(state: u16, mods: u16) -> bool {

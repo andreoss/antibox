@@ -93,7 +93,7 @@ impl MemStatusApplet {
             v[MEM_USER] + v[MEM_BUFFERS] + v[MEM_CACHED]
         };
 
-        let (mut umin, mut umax) = (std::u64::MAX, 0u64);
+        let (mut umin, mut umax) = (u64::MAX, 0u64);
         for col in 0..n {
             let u = used(col);
             umin = umin.min(u);
@@ -184,8 +184,7 @@ fn read_mem_sample() -> Option<MemSample> {
 }
 
 fn parse_meminfo_line(line: &str, needle: &str) -> Option<u64> {
-    if line.starts_with(needle) {
-        let rest = &line[needle.len()..];
+    if let Some(rest) = line.strip_prefix(needle) {
         let val: u64 = rest.split_whitespace().next()?.parse().ok()?;
         Some(val * 1024)
     } else {

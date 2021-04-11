@@ -1,6 +1,5 @@
 use crate::action::WorkspaceOp;
 use crate::applet::Applet;
-use crate::compat::ClampExt;
 use crate::render::ThemeColors;
 use antibox_core::backend::*;
 use antibox_core::rect::Rect;
@@ -28,8 +27,8 @@ pub(crate) fn mini_rect(
     let ih = bh.saturating_sub(2) as f32;
     let mx = bx + 1 + (fr.x.max(0) as f32 / sw * iw) as i16;
     let my = by + 1 + (fr.y.max(0) as f32 / sh * ih) as i16;
-    let mw = ((fr.w as f32 / sw * iw) as u16).clamped(2, bw.saturating_sub(2).max(2));
-    let mh = ((fr.h as f32 / sh * ih) as u16).clamped(2, bh.saturating_sub(2).max(2));
+    let mw = ((fr.w as f32 / sw * iw) as u16).clamp(2, bw.saturating_sub(2).max(2));
+    let mh = ((fr.h as f32 / sh * ih) as u16).clamp(2, bh.saturating_sub(2).max(2));
     (mx, my, mw, mh)
 }
 
@@ -98,7 +97,7 @@ impl WorkspacesPane {
         let cell_h = antibox_ui::metrics::button_height() as i16;
         let cw_min = antibox_ui::metrics::panel_height() * 2 / 3;
         let cw_max = antibox_ui::metrics::panel_height() * 5 / 2;
-        let cell_w = (cell_h as i32 * sw / sh).clamped(cw_min, cw_max) as u16;
+        let cell_w = (cell_h as i32 * sw / sh).clamp(cw_min, cw_max) as u16;
         let gap = antibox_ui::metrics::gap() as i16;
         let mut x = 0i16;
         let mut buttons = Vec::new();
@@ -145,7 +144,7 @@ impl WorkspacesPane {
                     stack
                         .iter()
                         .position(|&x| x == **id)
-                        .unwrap_or(std::usize::MAX),
+                        .unwrap_or(usize::MAX),
                 )
             });
             let mut minis = Vec::new();

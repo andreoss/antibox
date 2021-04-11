@@ -172,7 +172,7 @@ fn open_font(conn: *mut xcb_connection_t, id: u32, name: &str) -> bool {
         Ok(c) => c,
         Err(_) => return false,
     };
-    let len = (name.len()).min(std::u16::MAX as usize) as u16;
+    let len = (name.len()).min(u16::MAX as usize) as u16;
     unsafe { xcb_open_font(conn, id, len, cname.as_ptr()) };
     true
 }

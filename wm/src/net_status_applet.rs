@@ -22,8 +22,8 @@ fn device_selected(filter: &str, name: &str) -> bool {
         .split(|c| c == ' ' || c == ',' || c == '\t')
         .filter(|t| !t.is_empty())
         .any(|t| {
-            if t.ends_with('*') {
-                name.starts_with(&t[..t.len() - 1])
+            if let Some(prefix) = t.strip_suffix('*') {
+                name.starts_with(prefix)
             } else {
                 name == t
             }

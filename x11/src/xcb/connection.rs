@@ -672,11 +672,11 @@ impl DisplayBackend for XcbConnection {
             event: window,
             window,
             above_sibling: 0,
-            x: x.max(std::i16::MIN as i32).min(std::i16::MAX as i32) as i16,
-            y: y.max(std::i16::MIN as i32).min(std::i16::MAX as i32) as i16,
-            width: width.min(std::u16::MAX as u32) as u16,
-            height: height.min(std::u16::MAX as u32) as u16,
-            border_width: border.min(std::u16::MAX as u32) as u16,
+            x: x.max(i16::MIN as i32).min(i16::MAX as i32) as i16,
+            y: y.max(i16::MIN as i32).min(i16::MAX as i32) as i16,
+            width: width.min(u16::MAX as u32) as u16,
+            height: height.min(u16::MAX as u32) as u16,
+            border_width: border.min(u16::MAX as u32) as u16,
             override_redirect: 0,
             pad1: 0,
         };
@@ -865,7 +865,7 @@ impl DisplayBackend for XcbConnection {
         None
     }
     fn set_window_opacity(&self, window: u32, opacity: f32, opacity_atom: u32) -> Result<(), Box<dyn std::error::Error>> {
-        let a = (opacity.max(0.0).min(1.0) * std::u32::MAX as f32) as u32;
+        let a = (opacity.clamp(0.0, 1.0) * u32::MAX as f32) as u32;
         self.change_property32(PropMode::Replace, window, opacity_atom, self.intern_atom("CARDINAL")?, &[a])
     }
     fn grab_root_window(&self) -> Result<(u16, u16, Vec<u8>), Box<dyn std::error::Error>> {

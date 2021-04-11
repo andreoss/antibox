@@ -13,18 +13,3 @@ pub mod time;
 
 pub use self::backend::*;
 
-#[macro_export]
-macro_rules! does_match {
-    ($expression:expr, $($pattern:pat)|+ if $guard:expr) => {
-        match $expression {
-            $($pattern)|+ if $guard => true,
-            _ => false,
-        }
-    };
-    ($expression:expr, $($pattern:pat)|+) => {
-        match $expression {
-            $($pattern)|+ => true,
-            _ => false,
-        }
-    };
-}

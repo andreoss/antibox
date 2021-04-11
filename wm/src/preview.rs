@@ -1,4 +1,3 @@
-use crate::compat::{ClampExt};
 use crate::manager::WindowManager;
 use antibox_core::backend::*;
 use antibox_core::point::Point;
@@ -87,10 +86,10 @@ impl PreviewWindow {
                 .filter(|f| f.workspace() == wi && !f.state().minimized)
             {
                 let fr = fw.frame_rect();
-                let sx = cx + 4 + (fr.x as i16 / 8).clamped(0, WS_W as i16 - 20);
-                let sy = cy + 4 + (fr.y as i16 / 8).clamped(0, WS_H as i16 - 14);
-                let sw = (fr.w as u16 / 8).clamped(8, WS_W - sx as u16 + cx as u16 - 8);
-                let sh = (fr.h as u16 / 8).clamped(8, WS_H - sy as u16 + cy as u16 - 8);
+                let sx = cx + 4 + (fr.x as i16 / 8).clamp(0, WS_W as i16 - 20);
+                let sy = cy + 4 + (fr.y as i16 / 8).clamp(0, WS_H as i16 - 14);
+                let sw = (fr.w as u16 / 8).clamp(8, WS_W - sx as u16 + cx as u16 - 8);
+                let sh = (fr.h as u16 / 8).clamp(8, WS_H - sy as u16 + cy as u16 - 8);
                 let sw = sw.min(WS_W - 8);
                 let sh = sh.min(WS_H - 8);
                 let focused = wm.focused_window == Some(fw.client_id());

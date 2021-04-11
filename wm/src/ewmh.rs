@@ -368,7 +368,7 @@ pub fn set_wm_desktop<H: DisplayBackend + 'static + ?Sized>(
 }
 
 pub fn opacity_percent_to_card32(percent: i32) -> Option<u32> {
-    if !crate::compat::in_range(percent, 1, 100) {
+    if !(1..=100).contains(&percent) {
         return None;
     }
     let pct = percent as u32;
@@ -394,7 +394,7 @@ pub fn update_window_opacity<H: DisplayBackend + 'static + ?Sized>(
         .ok()
         .and_then(|v| v)
         .filter(|d| d.len() >= 4)
-        .map(|d| crate::compat::u32_ne([d[0], d[1], d[2], d[3]]))
+        .map(|d| u32::from_ne_bytes([d[0], d[1], d[2], d[3]]))
         .or(fallback);
     match opacity {
         Some(v) => {
@@ -414,7 +414,7 @@ pub fn get_wm_desktop<H: DisplayBackend + 'static + ?Sized>(
     let atom = atoms.get("_NET_WM_DESKTOP")?;
     let bytes = backend.get_property(window, atom, 0, 0, 1).ok()??;
     if bytes.len() >= 4 {
-        Some(crate::compat::u32_ne([bytes[0], bytes[1], bytes[2], bytes[3]]))
+        Some(u32::from_ne_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
     } else {
         None
     }

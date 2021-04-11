@@ -55,7 +55,7 @@ fn push_word(
         return;
     }
     if !cur.is_empty() {
-        out.push(std::mem::replace(cur, String::new()));
+        out.push(std::mem::take(cur));
     }
     if text_w(g, word) <= maxw {
         *cur = word.to_string();
