@@ -240,23 +240,34 @@ impl GraphicsContext for XcbGraphics {
     }
 
     fn draw_pixmap(&self, x: i16, y: i16, data: &PixmapData) -> Result<(), Box<dyn std::error::Error>> {
-        let w = data.width;
-        let h = data.height;
-        let depth = if data.data.len() >= w as usize * h as usize * 4 { 32 } else { self.depth };
+        let w = data.width as usize;
+        let h = data.height as usize;
+        if w == 0 || h == 0 || data.data.len() < w * h * 4 {
+            return Ok(());
+        }
+        let mut buf = vec![0u8; w * h * 4];
+        for px in 0..w * h {
+            let s = px * 4;
+            let d = px * 4;
+            buf[d] = data.data[s + 2];
+            buf[d + 1] = data.data[s + 1];
+            buf[d + 2] = data.data[s];
+            buf[d + 3] = 0;
+        }
         unsafe {
             xcb_put_image(
                 self.conn.raw(),
                 XCB_IMAGE_FORMAT_Z_PIXMAP,
                 self.drawable,
                 self.gc,
-                w,
-                h,
+                data.width,
+                data.height,
                 x,
                 y,
                 0,
-                depth,
-                data.data.len() as u32,
-                data.data.as_ptr(),
+                self.depth,
+                buf.len() as u32,
+                buf.as_ptr(),
             )
         };
         self.conn.flush()

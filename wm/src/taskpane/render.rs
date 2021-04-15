@@ -65,6 +65,7 @@ impl TaskPane {
             label,
         );
         b.sunken = sunken;
+        b.icon = btn.icon.as_ref();
         b.progress = progress;
         b.align = crate::layout_preferences::taskbar_align();
         b.on_bar = true;

@@ -11,6 +11,12 @@ use antibox_ui::theme;
 fn row_h() -> i16 {
     antibox_ui::metrics::menu_item_height() as i16
 }
+
+fn row_icon_px() -> u16 {
+    antibox_ui::metrics::icon()
+        .min(row_h() as i32 - 2)
+        .max(8) as u16
+}
 const TOP_PAD: i16 = 3;
 
 fn bar_h() -> i16 {
@@ -57,6 +63,7 @@ pub struct WinListItem {
     pub title: String,
     pub client_id: u32,
     pub workspace: u32,
+    pub icon: Option<PixmapData>,
 }
 
 impl Default for WinListMenu {
@@ -167,6 +174,11 @@ impl WinListMenu {
                 title: fw.client().title().to_string(),
                 client_id: wm.xid_index.xid_of(*id),
                 workspace: fw.workspace(),
+                icon: Some(crate::icon_render::resolve_client_icon(
+                    fw.client().icons(),
+                    row_icon_px(),
+                    theme::field(),
+                )),
             })
             .filter(|e| needle.is_empty() || e.title.to_lowercase().contains(&needle))
             .collect();
@@ -616,10 +628,16 @@ impl WinListMenu {
                                 c.sel_bg,
                             );
                         }
+                        let mut tx = 20;
+                        if let Some(ref icon) = item.icon {
+                            let iy = y + (row_h() - icon.height as i16) / 2;
+                            let _ = g.draw_pixmap(4, iy, icon);
+                            tx = 4 + icon.width as i16 + antibox_ui::metrics::gap() as i16;
+                        }
                         let _ = g.set_foreground(if sel { c.sel_fg } else { theme::text() });
                         let _ = g.set_background(if sel { c.sel_bg } else { field });
                         let _ = g.draw_text(
-                            20,
+                            tx,
                             antibox_ui::metrics::baseline(y as i32, row_h() as i32) as i16,
                             &item.title,
                         );

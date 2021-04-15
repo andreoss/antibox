@@ -1,6 +1,6 @@
 use crate::metrics;
 use crate::theme;
-use antibox_gfx::backend::{FontSpec, GraphicsContext};
+use antibox_gfx::backend::{FontSpec, GraphicsContext, PixmapData};
 use antibox_gfx::rect::Rect;
 use std::borrow::Cow;
 
@@ -90,6 +90,7 @@ pub struct PanelButton<'a> {
     pub fg: antibox_gfx::colour::Colour,
     pub sunken: bool,
     pub font: &'a FontSpec,
+    pub icon: Option<&'a PixmapData>,
     pub label: &'a str,
     pub progress: Option<(u8, u32)>,
     pub align: LabelAlign,
@@ -110,6 +111,7 @@ impl<'a> PanelButton<'a> {
             fg,
             sunken: false,
             font,
+            icon: None,
             label,
             progress: None,
             align: LabelAlign::Center,
@@ -125,6 +127,7 @@ pub fn panel_button(g: &dyn GraphicsContext, b: &PanelButton<'_>) {
         fg,
         sunken,
         font,
+        icon,
         label,
         progress,
         align,
@@ -149,7 +152,12 @@ pub fn panel_button(g: &dyn GraphicsContext, b: &PanelButton<'_>) {
     let off = i16::from(sunken && fill == face);
 
     let inset = metrics::pad() as i16 + 2;
-    let tx = x + inset + off;
+    let mut tx = x + inset + off;
+    if let Some(ic) = icon {
+        let iy = (y + (h as i16 - ic.height as i16) / 2).max(y);
+        let _ = g.draw_pixmap(x + inset + off, iy, ic);
+        tx = x + inset + ic.width as i16 + metrics::gap() as i16 + off;
+    }
     let _ = g.set_font(font);
     let _ = g.set_foreground(label_fg);
     let _ = g.set_background(fill);
