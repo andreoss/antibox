@@ -24,6 +24,10 @@ pub fn gap() -> i32 {
     scaled(crate::theme::gap_base() as i32)
 }
 
+pub fn icon() -> i32 {
+    scaled(16)
+}
+
 pub fn item_gap() -> i32 {
     scaled(crate::theme::item_gap_base() as i32)
 }

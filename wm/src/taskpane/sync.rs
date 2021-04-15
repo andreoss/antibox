@@ -21,6 +21,8 @@ impl TaskPane {
             urgent: false,
             rect: (n * 120 + 2, 2, 116, 24),
             progress: None,
+            icon: None,
+            icon_bg: u32::MAX,
         });
     }
 
@@ -191,6 +193,29 @@ impl TaskPane {
             if btn.minimized != want_minimized {
                 btn.minimized = want_minimized;
                 active_changed = true;
+            }
+            let want_bg = Self::button_bg(self.colours.task_bar_colour, btn.active);
+            let btn_h = self.pane_h as i32 - 2 * antibox_ui::metrics::button_inset();
+            let px = (btn_h - 2 * antibox_ui::metrics::gap())
+                .min(antibox_ui::metrics::icon())
+                .max(8) as u16;
+            let want_new = match btn.icon {
+                Some(ref ic) => ic.width != px || btn.icon_bg != want_bg,
+                None => true,
+            };
+            if want_new {
+                if let Some(fw) = xid_index
+                    .client_id_for(shown)
+                    .and_then(|cid| frames.get(&cid))
+                {
+                    btn.icon = Some(crate::icon_render::resolve_client_icon(
+                        fw.client().icons(),
+                        px,
+                        want_bg,
+                    ));
+                    btn.icon_bg = want_bg;
+                    title_changed = true;
+                }
             }
         }
 

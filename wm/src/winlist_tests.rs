@@ -9,6 +9,7 @@
                 title: format!("win{}", i),
                 client_id: i as u32 + 1,
                 workspace: 0,
+                icon: None,
             })
             .collect();
         m.rows = std::iter::once(Row::Header(0))

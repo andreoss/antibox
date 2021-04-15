@@ -314,19 +314,31 @@ fn draw_title_text(
         (colours.inactive_title_top, colours.inactive_title_bottom)
     };
     g.set_foreground(colour)?;
-    let _ = g.set_background(antibox_core::backend::blend_colour(top, bottom, 0.5));
+    let bar_bg = antibox_core::backend::blend_colour(top, bottom, 0.5);
+    let _ = g.set_background(bar_bg);
     let _ = g.set_font(&FontSpec::role_styled(
         antibox_core::backend::FontRole::Title,
         antibox_ui::metrics::font_pt(),
         true,
         false,
     ));
-    let avail = (text_right - text_x - 4).max(0) as u16;
     let bar_top = if fw.effective_border() > 0 {
         crate::frame::title_side_inset()
     } else {
         0
     };
+    let mut text_x = text_x;
+    let icon_px = antibox_ui::metrics::icon()
+        .min(title_bar_height() - 2)
+        .max(8) as u16;
+    if text_right - text_x > icon_px as i16 * 2 {
+        let icon =
+            crate::icon_render::resolve_client_icon(fw.client().icons(), icon_px, bar_bg);
+        let iy = (bar_top + (title_bar_height() - icon_px as i32) / 2) as i16;
+        let _ = g.draw_pixmap(text_x, iy, &icon);
+        text_x += icon_px as i16 + antibox_ui::metrics::gap() as i16;
+    }
+    let avail = (text_right - text_x - 4).max(0) as u16;
     let bar_baseline = antibox_ui::metrics::baseline(0, title_bar_height());
     let baseline = bar_top + bar_baseline;
 

@@ -14,6 +14,8 @@ pub(crate) struct TaskButton {
     pub urgent: bool,
     pub rect: (i16, i16, u16, u16),
     pub progress: Option<u8>,
+    pub icon: Option<antibox_core::backend::PixmapData>,
+    pub icon_bg: u32,
 }
 
 pub(super) struct Drag {

@@ -141,6 +141,11 @@ impl ClientWindow {
         if let Some(atom) = atoms.get("WM_TRANSIENT_FOR") {
             self.transient_for = self.read_u32_prop(atom);
         }
+        if let Some(atom) = atoms.get("_NET_WM_ICON") {
+            if let Ok(Some(data)) = self.xwindow.get_property(atom, 0, 1 << 20) {
+                self.icon = IconData::from_property(&data);
+            }
+        }
         if let Some(atom) = atoms.get("_NET_WM_STRUT") {
             if let Ok(Some(data)) = self.xwindow.get_property(atom, 0, 4) {
                 self.strut = Strut::from_bytes(&data);
@@ -318,6 +323,10 @@ impl ClientWindow {
                 self.progress = self.read_u32_prop(*atom).map(|v| v.min(100) as u8);
             } else if Some(*atom) == atoms.get("_NET_WM_USER_TIME") {
                 self.user_time = self.read_u32_prop(*atom).unwrap_or(0);
+            } else if Some(*atom) == atoms.get("_NET_WM_ICON") {
+                if let Ok(Some(data)) = self.xwindow.get_property(*atom, 0, 1 << 20) {
+                    self.icon = IconData::from_property(&data);
+                }
             } else if Some(*atom) == atoms.get("_NET_WM_STRUT")
                 || Some(*atom) == atoms.get("_NET_WM_STRUT_PARTIAL")
             {

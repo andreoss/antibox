@@ -1,3 +1,43 @@
+#[derive(Debug, Clone)]
+pub struct IconData {
+    pub width: u32,
+    pub height: u32,
+    pub pixels: Vec<u32>,
+}
+
+impl IconData {
+    pub fn from_property(data: &[u8]) -> Vec<IconData> {
+        let words: Vec<u32> = data
+            .chunks_exact(4)
+            .map(|c| u32::from_ne_bytes([c[0], c[1], c[2], c[3]]))
+            .collect();
+        let mut icons = Vec::new();
+        let mut idx = 0;
+        while idx + 2 <= words.len() {
+            let w = words[idx];
+            let h = words[idx + 1];
+            if w == 0 || h == 0 {
+                break;
+            }
+            let pixel_count = match (w as usize).checked_mul(h as usize) {
+                Some(n) => n,
+                None => break,
+            };
+            if idx + 2 + pixel_count > words.len() {
+                break;
+            }
+            let pixels = words[idx + 2..idx + 2 + pixel_count].to_vec();
+            icons.push(IconData {
+                width: w,
+                height: h,
+                pixels,
+            });
+            idx += 2 + pixel_count;
+        }
+        icons
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Strut {
     pub left: u32,

@@ -21,6 +21,7 @@ pub mod frame;
 pub mod frame_store;
 pub mod geom;
 pub mod handler;
+pub mod icon_render;
 pub mod id;
 pub mod cpu_status_applet;
 pub mod keyboard_applet;

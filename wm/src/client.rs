@@ -1,7 +1,7 @@
 use crate::id::ClientId;
 use antibox_core::backend::{
-    AtomManager, BackendEvent, DisplayBackend, MwmHints, PropMode, SizeHints, Strut, WindowHandle,
-    WmHints,
+    AtomManager, BackendEvent, DisplayBackend, IconData, MwmHints, PropMode, SizeHints, Strut,
+    WindowHandle, WmHints,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,6 +47,7 @@ pub struct ClientWindow {
     pub(crate) csd: bool,
     pub(crate) csd_extents: [i32; 4],
     pub(crate) progress: Option<u8>,
+    pub(crate) icon: Vec<IconData>,
 }
 
 impl ClientWindow {
@@ -77,7 +78,12 @@ impl ClientWindow {
             csd: false,
             csd_extents: [0; 4],
             progress: None,
+            icon: Vec::new(),
         }
+    }
+
+    pub fn icons(&self) -> &[IconData] {
+        &self.icon
     }
 
     pub const fn csd_extents(&self) -> [i32; 4] {
