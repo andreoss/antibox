@@ -157,6 +157,19 @@ fn fmt_kb(kb: u64) -> String {
     }
 }
 
+#[cfg(not(target_os = "linux"))]
+fn read_mem_sample() -> Option<MemSample> {
+    let m = crate::proc_reader::read_uvmexp()?;
+    let user = m.total.saturating_sub(m.free + m.inactive + m.wired);
+    let mut vals = [0u64; MEM_STATES];
+    vals[MEM_USER] = user;
+    vals[MEM_BUFFERS] = m.wired;
+    vals[MEM_CACHED] = m.inactive;
+    vals[MEM_FREE] = m.free;
+    Some(MemSample { vals })
+}
+
+#[cfg(target_os = "linux")]
 fn read_mem_sample() -> Option<MemSample> {
     let data = crate::proc_reader::read_proc("/proc/meminfo")?;
     let (mut total, mut free, mut buffers, mut cached) = (0u64, 0u64, 0u64, 0u64);
@@ -183,6 +196,7 @@ fn read_mem_sample() -> Option<MemSample> {
     Some(MemSample { vals })
 }
 
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 fn parse_meminfo_line(line: &str, needle: &str) -> Option<u64> {
     if let Some(rest) = line.strip_prefix(needle) {
         let val: u64 = rest.split_whitespace().next()?.parse().ok()?;

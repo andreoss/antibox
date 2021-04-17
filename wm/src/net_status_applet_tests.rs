@@ -8,6 +8,15 @@
     }
 
     #[test]
+    #[cfg(not(target_os = "linux"))]
+    fn test_read_net_counters_excludes_loopback() {
+        set_net_device("*");
+        if let Some(rows) = read_net_counters() {
+            assert!(rows.iter().all(|(name, _)| !name.starts_with("lo")));
+        }
+    }
+
+    #[test]
     fn test_device_selected_empty_matches_none() {
         assert!(!device_selected("", "eth0"));
         assert!(!device_selected("   ", "wlan0"));

@@ -1,5 +1,5 @@
 #![allow(non_camel_case_types)]
-pub use std::os::raw::{c_char, c_int, c_long, c_void};
+pub use std::os::raw::{c_char, c_int, c_long, c_uint, c_void};
 
 pub type time_t = i64;
 pub type sighandler_t = usize;
@@ -86,6 +86,18 @@ pub struct kevent {
     pub udata: *mut c_void,
 }
 
+#[cfg(not(target_os = "linux"))]
+#[repr(C)]
+pub struct ifaddrs {
+    pub ifa_next: *mut ifaddrs,
+    pub ifa_name: *mut c_char,
+    pub ifa_flags: c_uint,
+    pub ifa_addr: *mut c_void,
+    pub ifa_netmask: *mut c_void,
+    pub ifa_dstaddr: *mut c_void,
+    pub ifa_data: *mut c_void,
+}
+
 #[repr(C)]
 pub struct timespec {
     pub tv_sec: time_t,
@@ -139,4 +151,14 @@ extern "C" {
         nevents: c_int,
         timeout: *const timespec,
     ) -> c_int;
+    pub fn sysctl(
+        name: *const c_int,
+        namelen: c_uint,
+        oldp: *mut c_void,
+        oldlenp: *mut usize,
+        newp: *const c_void,
+        newlen: usize,
+    ) -> c_int;
+    pub fn getifaddrs(ifap: *mut *mut ifaddrs) -> c_int;
+    pub fn freeifaddrs(ifa: *mut ifaddrs);
 }

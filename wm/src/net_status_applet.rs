@@ -36,6 +36,52 @@ fn device_wanted(name: &str) -> bool {
         .map_or(true, |g| device_selected(&g, name))
 }
 
+#[cfg(not(target_os = "linux"))]
+const AF_LINK: u8 = 18;
+#[cfg(not(target_os = "linux"))]
+const IFDATA_IBYTES_OFFSET: usize = 64;
+#[cfg(not(target_os = "linux"))]
+const IFDATA_OBYTES_OFFSET: usize = 72;
+
+#[cfg(not(target_os = "linux"))]
+fn read_net_counters() -> Option<Vec<(String, NetCounters)>> {
+    use antibox_core::libc::{freeifaddrs, getifaddrs, ifaddrs};
+    let mut head: *mut ifaddrs = std::ptr::null_mut();
+    if unsafe { getifaddrs(&mut head) } != 0 {
+        return None;
+    }
+    let mut result = Vec::new();
+    let mut cur = head;
+    while !cur.is_null() {
+        let ifa = unsafe { &*cur };
+        cur = ifa.ifa_next;
+        if ifa.ifa_addr.is_null() || ifa.ifa_data.is_null() || ifa.ifa_name.is_null() {
+            continue;
+        }
+        let family = unsafe { *(ifa.ifa_addr as *const u8).add(1) };
+        if family != AF_LINK {
+            continue;
+        }
+        let name = unsafe { std::ffi::CStr::from_ptr(ifa.ifa_name) }
+            .to_string_lossy()
+            .into_owned();
+        if name.starts_with("lo") || !device_wanted(&name) {
+            continue;
+        }
+        let base = ifa.ifa_data as *const u8;
+        let rx_bytes = unsafe {
+            std::ptr::read_unaligned(base.add(IFDATA_IBYTES_OFFSET) as *const u64)
+        };
+        let tx_bytes = unsafe {
+            std::ptr::read_unaligned(base.add(IFDATA_OBYTES_OFFSET) as *const u64)
+        };
+        result.push((name, NetCounters { rx_bytes, tx_bytes }));
+    }
+    unsafe { freeifaddrs(head) };
+    Some(result)
+}
+
+#[cfg(target_os = "linux")]
 fn read_net_counters() -> Option<Vec<(String, NetCounters)>> {
     let data = crate::proc_reader::read_proc("/proc/net/dev")?;
     let mut result = Vec::new();
