@@ -72,7 +72,9 @@
         let conn = make_conn();
         let mut applet = MemStatusApplet::new(&conn, conn.root().read_id(), 40).unwrap();
         applet.update();
-        assert!(applet.used_pct > 0.0);
+        if crate::proc_reader::read_proc_meminfo().is_some() {
+            assert!(applet.used_pct > 0.0);
+        }
         assert!(applet.used_pct <= 1.0);
     }
 
