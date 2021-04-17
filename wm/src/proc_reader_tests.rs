@@ -13,3 +13,17 @@
             assert!(free <= total);
         }
     }
+
+    #[test]
+    #[cfg(not(target_os = "linux"))]
+    fn test_read_uvmexp() {
+        let m = read_uvmexp().unwrap();
+        assert!(m.total > 0);
+        assert!(m.free <= m.total);
+    }
+
+    #[test]
+    #[cfg(not(target_os = "linux"))]
+    fn test_read_cptime() {
+        assert!(read_cptime().unwrap().iter().any(|v| *v > 0));
+    }

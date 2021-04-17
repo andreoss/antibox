@@ -29,6 +29,19 @@ struct CpuDelta {
     vals: [u64; IWM_STATES],
 }
 
+#[cfg(not(target_os = "linux"))]
+fn read_cpu_times() -> Option<Vec<[u64; IWM_STATES]>> {
+    let cp = crate::proc_reader::read_cptime()?;
+    let mut vals = [0u64; IWM_STATES];
+    vals[IWM_USER] = cp[0];
+    vals[IWM_NICE] = cp[1];
+    vals[IWM_SYS] = cp[2].saturating_add(cp[3]);
+    vals[IWM_INTR] = cp[4];
+    vals[IWM_IDLE] = cp[5];
+    Some(vec![vals])
+}
+
+#[cfg(target_os = "linux")]
 fn read_cpu_times() -> Option<Vec<[u64; IWM_STATES]>> {
     let data = crate::proc_reader::read_proc("/proc/stat")?;
     let mut result = Vec::new();
@@ -58,6 +71,7 @@ fn read_cpu_times() -> Option<Vec<[u64; IWM_STATES]>> {
     }
 }
 
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 fn parse_cpu_line(parts: &[&str]) -> [u64; IWM_STATES] {
     [
         parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0),
