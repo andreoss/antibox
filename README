@@ -13,7 +13,18 @@ Features
 
 Building
 --------
+
+Linux (needs libxcb, freetype, fontconfig):
+
     cargo build --release
+
+OpenBSD (X libs come with the base system):
+
+    RUSTFLAGS="-L/usr/X11R6/lib" cargo build --release
+
+Install:
+
+    install -m 755 target/release/antibox /usr/local/bin/
 
 Usage
 -----
