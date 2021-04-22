@@ -922,7 +922,8 @@ impl AppletContainer for TaskBar {
             }
         }
 
-        let inset_h = (bar_h as i16 - 2 * vmargin).max(8) as u16;
+        let vin = antibox_ui::metrics::button_inset() as i16;
+        let inset_h = (bar_h as i16 - 2 * vin).max(8) as u16;
         let inset_y = edge + (bar_h as i16 - inset_h as i16) / 2;
 
         let mut right_total = 0i16;
