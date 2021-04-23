@@ -775,10 +775,24 @@ impl TaskBar {
     }
 
     pub fn pump_tooltips(&mut self) {
-        crate::taskpane::tick_urgent_phase();
         for a in &mut self.applets {
             let _ = guard_applet("tick_tooltip", || a.tick_tooltip());
         }
+    }
+
+    pub fn update_urgent(&mut self) -> Vec<u32> {
+        let mut v = Vec::new();
+        for a in &self.applets {
+            if let Some(p) = a.as_any().downcast_ref::<crate::taskpane::TaskPane>() {
+                if p.buttons.iter().any(|b| b.urgent) {
+                    v.push(a.window().id());
+                }
+            }
+        }
+        if !v.is_empty() {
+            crate::taskpane::tick_urgent_phase();
+        }
+        v
     }
 
     pub fn any_tooltip_pending(&self) -> bool {

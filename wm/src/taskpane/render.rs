@@ -22,13 +22,15 @@ impl TaskPane {
         let (_, y, w, h) = btn.rect;
         let flash = btn.urgent && URGENT_PHASE.load(Ordering::Relaxed) & 1 != 0;
         let bg = if flash {
-            antibox_ui::theme::contrast(self.colours.urgent_bg, self.colours.urgent_bg)
+            self.colours.urgent_fg
         } else if btn.urgent {
             self.colours.urgent_bg
         } else {
             Self::button_bg(self.colours.task_bar_colour, btn.active)
         };
-        let fg = if btn.urgent {
+        let fg = if flash {
+            self.colours.urgent_bg
+        } else if btn.urgent {
             self.colours.urgent_fg
         } else if btn.minimized {
             antibox_core::colour::lerp(self.colours.button_fg, bg, 0.4)

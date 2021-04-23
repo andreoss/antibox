@@ -43,7 +43,11 @@ impl AppletTick {
 
     fn update(self, tb: &mut TaskBar) -> Vec<u32> {
         match self {
-            AppletTick::Clock => tb.update_clocks(),
+            AppletTick::Clock => {
+                let mut v = tb.update_clocks();
+                v.extend(tb.update_urgent());
+                v
+            }
             AppletTick::Cpu => tb.update_cpu(),
             AppletTick::Mem => tb.update_mem(),
             AppletTick::Net => tb.update_net(),
