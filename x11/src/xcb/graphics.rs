@@ -102,7 +102,7 @@ impl XcbGraphics {
             xcb_render_free_picture(raw, src);
             xcb_render_free_picture(raw, pic);
         }
-        self.conn.flush()
+        Ok(())
     }
 }
 
@@ -130,13 +130,13 @@ impl GraphicsContext for XcbGraphics {
     fn fill_rect(&self, x: i16, y: i16, w: u16, h: u16) -> Result<(), Box<dyn std::error::Error>> {
         let r = xcb_rectangle_t { x, y, width: w, height: h };
         unsafe { xcb_poly_fill_rectangle(self.conn.raw(), self.drawable, self.gc, 1, &r) };
-        self.conn.flush()
+        Ok(())
     }
 
     fn draw_rect(&self, x: i16, y: i16, w: u16, h: u16) -> Result<(), Box<dyn std::error::Error>> {
         let r = xcb_rectangle_t { x, y, width: w, height: h };
         unsafe { xcb_poly_rectangle(self.conn.raw(), self.drawable, self.gc, 1, &r) };
-        self.conn.flush()
+        Ok(())
     }
 
     fn draw_text(&self, x: i16, y: i16, text: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -177,7 +177,7 @@ impl GraphicsContext for XcbGraphics {
                 chars.as_ptr(),
             )
         };
-        self.conn.flush()
+        Ok(())
     }
 
     fn draw_text_transparent(&self, x: i16, y: i16, text: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -194,7 +194,7 @@ impl GraphicsContext for XcbGraphics {
     fn draw_line(&self, x1: i16, y1: i16, x2: i16, y2: i16) -> Result<(), Box<dyn std::error::Error>> {
         let pts = [xcb_point_t { x: x1, y: y1 }, xcb_point_t { x: x2, y: y2 }];
         unsafe { xcb_poly_line(self.conn.raw(), 0, self.drawable, self.gc, 2, pts.as_ptr()) };
-        self.conn.flush()
+        Ok(())
     }
 
     fn clear_rect(&self, rect: &Rect) -> Result<(), Box<dyn std::error::Error>> {
@@ -270,19 +270,19 @@ impl GraphicsContext for XcbGraphics {
                 buf.as_ptr(),
             )
         };
-        self.conn.flush()
+        Ok(())
     }
 
     fn draw_point(&self, x: i16, y: i16) -> Result<(), Box<dyn std::error::Error>> {
         let p = xcb_point_t { x, y };
         unsafe { xcb_poly_point(self.conn.raw(), 0, self.drawable, self.gc, 1, &p) };
-        self.conn.flush()
+        Ok(())
     }
 
     fn fill_polygon(&self, points: &[(i16, i16)]) -> Result<(), Box<dyn std::error::Error>> {
         let pts: Vec<xcb_point_t> = points.iter().map(|&(x, y)| xcb_point_t { x, y }).collect();
         unsafe { xcb_fill_poly(self.conn.raw(), self.drawable, self.gc, 0, 0, pts.len() as u32, pts.as_ptr()) };
-        self.conn.flush()
+        Ok(())
     }
 
     fn draw_image(&self, x: i16, y: i16, w: u16, h: u16, data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
@@ -292,12 +292,12 @@ impl GraphicsContext for XcbGraphics {
                 w, h, x, y, 0, self.depth, data.len() as u32, data.as_ptr(),
             )
         };
-        self.conn.flush()
+        Ok(())
     }
 
     fn copy_area(&self, x: i16, y: i16, w: u16, h: u16, dx: i16, dy: i16) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_copy_area(self.conn.raw(), self.drawable, self.drawable, self.gc, x, y, dx, dy, w, h) };
-        self.conn.flush()
+        Ok(())
     }
 
     fn copy_from(&self, src: u32, src_area: Rect, dst: Point) -> Result<(), Box<dyn std::error::Error>> {
@@ -309,7 +309,7 @@ impl GraphicsContext for XcbGraphics {
                 src_area.w as u16, src_area.h as u16,
             )
         };
-        self.conn.flush()
+        Ok(())
     }
 
     fn composite_pixmap(&self, _src_pixmap: u32, _src_size: antibox_core::point::Dimension, _dest: antibox_core::point::Point, _src: antibox_core::point::Point) -> Result<(), Box<dyn std::error::Error>> {

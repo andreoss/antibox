@@ -7,3 +7,7 @@ static ROUND_TRIPS: AtomicU64 = AtomicU64::new(0);
 pub fn round_trips() -> u64 {
     ROUND_TRIPS.load(Ordering::Relaxed)
 }
+
+pub fn bump_round_trips() {
+    ROUND_TRIPS.fetch_add(1, Ordering::Relaxed);
+}
