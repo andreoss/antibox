@@ -57,15 +57,13 @@ fn event_time(ev: &xcb_generic_event_t) -> Option<u32> {
 fn render_init(conn: *mut xcb_connection_t) -> (u32, u32, u32) {
     let cookie = unsafe { xcb_render_query_version(conn, 0, 11) };
     let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-    antibox_core::metrics::bump_round_trips();
-        let vr = unsafe { xcb_render_query_version_reply(conn, cookie, &mut e) };
+    let vr = unsafe { xcb_render_query_version_reply(conn, cookie, &mut e) };
     if vr.is_null() {
         return (0, 0, 0);
     }
     unsafe { libc::free(vr as *mut libc::c_void) };
     let cookie = unsafe { xcb_render_query_pict_formats(conn) };
-    antibox_core::metrics::bump_round_trips();
-        let r = unsafe { xcb_render_query_pict_formats_reply(conn, cookie, &mut e) };
+    let r = unsafe { xcb_render_query_pict_formats_reply(conn, cookie, &mut e) };
     if r.is_null() {
         return (0, 0, 0);
     }
@@ -214,7 +212,6 @@ impl XcbConnection {
         let cname = std::ffi::CString::new(name).unwrap_or_default();
         let cookie = unsafe { xcb_intern_atom(self.conn, 0, name.len() as u16, cname.as_ptr()) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_intern_atom_reply(self.conn, cookie, &mut e) };
         let atom = if !r.is_null() {
             let a = unsafe { (*r).atom };
@@ -375,7 +372,6 @@ impl RenderBackend for XcbConnection {
     ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_get_property(self.conn, 0, window, atom, type_atom, offset, length) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_get_property_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Ok(None);
@@ -552,7 +548,6 @@ impl DisplayBackend for XcbConnection {
     fn get_atom_name(&self, atom: u32) -> Result<String, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_get_atom_name(self.conn, atom) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_get_atom_name_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Err(err("get_atom_name failed"));
@@ -569,7 +564,6 @@ impl DisplayBackend for XcbConnection {
         let cname = std::ffi::CString::new(name).unwrap_or_default();
         let cookie = unsafe { xcb_query_extension(self.conn, name.len() as u16, cname.as_ptr()) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_query_extension_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Err(err("query_extension failed"));
@@ -582,7 +576,6 @@ impl DisplayBackend for XcbConnection {
     fn get_keyboard_mapping(&self, first_keycode: u8, count: u8) -> Result<KeyboardMapping, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_get_keyboard_mapping(self.conn, first_keycode, count) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_get_keyboard_mapping_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Err(err("get_keyboard_mapping failed"));
@@ -598,7 +591,6 @@ impl DisplayBackend for XcbConnection {
     fn get_modifier_mapping(&self) -> Result<ModifierMapping, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_get_modifier_mapping(self.conn) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_get_modifier_mapping_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Err(err("get_modifier_mapping failed"));
@@ -722,7 +714,6 @@ impl DisplayBackend for XcbConnection {
     fn query_pointer(&self, window: u32) -> Result<PointerState, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_query_pointer(self.conn, window) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_query_pointer_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Err(err("query_pointer failed"));
@@ -807,7 +798,6 @@ impl DisplayBackend for XcbConnection {
     fn get_selection_owner(&self, selection: u32) -> Result<u32, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_get_selection_owner(self.conn, selection) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_get_selection_owner_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             let msg = if !e.is_null() {
@@ -831,7 +821,6 @@ impl DisplayBackend for XcbConnection {
     fn query_tree(&self, window: u32) -> Result<QueryTreeResult, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_query_tree(self.conn, window) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_query_tree_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Err(err("query_tree failed"));
@@ -847,7 +836,6 @@ impl DisplayBackend for XcbConnection {
     fn get_window_attributes(&self, window: u32) -> Result<WindowAttributes, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_get_window_attributes(self.conn, window) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_get_window_attributes_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Err(err("get_window_attributes failed"));
@@ -894,7 +882,6 @@ impl DisplayBackend for XcbConnection {
         let h = self.screen().height_in_pixels;
         let cookie = unsafe { xcb_get_image(self.conn, XCB_IMAGE_FORMAT_Z_PIXMAP, self.root.read_id(), 0, 0, w, h, !0) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_get_image_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Err(err("grab_root_window failed"));

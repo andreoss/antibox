@@ -131,7 +131,6 @@ impl WindowHandle for XcbWindow {
     fn get_geometry(&self) -> Result<(u16, u16), Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_get_geometry(self.conn.raw(), self.id) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_get_geometry_reply(self.conn.raw(), cookie, &mut e) };
         if r.is_null() {
             return Err("get_geometry failed".into());
@@ -145,7 +144,6 @@ impl WindowHandle for XcbWindow {
     fn get_geometry_rect(&self) -> Result<Rect, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_get_geometry(self.conn.raw(), self.id) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_get_geometry_reply(self.conn.raw(), cookie, &mut e) };
         if r.is_null() {
             return Err("get_geometry failed".into());
@@ -198,7 +196,6 @@ impl WindowHandle for XcbWindow {
         let root = self.conn.root().read_id();
         let cookie = unsafe { xcb_translate_coordinates(self.conn.raw(), self.id, root, point.x as i16, point.y as i16) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_translate_coordinates_reply(self.conn.raw(), cookie, &mut e) };
         if r.is_null() {
             return Err("translate_coords failed".into());

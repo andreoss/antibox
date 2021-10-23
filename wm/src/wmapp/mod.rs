@@ -159,7 +159,6 @@ struct LoopTiming {
     work_sum: Duration,
     work_max: Duration,
     slow: u64,
-    rt_at_report: u64,
 }
 
 impl LoopTiming {
@@ -176,11 +175,10 @@ impl LoopTiming {
             work_sum: Duration::from_secs(0),
             work_max: Duration::from_secs(0),
             slow: 0,
-            rt_at_report: antibox_core::metrics::round_trips(),
         }
     }
 
-    fn record(&mut self, work: Duration, events: usize, round_trips: u64) {
+    fn record(&mut self, work: Duration, events: usize) {
         if !self.enabled {
             return;
         }
@@ -193,22 +191,18 @@ impl LoopTiming {
         if work >= Duration::from_millis(8) {
             self.slow += 1;
             eprintln!(
-                "slow iterate: work={:.1}ms events={} round_trips={}",
+                "slow iterate: work={:.1}ms events={}",
                 work.as_secs_f64() * 1000.0,
-                events,
-                round_trips
+                events
             );
         }
         let elapsed = self.last_report.elapsed();
         if elapsed >= Duration::from_secs(1) {
-            let now_rt = antibox_core::metrics::round_trips();
-            let rt_delta = now_rt.saturating_sub(self.rt_at_report);
             let avg_ms = self.work_sum.as_secs_f64() * 1000.0 / self.iters.max(1) as f64;
             eprintln!(
-                "loop: {:.0} iters/s, {} events, {} round-trips, work avg={:.2}ms max={:.1}ms, slow(>8ms)={}",
+                "loop: {:.0} iters/s, {} events, work avg={:.2}ms max={:.1}ms, slow(>8ms)={}",
                 self.iters as f64 / elapsed.as_secs_f64(),
                 self.events,
-                rt_delta,
                 avg_ms,
                 self.work_max.as_secs_f64() * 1000.0,
                 self.slow,
@@ -219,7 +213,6 @@ impl LoopTiming {
             self.work_sum = Duration::from_secs(0);
             self.work_max = Duration::from_secs(0);
             self.slow = 0;
-            self.rt_at_report = now_rt;
         }
     }
 }
@@ -537,7 +530,6 @@ impl App {
 
         let mut work = LoopWork::default();
 
-        let rt_start = antibox_core::metrics::round_trips();
         let drain_start = Instant::now();
         work.events += self.drain_pending_events_count();
         let mut work_time = drain_start.elapsed();
@@ -585,8 +577,7 @@ impl App {
             let _ = self.backend.flush();
         }
         work_time += post_wait.elapsed();
-        let round_trips = antibox_core::metrics::round_trips().saturating_sub(rt_start);
-        timing.record(work_time, work.events, round_trips);
+        timing.record(work_time, work.events);
         Ok(())
     }
 

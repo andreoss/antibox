@@ -135,8 +135,7 @@ fn list_font_names(conn: *mut xcb_connection_t, pattern: &str) -> Option<Vec<Str
     let cpat = std::ffi::CString::new(pattern).ok()?;
     let cookie = unsafe { xcb_list_fonts(conn, 64, pattern.len() as u16, cpat.as_ptr()) };
     let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-    antibox_core::metrics::bump_round_trips();
-        let r = unsafe { xcb_list_fonts_reply(conn, cookie, &mut e) };
+    let r = unsafe { xcb_list_fonts_reply(conn, cookie, &mut e) };
     if r.is_null() {
         return None;
     }
@@ -192,8 +191,7 @@ struct FontMetrics {
 fn query_font_metrics(conn: *mut xcb_connection_t, id: u32) -> Option<FontMetrics> {
     let cookie = unsafe { xcb_query_font(conn, id) };
     let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-    antibox_core::metrics::bump_round_trips();
-        let r = unsafe { xcb_query_font_reply(conn, cookie, &mut e) };
+    let r = unsafe { xcb_query_font_reply(conn, cookie, &mut e) };
     if r.is_null() {
         return None;
     }
