@@ -1,5 +1,5 @@
 use crate::action::*;
-use antibox_core::backend::{DisplayBackend, GrabMode};
+use antibox_core::backend::{DisplayBackend, GrabMode, KeyboardMapping};
 use std::sync::Arc;
 
 const KEY_ESCAPE: u32 = 0xFF1B;
@@ -235,10 +235,44 @@ fn find_keycode(keysyms: &[u32], kpc: usize, min_kc: u8, target: u32) -> Option<
     None
 }
 
-pub fn keysym_for_keycode(conn: &dyn DisplayBackend, keycode: u32) -> u32 {
+fn keymap_cell() -> &'static std::sync::Mutex<Option<std::sync::Arc<KeyboardMapping>>> {
+    use std::cell::UnsafeCell;
+    use std::sync::{Arc, Mutex, Once};
+    struct Cell(UnsafeCell<Option<Mutex<Option<Arc<KeyboardMapping>>>>>);
+    unsafe impl Sync for Cell {}
+    static ONCE: Once = Once::new();
+    static CELL: Cell = Cell(UnsafeCell::new(None));
+    ONCE.call_once(|| unsafe { *CELL.0.get() = Some(Mutex::new(None)) });
+    unsafe { (*CELL.0.get()).as_ref().unwrap() }
+}
+
+pub fn keymap<H: DisplayBackend + ?Sized>(conn: &H) -> Option<std::sync::Arc<KeyboardMapping>> {
+    let mut g = match keymap_cell().lock() {
+        Ok(g) => g,
+        Err(e) => e.into_inner(),
+    };
+    if g.is_none() {
+        let min = conn.setup_min_keycode();
+        let max = conn.setup_max_keycode();
+        let count = (max as usize - min as usize + 1) as u8;
+        if let Ok(m) = conn.get_keyboard_mapping(min, count) {
+            *g = Some(std::sync::Arc::new(m));
+        }
+    }
+    g.clone()
+}
+
+pub fn invalidate_keymap() {
+    let mut g = match keymap_cell().lock() {
+        Ok(g) => g,
+        Err(e) => e.into_inner(),
+    };
+    *g = None;
+}
+
+pub fn keysym_for_keycode<H: DisplayBackend + ?Sized>(conn: &H, keycode: u32) -> u32 {
     let min = conn.setup_min_keycode();
-    let max = conn.setup_max_keycode();
-    if let Ok(m) = conn.get_keyboard_mapping(min, (max as usize - min as usize + 1) as u8) {
+    if let Some(m) = keymap(conn) {
         let off =
             (keycode as usize).saturating_sub(min as usize) * (m.keysyms_per_keycode as usize);
         if off < m.keysyms.len() {

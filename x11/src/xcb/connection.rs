@@ -24,6 +24,7 @@ pub struct XcbConnection {
     render_argb32: u32,
     atom_cache: std::cell::RefCell<std::collections::HashMap<String, u32>>,
     last_event_time: antibox_core::sync::atomic::AtomicU32,
+    xkb_group: antibox_core::sync::atomic::AtomicU32,
 }
 
 unsafe impl Send for XcbConnection {}
@@ -56,13 +57,15 @@ fn event_time(ev: &xcb_generic_event_t) -> Option<u32> {
 fn render_init(conn: *mut xcb_connection_t) -> (u32, u32, u32) {
     let cookie = unsafe { xcb_render_query_version(conn, 0, 11) };
     let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-    let vr = unsafe { xcb_render_query_version_reply(conn, cookie, &mut e) };
+    antibox_core::metrics::bump_round_trips();
+        let vr = unsafe { xcb_render_query_version_reply(conn, cookie, &mut e) };
     if vr.is_null() {
         return (0, 0, 0);
     }
     unsafe { libc::free(vr as *mut libc::c_void) };
     let cookie = unsafe { xcb_render_query_pict_formats(conn) };
-    let r = unsafe { xcb_render_query_pict_formats_reply(conn, cookie, &mut e) };
+    antibox_core::metrics::bump_round_trips();
+        let r = unsafe { xcb_render_query_pict_formats_reply(conn, cookie, &mut e) };
     if r.is_null() {
         return (0, 0, 0);
     }
@@ -160,6 +163,7 @@ impl XcbConnection {
             render_argb32,
             atom_cache: std::cell::RefCell::new(std::collections::HashMap::new()),
             last_event_time: antibox_core::sync::atomic::AtomicU32::new(0),
+            xkb_group: antibox_core::sync::atomic::AtomicU32::new(u32::MAX),
         }))
     }
 
@@ -169,6 +173,13 @@ impl XcbConnection {
 
     pub(crate) fn xkb_event_base(&self) -> u8 {
         self.xkb_event_base
+    }
+
+    pub(crate) fn xkb_group_changed(&self, group: u32) -> bool {
+        use std::sync::atomic::Ordering;
+        let old = self.xkb_group.load(Ordering::Relaxed);
+        self.xkb_group.store(group, Ordering::Relaxed);
+        old != group
     }
 
     pub(crate) fn render_a8_format(&self) -> u32 {
@@ -203,6 +214,7 @@ impl XcbConnection {
         let cname = std::ffi::CString::new(name).unwrap_or_default();
         let cookie = unsafe { xcb_intern_atom(self.conn, 0, name.len() as u16, cname.as_ptr()) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_intern_atom_reply(self.conn, cookie, &mut e) };
         let atom = if !r.is_null() {
             let a = unsafe { (*r).atom };
@@ -331,7 +343,7 @@ impl RenderBackend for XcbConnection {
         unsafe {
             xcb_change_property(self.conn, mode, window, atom, type_atom, 8, data.len() as u32, data.as_ptr() as *const _)
         };
-        self.flush()
+        Ok(())
     }
 
     fn change_property32(
@@ -350,7 +362,7 @@ impl RenderBackend for XcbConnection {
         unsafe {
             xcb_change_property(self.conn, mode, window, atom, type_atom, 32, data.len() as u32, data.as_ptr() as *const _)
         };
-        self.flush()
+        Ok(())
     }
 
     fn get_property(
@@ -363,6 +375,7 @@ impl RenderBackend for XcbConnection {
     ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_get_property(self.conn, 0, window, atom, type_atom, offset, length) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_get_property_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Ok(None);
@@ -392,7 +405,7 @@ impl RenderBackend for XcbConnection {
 
     fn delete_property(&self, window: u32, atom: u32) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_delete_property(self.conn, window, atom) };
-        self.flush()
+        Ok(())
     }
 
     fn grab_pointer(&self, grab: PointerGrab) -> Result<(), Box<dyn std::error::Error>> {
@@ -409,12 +422,12 @@ impl RenderBackend for XcbConnection {
                 grab.time,
             )
         };
-        self.flush()
+        Ok(())
     }
 
     fn ungrab_pointer(&self, time: u32) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_ungrab_pointer(self.conn, time) };
-        self.flush()
+        Ok(())
     }
 
     fn send_event(
@@ -440,7 +453,7 @@ impl RenderBackend for XcbConnection {
                 &ev as *const xcb_client_message_event_t as *const c_char,
             )
         };
-        self.flush()
+        Ok(())
     }
 
     fn create_pixmap(&self, w: u16, h: u16, depth: u8) -> Result<u32, Box<dyn std::error::Error>> {
@@ -454,7 +467,7 @@ impl RenderBackend for XcbConnection {
 
     fn free_pixmap(&self, pixmap: u32) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_free_pixmap(self.conn, pixmap) };
-        self.flush()
+        Ok(())
     }
 
     fn convert_selection(&self, _r: u32, _s: u32, _t: u32, _p: u32, _time: u32) -> Result<(), Box<dyn std::error::Error>> {
@@ -539,6 +552,7 @@ impl DisplayBackend for XcbConnection {
     fn get_atom_name(&self, atom: u32) -> Result<String, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_get_atom_name(self.conn, atom) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_get_atom_name_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Err(err("get_atom_name failed"));
@@ -555,6 +569,7 @@ impl DisplayBackend for XcbConnection {
         let cname = std::ffi::CString::new(name).unwrap_or_default();
         let cookie = unsafe { xcb_query_extension(self.conn, name.len() as u16, cname.as_ptr()) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_query_extension_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Err(err("query_extension failed"));
@@ -567,6 +582,7 @@ impl DisplayBackend for XcbConnection {
     fn get_keyboard_mapping(&self, first_keycode: u8, count: u8) -> Result<KeyboardMapping, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_get_keyboard_mapping(self.conn, first_keycode, count) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_get_keyboard_mapping_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Err(err("get_keyboard_mapping failed"));
@@ -582,6 +598,7 @@ impl DisplayBackend for XcbConnection {
     fn get_modifier_mapping(&self) -> Result<ModifierMapping, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_get_modifier_mapping(self.conn) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_get_modifier_mapping_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Err(err("get_modifier_mapping failed"));
@@ -612,22 +629,22 @@ impl DisplayBackend for XcbConnection {
         unsafe {
             xcb_grab_key(self.conn, owner_events as u8, window, modifiers, keycode, pointer_mode as u8, keyboard_mode as u8)
         };
-        self.flush()
+        Ok(())
     }
 
     fn ungrab_key(&self, keycode: u8, modifiers: u16, window: u32) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_ungrab_key(self.conn, keycode, window, modifiers) };
-        self.flush()
+        Ok(())
     }
 
     fn grab_keyboard(&self, owner_events: bool, window: u32, time: u32, pointer_mode: GrabMode, keyboard_mode: GrabMode) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_grab_keyboard(self.conn, owner_events as u8, window, time, pointer_mode as u8, keyboard_mode as u8) };
-        self.flush()
+        Ok(())
     }
 
     fn ungrab_keyboard(&self, time: u32) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_ungrab_keyboard(self.conn, time) };
-        self.flush()
+        Ok(())
     }
 
     fn grab_button(&self, grab: ButtonGrabSpec) -> Result<(), Box<dyn std::error::Error>> {
@@ -645,17 +662,17 @@ impl DisplayBackend for XcbConnection {
                 grab.modifiers,
             )
         };
-        self.flush()
+        Ok(())
     }
 
     fn ungrab_button(&self, button: u8, modifiers: u16, window: u32) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_ungrab_button(self.conn, button, window, modifiers) };
-        self.flush()
+        Ok(())
     }
 
     fn allow_events(&self, mode: u8, time: u32) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_allow_events(self.conn, mode, time) };
-        self.flush()
+        Ok(())
     }
 
     fn send_configure_notify(
@@ -695,7 +712,7 @@ impl DisplayBackend for XcbConnection {
                 buf.as_ptr() as *const c_char,
             )
         };
-        self.flush()
+        Ok(())
     }
 
     fn check_for_error(&self) -> Option<Box<dyn std::error::Error>> {
@@ -705,6 +722,7 @@ impl DisplayBackend for XcbConnection {
     fn query_pointer(&self, window: u32) -> Result<PointerState, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_query_pointer(self.conn, window) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_query_pointer_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Err(err("query_pointer failed"));
@@ -724,29 +742,29 @@ impl DisplayBackend for XcbConnection {
                 dst.x as i16, dst.y as i16,
             )
         };
-        self.flush()
+        Ok(())
     }
 
     fn set_input_focus(&self, revert_to: u8, window: u32, time: u32) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_set_input_focus(self.conn, revert_to, window, time) };
-        self.flush()
+        Ok(())
     }
 
     fn map_window(&self, window: u32) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_map_window(self.conn, window) };
-        self.flush()
+        Ok(())
     }
     fn unmap_window(&self, window: u32) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_unmap_window(self.conn, window) };
-        self.flush()
+        Ok(())
     }
     fn destroy_window(&self, window: u32) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_destroy_window(self.conn, window) };
-        self.flush()
+        Ok(())
     }
     fn kill_client(&self, resource: u32) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_kill_client(self.conn, resource) };
-        self.flush()
+        Ok(())
     }
     fn configure_window(&self, window: u32, value_list: &[u32]) -> Result<(), Box<dyn std::error::Error>> {
         let mask = match value_list.len() {
@@ -756,7 +774,7 @@ impl DisplayBackend for XcbConnection {
             _ => return Err(err(format!("unsupported configure value list length: {}", value_list.len()))),
         };
         unsafe { xcb_configure_window(self.conn, window, mask as u16, value_list.as_ptr()) };
-        self.flush()
+        Ok(())
     }
     fn change_window_attributes(&self, window: u32, value_list: &[u32]) -> Result<(), Box<dyn std::error::Error>> {
         if value_list.is_empty() {
@@ -765,30 +783,31 @@ impl DisplayBackend for XcbConnection {
         let mask = value_list[0];
         let values = &value_list[1..];
         unsafe { xcb_change_window_attributes(self.conn, window, mask, values.as_ptr()) };
-        self.flush()
+        Ok(())
     }
     fn reparent_window(&self, child: u32, parent: u32, pos: Point) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_reparent_window(self.conn, child, parent, pos.x as i16, pos.y as i16) };
-        self.flush()
+        Ok(())
     }
     fn change_save_set(&self, window: u32, insert: bool) -> Result<(), Box<dyn std::error::Error>> {
         let mode = if insert { XCB_SET_MODE_INSERT } else { XCB_SET_MODE_DELETE };
         unsafe { xcb_change_save_set(self.conn, mode, window) };
-        self.flush()
+        Ok(())
     }
     fn clear_area(&self, exposures: bool, window: u32, area: Rect) -> Result<(), Box<dyn std::error::Error>> {
         unsafe {
             xcb_clear_area(self.conn, exposures as u8, window, area.x as i16, area.y as i16, area.w as u16, area.h as u16)
         };
-        self.flush()
+        Ok(())
     }
     fn set_selection_owner(&self, owner: u32, selection: u32, time: u32) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_set_selection_owner(self.conn, owner, selection, time) };
-        self.flush()
+        Ok(())
     }
     fn get_selection_owner(&self, selection: u32) -> Result<u32, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_get_selection_owner(self.conn, selection) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_get_selection_owner_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             let msg = if !e.is_null() {
@@ -812,6 +831,7 @@ impl DisplayBackend for XcbConnection {
     fn query_tree(&self, window: u32) -> Result<QueryTreeResult, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_query_tree(self.conn, window) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_query_tree_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Err(err("query_tree failed"));
@@ -827,6 +847,7 @@ impl DisplayBackend for XcbConnection {
     fn get_window_attributes(&self, window: u32) -> Result<WindowAttributes, Box<dyn std::error::Error>> {
         let cookie = unsafe { xcb_get_window_attributes(self.conn, window) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_get_window_attributes_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Err(err("get_window_attributes failed"));
@@ -853,7 +874,7 @@ impl DisplayBackend for XcbConnection {
                 xcb_configure_window(self.conn, windows[i], XCB_CONFIG_WINDOW_SIBLING | XCB_CONFIG_WINDOW_STACK_MODE, vals.as_ptr())
             };
         }
-        self.flush()
+        Ok(())
     }
     fn create_render_picture(&self, _pixmap: u32, _depth: u8) -> Result<u32, Box<dyn std::error::Error>> {
         Ok(self.alloc_id())
@@ -873,6 +894,7 @@ impl DisplayBackend for XcbConnection {
         let h = self.screen().height_in_pixels;
         let cookie = unsafe { xcb_get_image(self.conn, XCB_IMAGE_FORMAT_Z_PIXMAP, self.root.read_id(), 0, 0, w, h, !0) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        antibox_core::metrics::bump_round_trips();
         let r = unsafe { xcb_get_image_reply(self.conn, cookie, &mut e) };
         if r.is_null() {
             return Err(err("grab_root_window failed"));
@@ -889,21 +911,21 @@ impl DisplayBackend for XcbConnection {
     fn set_win_gravity(&self, window: u32, gravity: u32) -> Result<(), Box<dyn std::error::Error>> {
         let vals = [gravity];
         unsafe { xcb_change_window_attributes(self.conn, window, XCB_CW_WIN_GRAVITY, vals.as_ptr()) };
-        self.flush()
+        Ok(())
     }
     fn define_cursor(&self, window: u32, cursor: u32) -> Result<(), Box<dyn std::error::Error>> {
         let vals = [cursor];
         unsafe { xcb_change_window_attributes(self.conn, window, XCB_CW_CURSOR, vals.as_ptr()) };
-        self.flush()
+        Ok(())
     }
     fn undefine_cursor(&self, window: u32) -> Result<(), Box<dyn std::error::Error>> {
         let vals = [XCB_CURSOR_NONE];
         unsafe { xcb_change_window_attributes(self.conn, window, XCB_CW_CURSOR, vals.as_ptr()) };
-        self.flush()
+        Ok(())
     }
     fn free_cursor(&self, cursor: u32) -> Result<(), Box<dyn std::error::Error>> {
         unsafe { xcb_free_cursor(self.conn, cursor) };
-        self.flush()
+        Ok(())
     }
     fn create_cursor_from_pixmap(&self, source: u32, mask: u32, fore: [u16; 3], back: [u16; 3], hotspot: Point) -> Result<u32, Box<dyn std::error::Error>> {
         let cid = self.alloc_id();

@@ -8,7 +8,8 @@ pub(crate) fn init(conn: *mut xcb_connection_t) -> u8 {
     let name = b"XKEYBOARD";
     let cookie = unsafe { xcb_query_extension(conn, name.len() as u16, name.as_ptr() as *const _) };
     let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-    let r = unsafe { xcb_query_extension_reply(conn, cookie, &mut e) };
+    antibox_core::metrics::bump_round_trips();
+        let r = unsafe { xcb_query_extension_reply(conn, cookie, &mut e) };
     if r.is_null() {
         return 0;
     }
@@ -19,7 +20,8 @@ pub(crate) fn init(conn: *mut xcb_connection_t) -> u8 {
         return 0;
     }
     let cookie = unsafe { xcb_xkb_use_extension(conn, 1, 0) };
-    let r = unsafe { xcb_xkb_use_extension_reply(conn, cookie, &mut e) };
+    antibox_core::metrics::bump_round_trips();
+        let r = unsafe { xcb_xkb_use_extension_reply(conn, cookie, &mut e) };
     if r.is_null() {
         return 0;
     }
@@ -46,7 +48,8 @@ pub(crate) fn init(conn: *mut xcb_connection_t) -> u8 {
 fn current_group(conn: &XcbConnection) -> usize {
     let cookie = unsafe { xcb_xkb_get_state(conn.raw(), XCB_XKB_ID_USE_CORE_KBD) };
     let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
-    let r = unsafe { xcb_xkb_get_state_reply(conn.raw(), cookie, &mut e) };
+    antibox_core::metrics::bump_round_trips();
+        let r = unsafe { xcb_xkb_get_state_reply(conn.raw(), cookie, &mut e) };
     if r.is_null() {
         return 0;
     }

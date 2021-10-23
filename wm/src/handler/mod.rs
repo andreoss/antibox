@@ -750,6 +750,7 @@ pub fn shape_notify<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager
 }
 
 pub fn mapping_notify<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
+    crate::bindings::invalidate_keymap();
     if let Some(ref b) = wm.backend {
         let _ = wm.key_bindings.regrab_all(b);
     }

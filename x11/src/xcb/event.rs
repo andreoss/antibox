@@ -34,7 +34,10 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
     let code = ev.response_type & 0x7f;
     if conn.xkb_event_base() != 0 && code == conn.xkb_event_base() {
         if ev.pad0 == XCB_XKB_STATE_NOTIFY {
-            return Some(BackendEvent::KeyboardChanged);
+            let group = unsafe { *(ev as *const xcb_generic_event_t as *const u8).add(13) };
+            if conn.xkb_group_changed(group as u32) {
+                return Some(BackendEvent::KeyboardChanged);
+            }
         }
         return None;
     }

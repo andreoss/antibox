@@ -233,6 +233,7 @@ impl App {
             return;
         }
         if let BackendEvent::KeyboardChanged = event {
+            crate::bindings::invalidate_keymap();
             if let Some(ref mut tb) = self.taskbar {
                 let dirty = tb.update_keyboard();
                 for wid in &dirty {
@@ -295,20 +296,7 @@ impl App {
                 }
             }
             if let BackendEvent::ConfigureRequest { window, .. } = event {
-                let is_sub = self.taskbar.as_ref().map_or(false, |tb| {
-                    tb.applets
-                        .iter()
-                        .any(|a| a.owns_window(*window) && a.window().id() != *window)
-                });
-                if is_sub {
-                    let backend = &self.backend;
-                    let _ = self.taskbar.as_mut().map(|tb| {
-                        for a in &mut tb.applets {
-                            if a.owns_window(*window) && a.window().id() != *window {
-                                a.handle_other_event(event, backend);
-                            }
-                        }
-                    });
+                if self.route_to_sub_applet(*window, event) {
                     return;
                 }
             }
@@ -328,21 +316,7 @@ impl App {
                     Action::Menu(MenuOp::Pager) => self.preview.show(&self.backend, &self.wm),
                     _ => {
                         if let Some(window) = event.window() {
-                            let is_sub = self.taskbar.as_ref().map_or(false, |tb| {
-                                tb.applets
-                                    .iter()
-                                    .any(|a| a.owns_window(window) && a.window().id() != window)
-                            });
-                            if is_sub {
-                                let backend = &self.backend;
-                                let _ = self.taskbar.as_mut().map(|tb| {
-                                    for a in &mut tb.applets {
-                                        if a.owns_window(window) && a.window().id() != window {
-                                            a.handle_other_event(event, backend);
-                                        }
-                                    }
-                                });
-                            }
+                            self.route_to_sub_applet(window, event);
                         }
                     }
                 }
@@ -446,21 +420,10 @@ impl App {
             |w: u32| -> bool { w == tb.window.id() || tb.applets.iter().any(|a| a.owns_window(w)) };
         match *event {
             BackendEvent::Expose { window, .. } if own(window) => {
-                if tb
-                    .applets
-                    .iter()
-                    .any(|a| a.owns_window(window) && a.window().id() != window)
-                {
-                    let backend = &self.backend;
-                    let _ = self.taskbar.as_mut().map(|tb| {
-                        for a in &mut tb.applets {
-                            if a.owns_window(window) && a.window().id() != window {
-                                a.handle_other_event(event, backend);
-                            }
-                        }
-                    });
-                } else {
-                    let _ = tb.paint_window(window);
+                if !self.route_to_sub_applet(window, event) {
+                    if let Some(tb) = self.taskbar.as_ref() {
+                        let _ = tb.paint_window(window);
+                    }
                 }
             }
             BackendEvent::ButtonPress {
@@ -469,19 +432,7 @@ impl App {
                 button,
                 ..
             } if own(window) => {
-                let is_sub = tb
-                    .applets
-                    .iter()
-                    .any(|a| a.owns_window(window) && a.window().id() != window);
-                if is_sub {
-                    let backend = &self.backend;
-                    let _ = self.taskbar.as_mut().map(|tb| {
-                        for a in &mut tb.applets {
-                            if a.owns_window(window) && a.window().id() != window {
-                                a.handle_other_event(event, backend);
-                            }
-                        }
-                    });
+                if self.route_to_sub_applet(window, event) {
                     return;
                 }
                 if button == 3 {
@@ -547,14 +498,7 @@ impl App {
                 }
             }
             BackendEvent::KeyPress { window, .. } if own(window) => {
-                let backend = &self.backend;
-                let _ = self.taskbar.as_mut().map(|tb| {
-                    for a in &mut tb.applets {
-                        if a.owns_window(window) && a.window().id() != window {
-                            a.handle_other_event(event, backend);
-                        }
-                    }
-                });
+                self.route_to_sub_applet(window, event);
             }
             BackendEvent::MotionNotify { window, point, .. } if own(window) => {
                 let backend = &self.backend;
@@ -639,11 +583,7 @@ impl App {
                 } else if MODIFIERS.contains(&ks) {
                 } else {
                     use crate::switcher::SwitcherKey;
-                    let min = self.backend.setup_min_keycode();
-                    let max = self.backend.setup_max_keycode();
-                    let outcome = self
-                        .backend
-                        .get_keyboard_mapping(min, max - min + 1)
+                    let outcome = crate::bindings::keymap(self.backend.as_ref())
                         .map_or(SwitcherKey::Unhandled, |m| {
                             self.switcher
                                 .handle_search_key(&self.backend, *keycode, *state, &m)
@@ -670,6 +610,25 @@ impl App {
 
     fn lookup_keysym(&self, kc: u32) -> u32 {
         crate::bindings::keysym_for_keycode(self.backend.as_ref(), kc)
+    }
+
+    fn route_to_sub_applet(&mut self, window: u32, event: &BackendEvent) -> bool {
+        let is_sub = self.taskbar.as_ref().map_or(false, |tb| {
+            tb.applets
+                .iter()
+                .any(|a| a.owns_window(window) && a.window().id() != window)
+        });
+        if is_sub {
+            let backend = &self.backend;
+            let _ = self.taskbar.as_mut().map(|tb| {
+                for a in &mut tb.applets {
+                    if a.owns_window(window) && a.window().id() != window {
+                        a.handle_other_event(event, backend);
+                    }
+                }
+            });
+        }
+        is_sub
     }
 
     pub(crate) fn activate_taskbar_window(&mut self, clicked: u32) {
@@ -849,11 +808,9 @@ impl App {
             }
             BackendEvent::KeyPress { keycode, state, .. } => {
                 let ks = self.lookup_keysym(*keycode);
-                let min = self.backend.setup_min_keycode();
-                let max = self.backend.setup_max_keycode();
-                let nav = match self.backend.get_keyboard_mapping(min, max - min + 1) {
-                    Ok(m) => menu.handle_key_input(&*self.backend, *keycode, *state, &m, ks),
-                    Err(_) => menu.handle_key(&*self.backend, ks),
+                let nav = match crate::bindings::keymap(self.backend.as_ref()) {
+                    Some(m) => menu.handle_key_input(&*self.backend, *keycode, *state, &m, ks),
+                    None => menu.handle_key(&*self.backend, ks),
                 };
                 match nav {
                     MenuNav::Ignored | MenuNav::Handled => self.group_menu = Some(menu),
@@ -932,9 +889,7 @@ impl App {
             }
             BackendEvent::KeyPress { keycode, state, .. } => {
                 let ks = self.lookup_keysym(*keycode);
-                let min = self.backend.setup_min_keycode();
-                let max = self.backend.setup_max_keycode();
-                let close = if let Ok(m) = self.backend.get_keyboard_mapping(min, max - min + 1) {
+                let close = if let Some(m) = crate::bindings::keymap(self.backend.as_ref()) {
                     self.winlist.handle_key_input(
                         &self.backend,
                         &mut self.wm,

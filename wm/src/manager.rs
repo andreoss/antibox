@@ -469,11 +469,9 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
                     let res = backend
                         .as_ref().map(|v| v.as_ref())
                         .map_or(crate::menu::MenuNav::Ignored, |b| {
-                            let min = b.setup_min_keycode();
-                            let max = b.setup_max_keycode();
-                            match b.get_keyboard_mapping(min, max - min + 1) {
-                                Ok(m) => menu.handle_key_input(b, *keycode, *state, &m, ks),
-                                Err(_) => menu.handle_key(b, ks),
+                            match crate::bindings::keymap(b) {
+                                Some(m) => menu.handle_key_input(b, *keycode, *state, &m, ks),
+                                None => menu.handle_key(b, ks),
                             }
                         });
                     match res {
@@ -502,11 +500,9 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
                     let mut menu = self.dock_menu.take().expect("dock_menu visible");
                     let backend = self.backend.clone();
                     let res = backend.as_ref().map(|v| v.as_ref()).map_or(MenuNav::Ignored, |b| {
-                        let min = b.setup_min_keycode();
-                        let max = b.setup_max_keycode();
-                        match b.get_keyboard_mapping(min, max - min + 1) {
-                            Ok(m) => menu.handle_key_input(b, *keycode, *state, &m, ks),
-                            Err(_) => menu.handle_key(b, ks),
+                        match crate::bindings::keymap(b) {
+                            Some(m) => menu.handle_key_input(b, *keycode, *state, &m, ks),
+                            None => menu.handle_key(b, ks),
                         }
                     });
                     match res {
@@ -569,20 +565,10 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
     }
 
     fn keysym_for(&self, keycode: u32) -> u32 {
-        let b = match self.backend() {
-            Some(b) => b,
-            None => return 0,
-        };
-        let min = b.setup_min_keycode();
-        let max = b.setup_max_keycode();
-        if let Ok(m) = b.get_keyboard_mapping(min, (max as usize - min as usize + 1) as u8) {
-            let off =
-                (keycode as usize).saturating_sub(min as usize) * (m.keysyms_per_keycode as usize);
-            if off < m.keysyms.len() {
-                return m.keysyms[off];
-            }
+        match self.backend() {
+            Some(b) => crate::bindings::keysym_for_keycode(b, keycode),
+            None => 0,
         }
-        0
     }
 
     pub fn lookup_mouse(&self, state: u16, button: u8) -> Option<&Action> {

@@ -108,6 +108,7 @@ impl EventLoopTrait for XcbEventLoop {
         &mut self,
         timeout: Duration,
     ) -> Result<Option<BackendEvent>, Box<dyn std::error::Error>> {
+        let _ = self.backend.flush();
         let fd = self.backend.fd();
         let mut pollfds = vec![libc::pollfd {
             fd,
