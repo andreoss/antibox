@@ -2,7 +2,6 @@ pub mod backend;
 pub mod canvas;
 
 pub mod logevent;
-pub mod metrics;
 pub mod mock;
 pub mod libc;
 pub mod paths;
