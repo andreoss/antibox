@@ -65,7 +65,7 @@ pub fn is_dark(c: Colour) -> bool {
 pub fn contrast(fg: Colour, bg: Colour) -> Colour {
     let lb = luma(bg);
     let lf = luma(fg);
-    let d = if lf >= lb { lf - lb } else { lb - lf };
+    let d = lf.abs_diff(lb);
     if d * 4 >= 255 {
         fg
     } else if lb * 2 >= 255 {

@@ -113,7 +113,7 @@ fn nearest_strike(names: &[String], px: u16) -> Option<(u16, String)> {
             if strike == 0 {
                 return None;
             }
-            let ad = if strike > px { strike - px } else { px - strike };
+            let ad = strike.abs_diff(px);
             let dist = ad as u32 * 2 + u32::from(strike < px);
             Some((dist, strike, s.clone()))
         })

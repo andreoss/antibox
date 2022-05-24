@@ -6,7 +6,7 @@ use antibox_core::point::Point;
 pub(crate) fn event_timing_enabled() -> bool {
     use std::cell::RefCell;
     thread_local! {
-        static ON: RefCell<Option<bool>> = RefCell::new(None);
+        static ON: RefCell<Option<bool>> = const { RefCell::new(None) };
     }
     ON.with(|c| {
         *c.borrow_mut()

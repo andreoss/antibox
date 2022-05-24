@@ -127,7 +127,7 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                 None => raw.trim_matches('"'),
             }
         } else {
-            raw.split(|c| c == '#' || c == ';')
+            raw.split(['#', ';'].as_ref())
                 .next()
                 .unwrap_or("")
                 .trim()
