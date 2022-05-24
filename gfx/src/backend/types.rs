@@ -274,7 +274,7 @@ use std::cell::RefCell;
 
 thread_local! {
     static ELEMENT_FONTS: RefCell<[Option<ElementFont>; FONT_ROLE_COUNT]> =
-        RefCell::new([None, None, None, None, None, None, None, None]);
+        const { RefCell::new([None, None, None, None, None, None, None, None]) };
 }
 pub fn parse_font_desc(s: &str) -> Option<(String, u16, bool, bool)> {
     let toks: Vec<&str> = s.split_whitespace().collect();

@@ -19,7 +19,7 @@ pub fn set_net_device(pattern: &str) {
 
 fn device_selected(filter: &str, name: &str) -> bool {
     filter
-        .split(|c| c == ' ' || c == ',' || c == '\t')
+        .split([' ', ',', '\t'].as_ref())
         .filter(|t| !t.is_empty())
         .any(|t| {
             if let Some(prefix) = t.strip_suffix('*') {

@@ -10,7 +10,7 @@ static TASKBAR_ALIGN: AtomicU8 = AtomicU8::new(255);
 static TASKBAR_GROUPING: AtomicBool = AtomicBool::new(false);
 static TASKBAR_LAYOUT: LazyRwLock<Option<Vec<Widget>>> = LazyRwLock::new();
 thread_local! {
-    static SHOW: RefCell<[bool; Widget::COUNT]> = RefCell::new([false; Widget::COUNT]);
+    static SHOW: RefCell<[bool; Widget::COUNT]> = const { RefCell::new([false; Widget::COUNT]) };
 }
 static TASKBAR_TITLES: AtomicBool = AtomicBool::new(true);
 static TASKBAR_DOUBLE: AtomicBool = AtomicBool::new(false);
