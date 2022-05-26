@@ -468,7 +468,7 @@ impl App {
             tray,
             composite_available,
             TaskbarConfig {
-                time_format: "%H:%M:%S".to_string(),
+                time_format: wmconfig::Config::load_prefs().clock.format,
                 position: taskbar_position,
             },
         );

@@ -63,6 +63,7 @@
         assert_eq!(d.font, Prefs::default().font);
         assert_eq!(d.workspace, Prefs::default().workspace);
         assert_eq!(d.keyboard, Prefs::default().keyboard);
+        assert_eq!(d.clock, Prefs::default().clock);
         assert_eq!(d.winlist, Prefs::default().winlist);
         assert!(!d.keys.is_empty());
     }
@@ -116,6 +117,14 @@
         assert_eq!(p.net.width, 60);
         assert_eq!(p.net.device, "en* wlan0");
         assert_eq!(parse_prefs("").net.device, "*");
+    }
+
+    #[test]
+    fn test_parse_prefs_clock_format() {
+        assert_eq!(parse_prefs("").clock.format, "%H:%M:%S");
+        let p = parse_prefs("[clock]\nformat = \"%a %H:%M\"\n");
+        assert_eq!(p.clock.format, "%a %H:%M");
+        assert_eq!(parse_prefs("[clock]\nformat = \"\"\n").clock.format, "%H:%M:%S");
     }
 
     #[test]
