@@ -387,7 +387,7 @@ impl App {
         apply_font_prefs(&b, &prefs);
         crate::layout_preferences::apply();
         crate::tooltip::set_show_delay_ms(500);
-        crate::tooltip::set_lifetime_ms(0);
+        crate::tooltip::set_lifetime_ms(5000);
         crate::drag::set_multi_click_ms(400);
 
         let (ws_count, ws_names) = wmconfig::workspaces_from(&prefs);
