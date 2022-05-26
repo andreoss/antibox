@@ -154,6 +154,12 @@ impl App {
         if let Some(tb) = self.taskbar.as_mut() {
             tb.set_workspace_names(&names);
             for a in &mut tb.applets {
+                if let Some(c) = a
+                    .as_any_mut()
+                    .downcast_mut::<crate::clock_applet::ClockApplet>()
+                {
+                    let _ = c.set_base_format(&prefs.clock.format);
+                }
                 let w = if a.as_any().is::<crate::cpu_status_applet::CpuStatusApplet>() {
                     Some(prefs.cpu.width)
                 } else if a.as_any().is::<crate::mem_status_applet::MemStatusApplet>() {

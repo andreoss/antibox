@@ -9,6 +9,7 @@ pub struct Prefs {
     pub cpu: GraphPrefs,
     pub mem: GraphPrefs,
     pub net: NetPrefs,
+    pub clock: ClockPrefs,
     pub winlist: WinlistPrefs,
     pub keys: Vec<(String, String)>,
 }
@@ -41,6 +42,11 @@ pub struct NetPrefs {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClockPrefs {
+    pub format: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WinlistPrefs {
     pub position: String,
 }
@@ -63,6 +69,9 @@ impl Default for Prefs {
             net: NetPrefs {
                 width: 40,
                 device: "*".to_string(),
+            },
+            clock: ClockPrefs {
+                format: "%H:%M:%S".to_string(),
             },
             winlist: WinlistPrefs {
                 position: "centre".to_string(),
@@ -172,6 +181,11 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                 }
             }
             ("net", "device") => p.net.device = value.to_string(),
+            ("clock", "format") => {
+                if !value.is_empty() {
+                    p.clock.format = value.to_string();
+                }
+            }
             ("winlist", "position") => match value {
                 "centre" | "pointer" => p.winlist.position = value.to_string(),
                 _ => {}
