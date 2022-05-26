@@ -89,7 +89,8 @@ impl ToolTip {
             }
         }
         if self.visible {
-            if self.shown_at.map_or(false, |t| t.elapsed() >= tt_lifetime()) {
+            let life = tt_lifetime();
+            if !life.is_zero() && self.shown_at.map_or(false, |t| t.elapsed() >= life) {
                 self.hide(conn);
             } else {
                 self.paint(conn);

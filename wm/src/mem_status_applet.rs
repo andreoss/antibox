@@ -139,17 +139,17 @@ impl MemStatusApplet {
         }
         format!(
             "RAM: {} / {}\nBuffers: {}\nCached: {}\nFree: {}",
-            fmt_kb(v[MEM_USER]),
-            fmt_kb(total),
-            fmt_kb(v[MEM_BUFFERS]),
-            fmt_kb(v[MEM_CACHED]),
-            fmt_kb(v[MEM_FREE]),
+            fmt_bytes(v[MEM_USER]),
+            fmt_bytes(total),
+            fmt_bytes(v[MEM_BUFFERS]),
+            fmt_bytes(v[MEM_CACHED]),
+            fmt_bytes(v[MEM_FREE]),
         )
     }
 }
 
-fn fmt_kb(kb: u64) -> String {
-    let mb = kb as f64 / 1024.0;
+fn fmt_bytes(b: u64) -> String {
+    let mb = b as f64 / (1024.0 * 1024.0);
     if mb >= 1024.0 {
         format!("{:.1}G", mb / 1024.0)
     } else {
