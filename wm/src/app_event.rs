@@ -128,6 +128,8 @@ impl App {
             .key_bindings
             .register_all(&self.backend, &crate::keys_parser::entries_from(&prefs.keys));
 
+        self.wm.config.warp_pointer = prefs.pointer.warp;
+
         let (count, names) = wmconfig::workspaces_from(&prefs);
         let count_changed = count != self.wm.config.workspace_count;
         if self.wm.active_workspace >= count {

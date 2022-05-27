@@ -446,6 +446,7 @@ impl App {
             false,
             &crate::render::ThemeColors::default(),
         );
+        wm.config.warp_pointer = prefs.pointer.warp;
         wm.render_backend = Some(render_backend);
         let _ = wm.atoms.intern_all(&*b);
         wm.set_workspace_layouts(crate::layout::Layout::parse_list(

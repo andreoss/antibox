@@ -64,6 +64,7 @@
         assert_eq!(d.workspace, Prefs::default().workspace);
         assert_eq!(d.keyboard, Prefs::default().keyboard);
         assert_eq!(d.clock, Prefs::default().clock);
+        assert_eq!(d.pointer, Prefs::default().pointer);
         assert_eq!(d.winlist, Prefs::default().winlist);
         assert!(!d.keys.is_empty());
     }
@@ -125,6 +126,13 @@
         let p = parse_prefs("[clock]\nformat = \"%a %H:%M\"\n");
         assert_eq!(p.clock.format, "%a %H:%M");
         assert_eq!(parse_prefs("[clock]\nformat = \"\"\n").clock.format, "%H:%M:%S");
+    }
+
+    #[test]
+    fn test_parse_prefs_pointer() {
+        assert!(!parse_prefs("").pointer.warp);
+        assert!(parse_prefs("[pointer]\nwarp = true\n").pointer.warp);
+        assert!(!parse_prefs("[pointer]\nwarp = bogus\n").pointer.warp);
     }
 
     #[test]

@@ -10,6 +10,7 @@ pub struct Prefs {
     pub mem: GraphPrefs,
     pub net: NetPrefs,
     pub clock: ClockPrefs,
+    pub pointer: PointerPrefs,
     pub winlist: WinlistPrefs,
     pub keys: Vec<(String, String)>,
 }
@@ -47,6 +48,11 @@ pub struct ClockPrefs {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PointerPrefs {
+    pub warp: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WinlistPrefs {
     pub position: String,
 }
@@ -73,6 +79,7 @@ impl Default for Prefs {
             clock: ClockPrefs {
                 format: "%H:%M:%S".to_string(),
             },
+            pointer: PointerPrefs { warp: false },
             winlist: WinlistPrefs {
                 position: "centre".to_string(),
             },
@@ -103,6 +110,14 @@ pub fn split_layout_list(s: &str) -> Vec<String> {
 pub fn workspaces_from(prefs: &Prefs) -> (u32, Vec<String>) {
     let count = prefs.workspace.count.max(1);
     (count, parse_workspace_names("", count as usize))
+}
+
+fn parse_bool(value: &str) -> Option<bool> {
+    match value {
+        "true" | "yes" | "1" => Some(true),
+        "false" | "no" | "0" => Some(false),
+        _ => None,
+    }
 }
 
 fn parse_width(value: &str) -> Option<u16> {
@@ -184,6 +199,11 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
             ("clock", "format") => {
                 if !value.is_empty() {
                     p.clock.format = value.to_string();
+                }
+            }
+            ("pointer", "warp") => {
+                if let Some(v) = parse_bool(value) {
+                    p.pointer.warp = v;
                 }
             }
             ("winlist", "position") => match value {
