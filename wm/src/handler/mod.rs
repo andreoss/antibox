@@ -280,6 +280,9 @@ pub fn map_request_ex<H: DisplayBackend + 'static + ?Sized>(
         if !skip_focus {
             let prev = wm.focused_window;
             wm.focused_window = Some(cid);
+            if prev != Some(cid) {
+                wm.last_focused_window = prev;
+            }
             if let Some(fw) = wm.frame(cid) {
                 crate::focus::give_input_focus(wm.backend().unwrap(), &wm.atoms, fw, window);
             }

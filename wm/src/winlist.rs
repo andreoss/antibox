@@ -48,6 +48,7 @@ pub struct WinListMenu {
     pub items: Vec<WinListItem>,
     rows: Vec<Row>,
     pub visible: bool,
+    pub switcher: bool,
     x: i32,
     y: i32,
     w: u16,
@@ -80,6 +81,7 @@ impl WinListMenu {
             items: Vec::new(),
             rows: Vec::new(),
             visible: false,
+            switcher: false,
             x: 0,
             y: 0,
             w: 0,
@@ -224,6 +226,25 @@ impl WinListMenu {
     }
 
     pub fn show(&mut self, conn: &Arc<dyn DisplayBackend>, wm: &WindowManager<dyn DisplayBackend>) {
+        self.show_common(conn, wm, false, true);
+    }
+
+    pub fn show_switcher(
+        &mut self,
+        conn: &Arc<dyn DisplayBackend>,
+        wm: &WindowManager<dyn DisplayBackend>,
+        forward: bool,
+    ) {
+        self.show_common(conn, wm, true, forward);
+    }
+
+    fn show_common(
+        &mut self,
+        conn: &Arc<dyn DisplayBackend>,
+        wm: &WindowManager<dyn DisplayBackend>,
+        switcher: bool,
+        forward: bool,
+    ) {
         self.client_id = 0;
         self.filter.clear();
         self.rebuild(wm);
@@ -238,7 +259,11 @@ impl WinListMenu {
         self.x = x;
         self.y = y;
         self.offset = 0;
-        self.selected = self.next_win_row(None, 1);
+        self.selected = if switcher {
+            self.selection_from_focus(wm, forward)
+        } else {
+            self.next_win_row(None, 1)
+        };
 
         let win = match conn.create_window(
             conn.root().as_parent(),
@@ -272,17 +297,82 @@ impl WinListMenu {
             bar.show();
             self.bar = Some(bar);
         }
+        self.switcher = switcher;
         self.window = Some(win);
         self.client_id = id;
         self.visible = true;
+        if switcher {
+            self.paint(conn);
+            let _ = conn.flush();
+        }
+    }
+
+    fn row_of_client(&self, xid: u32) -> Option<usize> {
+        self.rows.iter().position(|r| {
+            matches!(r, Row::Win(i) if self.items.get(*i).map_or(false, |it| it.client_id == xid))
+        })
+    }
+
+    fn selection_from_focus(
+        &self,
+        wm: &WindowManager<dyn DisplayBackend>,
+        forward: bool,
+    ) -> Option<usize> {
+        let fid = wm.focused_window().map(|f| wm.xid_index.xid_of(f));
+        if forward {
+            let prev = wm
+                .last_focused_window
+                .map(|p| wm.xid_index.xid_of(p))
+                .filter(|p| Some(*p) != fid)
+                .and_then(|p| self.row_of_client(p));
+            if prev.is_some() {
+                return prev;
+            }
+        }
+        let start = fid.and_then(|id| self.row_of_client(id));
+        let dir = if forward { 1 } else { -1 };
+        self.next_win_row(start, dir)
+            .or_else(|| self.next_win_row(None, dir))
+    }
+
+    pub fn cycle(&mut self, conn: &Arc<dyn DisplayBackend>, forward: bool) {
+        let dir = if forward { 1 } else { -1 };
+        self.selected = self
+            .next_win_row(self.selected, dir)
+            .or_else(|| self.next_win_row(None, dir));
+        self.scroll_to_selected();
+        self.paint(conn);
+    }
+
+    pub fn activate_selected(
+        &self,
+        conn: &Arc<dyn DisplayBackend>,
+        wm: &mut WindowManager<dyn DisplayBackend>,
+    ) {
+        if let Some(s) = self.selected {
+            self.activate(conn, wm, s);
+        }
+    }
+
+    pub fn selected_client_id(&self) -> Option<u32> {
+        let s = self.selected?;
+        match self.rows.get(s)? {
+            Row::Win(i) => self.items.get(*i).map(|it| it.client_id),
+            Row::Header(_) => None,
+        }
     }
 
     pub fn hide(&mut self, conn: &Arc<dyn DisplayBackend>) {
+        let was_switcher = self.switcher;
         if let Some(ref win) = self.window {
             let _ = win.destroy();
             let _ = conn.flush();
         }
         self.reset();
+        if was_switcher {
+            let _ = conn.ungrab_keyboard(0);
+            let _ = conn.flush();
+        }
     }
 
     pub fn on_destroyed(&mut self, window: u32) {
@@ -293,6 +383,7 @@ impl WinListMenu {
 
     fn reset(&mut self) {
         self.visible = false;
+        self.switcher = false;
         self.window = None;
         self.client_id = 0;
         self.items.clear();

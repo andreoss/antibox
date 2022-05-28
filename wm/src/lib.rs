@@ -43,7 +43,6 @@ pub mod render;
 pub mod resize_popup;
 pub mod snap;
 pub mod status_graph;
-pub mod switcher;
 pub mod taskbar;
 pub mod taskpane;
 #[cfg(feature = "tray")]

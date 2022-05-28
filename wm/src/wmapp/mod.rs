@@ -3,7 +3,6 @@ use crate::applet::AppletContainer;
 use crate::clock_applet::ClockApplet;
 use crate::manager::WindowManager;
 use crate::preview::PreviewWindow;
-use crate::switcher::SwitcherWindow;
 use crate::taskbar::TaskBar;
 use crate::taskpane::TaskPane;
 #[cfg(feature = "tray")]
@@ -222,7 +221,6 @@ pub struct App {
     pub event_loop: Box<dyn EventLoopTrait>,
     pub atom_manager: AtomManager,
     pub wm: WindowManager<dyn DisplayBackend>,
-    pub switcher: SwitcherWindow,
     pub preview: PreviewWindow,
     pub winlist: WinListMenu,
     pub group_menu: Option<crate::menu::MenuView<u32>>,
@@ -492,7 +490,6 @@ impl App {
             event_loop,
             atom_manager,
             wm,
-            switcher: SwitcherWindow::new(),
             preview: PreviewWindow::new(),
             winlist: WinListMenu::new(),
             group_menu: None,

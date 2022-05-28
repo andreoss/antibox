@@ -2,6 +2,7 @@ use crate::action::*;
 use crate::id::ClientId;
 use antibox_core::logevent;
 use antibox_core::point::Point;
+use antibox_core::rect::Rect;
 
 pub(crate) fn event_timing_enabled() -> bool {
     use std::cell::RefCell;
@@ -255,6 +256,10 @@ impl App {
         {
             return;
         }
+        if self.winlist.switcher {
+            self.handle_alt_tab_event(event);
+            return;
+        }
         if self.winlist.visible {
             let owned = match event {
                 BackendEvent::ButtonPress { window, .. }
@@ -281,51 +286,46 @@ impl App {
                 return;
             }
         }
-        if self.switcher.visible {
-            self.handle_switcher_event(event);
-        } else {
-            let mut switcher_consumed = false;
-            if let BackendEvent::KeyPress { keycode, state, .. } = event {
-                if self.lookup_keysym(*keycode) == 0xFF09 && *state & 0x08 != 0 {
-                    self.switcher
-                        .show(&self.backend, &self.wm, (*state & 0x01) == 0);
-                    switcher_consumed = true;
-                }
+        let mut switcher_consumed = false;
+        if let BackendEvent::KeyPress { keycode, state, .. } = event {
+            if self.lookup_keysym(*keycode) == 0xFF09 && *state & 0x08 != 0 {
+                self.open_alt_tab((*state & 0x01) == 0);
+                switcher_consumed = true;
             }
-            if switcher_consumed {
-                return;
-            }
-            if self.wm.drag_state.is_some() {
-                if let BackendEvent::KeyPress { keycode, .. } = event {
-                    let ks = self.lookup_keysym(*keycode);
-                    if crate::drag::keyboard_drag(&mut self.wm, ks) {
-                        return;
-                    }
-                }
-            }
-            if let BackendEvent::ConfigureRequest { window, .. } = event {
-                if self.route_to_sub_applet(*window, event) {
+        }
+        if switcher_consumed {
+            return;
+        }
+        if self.wm.drag_state.is_some() {
+            if let BackendEvent::KeyPress { keycode, .. } = event {
+                let ks = self.lookup_keysym(*keycode);
+                if crate::drag::keyboard_drag(&mut self.wm, ks) {
                     return;
                 }
             }
-            self.wm.handle_event(event);
-            if std::mem::replace(&mut self.wm.workspace_names_dirty, false) {
-                let names = self.wm.workspace_names.clone();
-                if let Some(tb) = self.taskbar.as_mut() {
-                    if tb.set_workspace_names(&names) {
-                        let _ = tb.paint();
-                    }
-                }
-                crate::ewmh::update_desktop_names(&*self.backend, &self.wm.atoms, &names);
+        }
+        if let BackendEvent::ConfigureRequest { window, .. } = event {
+            if self.route_to_sub_applet(*window, event) {
+                return;
             }
-            if let Some(a) = self.wm.pending_action.take() {
-                match a {
-                    Action::Menu(MenuOp::WindowPickerList) => self.show_window_list(),
-                    Action::Menu(MenuOp::Pager) => self.preview.show(&self.backend, &self.wm),
-                    _ => {
-                        if let Some(window) = event.window() {
-                            self.route_to_sub_applet(window, event);
-                        }
+        }
+        self.wm.handle_event(event);
+        if std::mem::replace(&mut self.wm.workspace_names_dirty, false) {
+            let names = self.wm.workspace_names.clone();
+            if let Some(tb) = self.taskbar.as_mut() {
+                if tb.set_workspace_names(&names) {
+                    let _ = tb.paint();
+                }
+            }
+            crate::ewmh::update_desktop_names(&*self.backend, &self.wm.atoms, &names);
+        }
+        if let Some(a) = self.wm.pending_action.take() {
+            match a {
+                Action::Menu(MenuOp::WindowPickerList) => self.show_window_list(),
+                Action::Menu(MenuOp::Pager) => self.preview.show(&self.backend, &self.wm),
+                _ => {
+                    if let Some(window) = event.window() {
+                        self.route_to_sub_applet(window, event);
                     }
                 }
             }
@@ -577,7 +577,36 @@ impl App {
         }
     }
 
-    fn handle_switcher_event(&mut self, event: &BackendEvent) {
+    fn open_alt_tab(&mut self, forward: bool) {
+        if self.winlist.visible {
+            self.winlist.hide(&self.backend);
+        }
+        self.winlist.show_switcher(&self.backend, &self.wm, forward);
+    }
+
+    fn close_alt_tab(&mut self) {
+        let sel = self.winlist.selected_client_id();
+        if let Some(xid) = sel {
+            self.winlist.activate_selected(&self.backend, &mut self.wm);
+            if self.wm.config.warp_pointer {
+                if let Some(cid) = self.wm.cid_for_xid(xid) {
+                    if let Some(fw) = self.wm.frame(cid) {
+                        let r = fw.frame_rect();
+                        let _ = self.backend.warp_pointer(
+                            0,
+                            fw.frame().id(),
+                            Rect::ZERO,
+                            Point::new(r.w / 2, r.h / 2),
+                        );
+                    }
+                }
+            }
+        }
+        self.winlist.hide(&self.backend);
+        let _ = self.backend.flush();
+    }
+
+    fn handle_alt_tab_event(&mut self, event: &BackendEvent) {
         const MODIFIERS: [u32; 9] = [
             0xFFE9, 0xFFEA, 0xFFE7, 0xFFE8, 0xFFE1, 0xFFE2, 0xFFE3, 0xFFE4, 0xFF7E,
         ];
@@ -586,33 +615,21 @@ impl App {
             BackendEvent::KeyPress { keycode, state, .. } => {
                 let ks = self.lookup_keysym(*keycode);
                 if ks == 0xFF09 {
-                    self.switcher.cycle((*state & 0x01) == 0);
-                    self.switcher.paint(&self.backend);
+                    self.winlist.cycle(&self.backend, (*state & 0x01) == 0);
                 } else if MODIFIERS.contains(&ks) {
                 } else {
-                    use crate::switcher::SwitcherKey;
-                    let outcome = crate::bindings::keymap(self.backend.as_ref())
-                        .map_or(SwitcherKey::Unhandled, |m| {
-                            self.switcher
-                                .handle_search_key(&self.backend, *keycode, *state, &m)
-                        });
-                    match outcome {
-                        SwitcherKey::Filtered => {}
-                        SwitcherKey::Submitted
-                        | SwitcherKey::Cancelled
-                        | SwitcherKey::Unhandled => {
-                            self.switcher.hide(&self.backend, &mut self.wm);
-                        }
-                    }
+                    self.handle_winlist_event(event);
                 }
             }
-            BackendEvent::KeyRelease { keycode, .. }
-                if ALT_META.contains(&self.lookup_keysym(*keycode)) =>
-            {
-                self.switcher.hide(&self.backend, &mut self.wm);
+            BackendEvent::KeyRelease { keycode, .. } => {
+                let ks = self.lookup_keysym(*keycode);
+                if ALT_META.contains(&ks) {
+                    self.close_alt_tab();
+                } else {
+                    self.handle_winlist_event(event);
+                }
             }
-            BackendEvent::Expose { .. } => self.switcher.paint(&self.backend),
-            _ => {}
+            _ => self.handle_winlist_event(event),
         }
     }
 
