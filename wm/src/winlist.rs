@@ -251,7 +251,13 @@ impl WinListMenu {
         if self.items.is_empty() {
             return;
         }
-        if self.w == 0 {
+        if switcher {
+            self.w = scaled(280) as u16;
+            let rows_h = self.rows.len() as i32 * row_h() as i32;
+            let h = pad() as i32 * 3 + bar_h() as i32 + rows_h;
+            let max_h = (conn.screen_height() as i32 * 3 / 4).max(scaled(120));
+            self.h = h.clamp(scaled(120), max_h) as u16;
+        } else if self.w == 0 {
             self.w = scaled(280) as u16;
             self.h = scaled(340) as u16;
         }
@@ -306,8 +312,6 @@ impl WinListMenu {
             );
         }
         if switcher {
-            let _ = win.map();
-            let _ = win.raise();
             let _ = conn.grab_keyboard(
                 false,
                 conn.root().read_id(),

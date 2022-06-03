@@ -582,6 +582,11 @@ impl App {
             self.winlist.hide(&self.backend);
         }
         self.winlist.show_switcher(&self.backend, &self.wm, forward);
+        let id = self.winlist.client_id();
+        if id != 0 {
+            self.wm.self_windows.insert(id);
+            crate::handler::map_request_ex(&mut self.wm, id, true);
+        }
     }
 
     fn close_alt_tab(&mut self) {
