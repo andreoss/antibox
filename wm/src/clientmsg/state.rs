@@ -72,7 +72,10 @@ pub fn net_wm_state_request<H: DisplayBackend + 'static + ?Sized>(
     if let Some(want_full) = do_full {
         crate::wmaction::set_fullscreen(wm, cid, want_full);
     }
-    if max_changed && (want_v != cur_v || want_h != cur_h) {
+    if max_changed
+        && (want_v != cur_v || want_h != cur_h)
+        && crate::wmaction::mwm_allows(wm, cid, antibox_core::backend::hints::mwm_func::MAXIMIZE)
+    {
         crate::wmaction::set_max_state(wm, cid, want_v, want_h);
     }
     if let Some(want_shade) = do_shade {
