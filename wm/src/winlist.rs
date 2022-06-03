@@ -289,6 +289,33 @@ impl WinListMenu {
         ) {
             let _ = conn.change_property32(PropMode::Replace, id, state, 4, &[skip]);
         }
+        if let Some(mwm) = wm.atoms.get("_MOTIF_WM_HINTS") {
+            use antibox_core::backend::hints::{mwm_func, mwm_hints_flags};
+            let _ = conn.change_property32(
+                PropMode::Replace,
+                id,
+                mwm,
+                mwm,
+                &[
+                    mwm_hints_flags::FUNCTIONS,
+                    mwm_func::ALL | mwm_func::MAXIMIZE,
+                    0,
+                    0,
+                    0,
+                ],
+            );
+        }
+        if switcher {
+            let _ = win.map();
+            let _ = win.raise();
+            let _ = conn.grab_keyboard(
+                false,
+                conn.root().read_id(),
+                0,
+                GrabMode::Async,
+                GrabMode::Async,
+            );
+        }
         let rconn: Arc<dyn RenderBackend> = wm.render_backend.clone().expect("render backend");
         let bw = (self.w as i16 - pad() * 2).max(1) as u16;
         if let Ok(mut bar) = SearchBar::new(&rconn, id, pad(), pad(), bw, bar_h() as u16) {
