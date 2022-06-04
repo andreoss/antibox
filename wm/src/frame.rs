@@ -474,8 +474,16 @@ impl FrameWindow {
     }
 
     pub fn title_button_for(&self, code: char) -> Option<(u8, &'static str, &'static str)> {
+        use antibox_core::backend::hints::mwm_func;
         match code {
             'x' => Some((2, "X", "close")),
+            'm' if self
+                .client()
+                .mwm_hints()
+                .map_or(false, |h| !h.allows(mwm_func::MAXIMIZE)) =>
+            {
+                None
+            }
             'm' if self.state.fullscreen => None,
             'm' if self.state.maximized => Some((1, "O", "restore")),
             'm' => Some((4, "D", "maximize")),

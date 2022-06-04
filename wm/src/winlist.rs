@@ -58,6 +58,7 @@ pub struct WinListMenu {
     scroll_drag: bool,
     bar: Option<SearchBar>,
     filter: String,
+    active_ws: u32,
 }
 
 pub struct WinListItem {
@@ -91,6 +92,7 @@ impl WinListMenu {
             scroll_drag: false,
             bar: None,
             filter: String::new(),
+            active_ws: 0,
         }
     }
 
@@ -165,6 +167,7 @@ impl WinListMenu {
     }
 
     fn rebuild(&mut self, wm: &WindowManager<dyn DisplayBackend>) {
+        self.active_ws = wm.active_workspace();
         let needle = self.filter.to_lowercase();
         let mut entries: Vec<WinListItem> = wm
             .frames
@@ -717,20 +720,28 @@ impl WinListMenu {
             let y = self.list_top() + vr * row_h();
             match row {
                 Row::Header(ws) => {
-                    let _ = g.set_foreground(c.sel_bg);
+                    let active = *ws == self.active_ws;
+                    let _ = g.set_foreground(theme::face());
                     let _ = g.fill_rect(0, y, lw, row_h() as u16);
+                    let _ = g.set_foreground(theme::shadow());
+                    let _ = g.draw_line(0, y + row_h() - 1, lw as i16, y + row_h() - 1);
                     let _ = g.set_font(&FontSpec::role_styled(
                         FontRole::Switch,
                         antibox_ui::metrics::font_pt(),
-                        true,
+                        active,
                         false,
                     ));
-                    let _ = g.set_foreground(c.sel_fg);
-                    let _ = g.set_background(c.sel_bg);
+                    let _ = g.set_foreground(theme::text());
+                    let _ = g.set_background(theme::face());
+                    let label = if active {
+                        format!("Workspace {} *", ws + 1)
+                    } else {
+                        format!("Workspace {}", ws + 1)
+                    };
                     let _ = g.draw_text(
                         6,
                         antibox_ui::metrics::baseline(y as i32, row_h() as i32) as i16,
-                        &format!("Workspace {}", ws + 1),
+                        &label,
                     );
                     let _ = g.set_font(&FontSpec::role(
                         FontRole::Switch,
