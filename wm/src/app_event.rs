@@ -586,6 +586,13 @@ impl App {
         if id != 0 {
             self.wm.self_windows.insert(id);
             crate::handler::map_request_ex(&mut self.wm, id, true);
+            let alt_up = self
+                .backend
+                .query_pointer(self.backend.root().read_id())
+                .map_or(false, |p| !p.mask.intersects(KeyButMask::MOD1));
+            if alt_up {
+                self.close_alt_tab();
+            }
         }
     }
 
@@ -633,6 +640,9 @@ impl App {
                 } else {
                     self.handle_winlist_event(event);
                 }
+            }
+            BackendEvent::ButtonPress { window, .. } if !self.winlist.owns_window(*window) => {
+                self.close_alt_tab();
             }
             _ => self.handle_winlist_event(event),
         }
