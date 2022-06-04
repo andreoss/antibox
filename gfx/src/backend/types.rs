@@ -131,7 +131,7 @@ impl std::ops::BitAnd for EventMask {
 pub struct KeyButMask(pub u16);
 
 impl KeyButMask {
-    pub const MOD1: Self = KeyButMask(1 << 1);
+    pub const MOD1: Self = KeyButMask(1 << 3);
     pub const CONTROL: Self = KeyButMask(1 << 2);
     pub const SHIFT: Self = KeyButMask(1 << 0);
 
