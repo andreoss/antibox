@@ -109,14 +109,15 @@
         }
         let g = MockGraphics::new(64);
         applet.paint_graph(&g);
-        let heights: Vec<u16> = g
-            .commands()
-            .iter()
-            .filter_map(|c| match c {
-                MockCommand::FillRect(_, _, _, h) if *h > 0 => Some(*h),
-                _ => None,
-            })
-            .collect();
+        let mut per_col: std::collections::HashMap<i16, u16> = std::collections::HashMap::new();
+        for c in g.commands().iter() {
+            if let MockCommand::FillRect(x, _, _, h) = c {
+                if *h > 0 {
+                    *per_col.entry(*x).or_insert(0) += *h;
+                }
+            }
+        }
+        let heights: Vec<u16> = per_col.values().cloned().collect();
         let max = heights.iter().cloned().max().unwrap_or(0);
         let min = heights.iter().cloned().min().unwrap_or(0);
 

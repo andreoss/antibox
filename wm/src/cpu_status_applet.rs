@@ -335,13 +335,13 @@ impl CpuStatusApplet {
             let userbar = ((h64 * ((total - v[IWM_IDLE]) + round)) / total) as i16 - prior;
 
             let mut y = plot.bottom() - 1;
-            y = plot.bar_up(g, x, y, stealbar, cpu_colour(IWM_STEAL));
-            y = plot.bar_up(g, x, y, intrbar, cpu_colour(IWM_INTR));
-            y = plot.bar_up(g, x, y, softirqbar, cpu_colour(IWM_SOFTIRQ));
-            y = plot.bar_up(g, x, y, sysbar, cpu_colour(IWM_SYS));
-            y = plot.bar_up(g, x, y, userbar, cpu_colour(IWM_USER));
-            y = plot.bar_up(g, x, y, nicebar, cpu_colour(IWM_NICE));
-            let _ = plot.bar_up(g, x, y, iowaitbar, cpu_colour(IWM_IOWAIT));
+            y = plot.bar_up_heat(g, x, y, stealbar, cpu_colour(IWM_STEAL));
+            y = plot.bar_up_heat(g, x, y, intrbar, cpu_colour(IWM_INTR));
+            y = plot.bar_up_heat(g, x, y, softirqbar, cpu_colour(IWM_SOFTIRQ));
+            y = plot.bar_up_heat(g, x, y, sysbar, cpu_colour(IWM_SYS));
+            y = plot.bar_up_heat(g, x, y, userbar, cpu_colour(IWM_USER));
+            y = plot.bar_up_heat(g, x, y, nicebar, cpu_colour(IWM_NICE));
+            let _ = plot.bar_up_heat(g, x, y, iowaitbar, cpu_colour(IWM_IOWAIT));
         }
     }
 }
