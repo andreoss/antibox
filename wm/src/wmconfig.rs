@@ -11,6 +11,7 @@ pub struct Prefs {
     pub net: NetPrefs,
     pub clock: ClockPrefs,
     pub pointer: PointerPrefs,
+    pub graph: GraphColourPrefs,
     pub winlist: WinlistPrefs,
     pub keys: Vec<(String, String)>,
 }
@@ -53,6 +54,12 @@ pub struct PointerPrefs {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GraphColourPrefs {
+    pub series: String,
+    pub heat: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WinlistPrefs {
     pub position: String,
 }
@@ -80,6 +87,10 @@ impl Default for Prefs {
                 format: "%H:%M:%S".to_string(),
             },
             pointer: PointerPrefs { warp: false },
+            graph: GraphColourPrefs {
+                series: "000080,000080,7F7FBF,808080".to_string(),
+                heat: "C82020".to_string(),
+            },
             winlist: WinlistPrefs {
                 position: "centre".to_string(),
             },
@@ -110,6 +121,22 @@ pub fn split_layout_list(s: &str) -> Vec<String> {
 pub fn workspaces_from(prefs: &Prefs) -> (u32, Vec<String>) {
     let count = prefs.workspace.count.max(1);
     (count, parse_workspace_names("", count as usize))
+}
+
+pub fn parse_colour(value: &str) -> Option<u32> {
+    let hex = value.trim().trim_start_matches('#');
+    if hex.len() != 6 {
+        return None;
+    }
+    u32::from_str_radix(hex, 16).ok()
+}
+
+pub fn parse_colour_list(value: &str) -> Vec<u32> {
+    value
+        .split([',', ' '].as_ref())
+        .filter(|s| !s.is_empty())
+        .filter_map(parse_colour)
+        .collect()
 }
 
 fn parse_bool(value: &str) -> Option<bool> {
@@ -199,6 +226,16 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
             ("clock", "format") => {
                 if !value.is_empty() {
                     p.clock.format = value.to_string();
+                }
+            }
+            ("graph", "series") => {
+                if !parse_colour_list(value).is_empty() {
+                    p.graph.series = value.to_string();
+                }
+            }
+            ("graph", "heat") => {
+                if parse_colour(value).is_some() {
+                    p.graph.heat = value.to_string();
                 }
             }
             ("pointer", "warp") => {
