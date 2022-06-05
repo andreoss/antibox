@@ -19,7 +19,6 @@
             focused: false,
             frameless: false,
             dragging: false,
-            placeholder: String::new(),
             x: 0,
             y: 0,
             w: 200,

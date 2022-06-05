@@ -326,7 +326,6 @@ impl WinListMenu {
         let rconn: Arc<dyn RenderBackend> = wm.render_backend.clone().expect("render backend");
         let bw = (self.w as i16 - pad() * 2).max(1) as u16;
         if let Ok(mut bar) = SearchBar::new(&rconn, id, pad(), pad(), bw, bar_h() as u16) {
-            bar.set_placeholder("Search windows");
             bar.set_focus(true);
             bar.show();
             self.bar = Some(bar);

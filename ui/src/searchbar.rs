@@ -42,7 +42,6 @@ impl SearchBar {
         let (ix, iy, iw, ih) = Self::input_layout(w, h);
         let mut input = InputLine::new(conn, window.id(), ix, iy, iw, ih)?;
         input.frameless = true;
-        input.placeholder = "Search".to_string();
         Ok(Self {
             conn: Arc::clone(conn),
             window,
@@ -61,9 +60,10 @@ impl SearchBar {
     fn input_layout(w: u16, h: u16) -> (i16, i16, u16, u16) {
         let gz = Self::zone_w();
         let vpad = crate::metrics::gap() as i16;
-        let iw = (w as i16 - gz * 2).max(1) as u16;
+        let lp = crate::metrics::gap() as i16 + 2;
+        let iw = (w as i16 - lp - gz).max(1) as u16;
         let ih = (h as i16 - vpad * 2).max(1) as u16;
-        (gz, vpad, iw, ih)
+        (lp, vpad, iw, ih)
     }
 
     pub fn set_rect(&mut self, x: i16, y: i16, w: u16, h: u16) {
@@ -83,11 +83,6 @@ impl SearchBar {
             .input
             .window
             .configure(Some(ix as i32), Some(iy as i32), Some(iw), Some(ih));
-    }
-
-    pub fn set_placeholder(&mut self, text: &str) {
-        self.input.placeholder = text.to_string();
-        self.input.repaint();
     }
 
     pub fn text(&self) -> &str {
@@ -181,26 +176,12 @@ impl SearchBar {
         };
         use crate::theme;
         theme::sunken_field(&*g, 0, 0, self.w, self.h);
-        let zw = Self::zone_w();
-        let cy = self.h as i16 / 2;
-        let r = (self.h as i16 / 4).max(3);
-        let cx = zw / 2 - r / 4;
-        let gcx = cx - r / 2;
-        let gcy = cy - r / 2 - r / 4;
-        let _ = g.set_foreground(theme::disabled());
-        let d = r as u16;
-        let _ = g.draw_arc(gcx, gcy, d, d, 0, 360 * 64);
-        let _ = g.draw_line(
-            gcx + r - r / 4,
-            gcy + r - r / 4,
-            gcx + r + r / 2,
-            gcy + r + r / 2,
-        );
         if !self.input.text().is_empty() {
             let cz = self.clear_zone();
             let m = (self.h as i16 / 3).max(3);
             let l = cz.x as i16 + m;
             let rr = (cz.x + cz.w) as i16 - m;
+            let cy = self.h as i16 / 2;
             let t = cy - (rr - l) / 2;
             let b = cy + (rr - l) / 2;
             let _ = g.set_foreground(theme::text());
