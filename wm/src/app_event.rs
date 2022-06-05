@@ -122,6 +122,7 @@ impl App {
         let prefs = wmconfig::Config::load_prefs();
 
         apply_font_prefs(&self.backend, &prefs);
+        apply_graph_prefs(&prefs);
 
         self.wm.key_bindings = crate::bindings::KeyBindings::new();
         let _ = self

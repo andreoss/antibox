@@ -65,6 +65,7 @@
         assert_eq!(d.keyboard, Prefs::default().keyboard);
         assert_eq!(d.clock, Prefs::default().clock);
         assert_eq!(d.pointer, Prefs::default().pointer);
+        assert_eq!(d.graph, Prefs::default().graph);
         assert_eq!(d.winlist, Prefs::default().winlist);
         assert!(!d.keys.is_empty());
     }
@@ -126,6 +127,23 @@
         let p = parse_prefs("[clock]\nformat = \"%a %H:%M\"\n");
         assert_eq!(p.clock.format, "%a %H:%M");
         assert_eq!(parse_prefs("[clock]\nformat = \"\"\n").clock.format, "%H:%M:%S");
+    }
+
+    #[test]
+    fn test_parse_prefs_graph_colours() {
+        let d = parse_prefs("");
+        assert_eq!(d.graph.series, "000080,000080,7F7FBF,808080");
+        assert_eq!(d.graph.heat, "C82020");
+        assert_eq!(parse_colour("C82020"), Some(0xC82020));
+        assert_eq!(parse_colour("#00FF00"), Some(0x00FF00));
+        assert_eq!(parse_colour("xyz"), None);
+        assert_eq!(parse_colour_list("102030, 405060"), vec![0x102030, 0x405060]);
+        let p = parse_prefs("[graph]\nseries = \"FF0000,00FF00\"\nheat = \"AA0000\"\n");
+        assert_eq!(p.graph.series, "FF0000,00FF00");
+        assert_eq!(p.graph.heat, "AA0000");
+        let p = parse_prefs("[graph]\nseries = \"bogus\"\nheat = \"nope\"\n");
+        assert_eq!(p.graph.series, "000080,000080,7F7FBF,808080");
+        assert_eq!(p.graph.heat, "C82020");
     }
 
     #[test]

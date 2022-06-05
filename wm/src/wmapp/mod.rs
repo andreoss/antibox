@@ -67,6 +67,13 @@ impl LoopWork {
     }
 }
 
+fn apply_graph_prefs(prefs: &wmconfig::Prefs) {
+    antibox_ui::theme::set_graph_colours(
+        wmconfig::parse_colour_list(&prefs.graph.series),
+        wmconfig::parse_colour(&prefs.graph.heat),
+    );
+}
+
 fn apply_font_prefs(b: &Arc<dyn DisplayBackend>, prefs: &wmconfig::Prefs) {
     antibox_core::backend::set_ui_font(&prefs.font.name);
     if let Ok(g) = b.create_graphics(b.root().read_id()) {
@@ -383,6 +390,7 @@ impl App {
         let prefs = wmconfig::Config::load_prefs();
         crate::fonts::apply_fonts();
         apply_font_prefs(&b, &prefs);
+        apply_graph_prefs(&prefs);
         crate::layout_preferences::apply();
         crate::tooltip::set_show_delay_ms(500);
         crate::tooltip::set_lifetime_ms(5000);

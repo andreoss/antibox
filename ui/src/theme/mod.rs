@@ -327,12 +327,31 @@ pub fn graph_bg() -> Colour {
     face()
 }
 
+static GRAPH_COLOURS: antibox_gfx::sync::atomic::LazyRwLock<(Vec<Colour>, Option<Colour>)> =
+    antibox_gfx::sync::atomic::LazyRwLock::new();
+
+pub fn set_graph_colours(series: Vec<Colour>, heat: Option<Colour>) {
+    if let Ok(mut g) = GRAPH_COLOURS.write() {
+        *g = (series, heat);
+    }
+}
+
 pub fn graph_series(i: usize) -> Colour {
+    if let Ok(g) = GRAPH_COLOURS.read() {
+        if !g.0.is_empty() {
+            return g.0[i % g.0.len()];
+        }
+    }
     let derived = [sel_bg(), title_active(), tint_rgb(sel_bg(), 0.5), shadow()];
     derived[i % 4]
 }
 
-pub const fn graph_heat() -> Colour {
+pub fn graph_heat() -> Colour {
+    if let Ok(g) = GRAPH_COLOURS.read() {
+        if let Some(h) = g.1 {
+            return h;
+        }
+    }
     0xC82020
 }
 
