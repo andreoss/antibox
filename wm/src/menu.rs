@@ -186,7 +186,6 @@ impl<T: Clone> MenuView<T> {
         if let Ok(mut bar) =
             antibox_ui::searchbar::SearchBar::new(rb, win_id, m, m, bw, bar_h() as u16)
         {
-            bar.set_placeholder("Filter");
             bar.set_focus(true);
             bar.show();
             self.bar = Some(bar);
