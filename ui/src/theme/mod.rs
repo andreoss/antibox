@@ -332,5 +332,9 @@ pub fn graph_series(i: usize) -> Colour {
     derived[i % 4]
 }
 
+pub const fn graph_heat() -> Colour {
+    0xC82020
+}
+
 #[cfg(test)]
 mod theme_gen;

@@ -46,6 +46,54 @@ impl Plot {
         self.inset + ((self.cols - self.n + col) as u16 * self.cw) as i16
     }
 
+    pub fn bar_up_heat(
+        &self,
+        g: &dyn antibox_core::backend::GraphicsContext,
+        x: i16,
+        y: i16,
+        barh: i16,
+        colour: antibox_core::colour::Colour,
+    ) -> i16 {
+        if barh <= 0 {
+            return y;
+        }
+        let gh = self.gh.max(1) as f32;
+        let bottom = self.bottom() - 1;
+        for row in (y - barh + 1)..=y {
+            let f = (bottom - row) as f32 / gh;
+            let _ = g.set_foreground(antibox_core::colour::lerp(
+                colour,
+                antibox_ui::theme::graph_heat(),
+                f,
+            ));
+            let _ = g.fill_rect(x, row, self.cw, 1);
+        }
+        y - barh
+    }
+
+    pub fn bar_down_heat(
+        &self,
+        g: &dyn antibox_core::backend::GraphicsContext,
+        x: i16,
+        barh: i16,
+        colour: antibox_core::colour::Colour,
+    ) {
+        if barh <= 0 {
+            return;
+        }
+        let gh = self.gh.max(1) as f32;
+        let top = self.top();
+        for row in top..top + barh {
+            let f = (row - top) as f32 / gh;
+            let _ = g.set_foreground(antibox_core::colour::lerp(
+                colour,
+                antibox_ui::theme::graph_heat(),
+                f,
+            ));
+            let _ = g.fill_rect(x, row, self.cw, 1);
+        }
+    }
+
     pub fn bar_up(
         &self,
         g: &dyn antibox_core::backend::GraphicsContext,

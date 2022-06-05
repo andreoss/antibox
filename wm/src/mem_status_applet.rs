@@ -115,14 +115,10 @@ impl MemStatusApplet {
             };
             let barh = (frac * gh).round() as i16;
             let x = plot.col_x(col);
-            let mut y = bottom;
+            let mut y = bottom - 1;
             for state in &[MEM_USER, MEM_BUFFERS, MEM_CACHED] {
                 let seg = ((v[*state] as f64 / u as f64) * barh as f64).round() as i16;
-                if seg > 0 {
-                    let _ = g.set_foreground(mem_colour(*state));
-                    let _ = g.fill_rect(x, y - seg, plot.cw, seg as u16);
-                    y -= seg;
-                }
+                y = plot.bar_up_heat(g, x, y, seg, mem_colour(*state));
             }
         }
     }

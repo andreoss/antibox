@@ -214,14 +214,8 @@ impl NetStatusApplet {
             let x = plot.col_x(col);
             let inbar = ((h64 * (s.inb + round)) / max_bytes).min(h64) as i16;
             let outbar = ((h64 * (s.outb + round)) / max_bytes).min(h64) as i16;
-            if inbar > 0 {
-                let _ = g.set_foreground(net_recv_colour());
-                let _ = g.fill_rect(x, plot.bottom() - inbar, plot.cw, inbar as u16);
-            }
-            if outbar > 0 {
-                let _ = g.set_foreground(net_send_colour());
-                let _ = g.fill_rect(x, plot.top(), plot.cw, outbar as u16);
-            }
+            let _ = plot.bar_up_heat(g, x, plot.bottom() - 1, inbar, net_recv_colour());
+            plot.bar_down_heat(g, x, outbar, net_send_colour());
         }
     }
 
