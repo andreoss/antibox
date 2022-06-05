@@ -125,14 +125,18 @@ impl WinListMenu {
     fn sb_x(&self) -> i16 {
         self.list_w()
     }
+    fn sb_top(&self) -> i16 {
+        self.list_top()
+    }
     fn trough_h(&self) -> i16 {
-        (self.h as i16 - 2 * sb_w()).max(1)
+        (self.h as i16 - self.sb_top() - 2 * sb_w()).max(1)
     }
     fn thumb(&self) -> (i16, i16) {
         let total = self.total_rows().max(1);
         let th = ((self.trough_h() as i32 * self.vis_rows() as i32 / total as i32) as i16).max(12);
         let mo = self.max_offset();
-        let ty = sb_w()
+        let ty = self.sb_top()
+            + sb_w()
             + if mo > 0 {
                 (self.trough_h() - th) * self.offset / mo
             } else {
@@ -526,7 +530,7 @@ impl WinListMenu {
 
         if self.needs_sb() && px >= self.sb_x() && px < self.sb_x() + sb_w() {
             let bwid = sb_w();
-            if py < bwid {
+            if py < self.sb_top() + bwid {
                 self.offset -= 1;
             } else if py >= self.h as i16 - bwid {
                 self.offset += 1;
@@ -563,7 +567,7 @@ impl WinListMenu {
         let bwid = sb_w();
         let (_, tht) = self.thumb();
         let span = (self.trough_h() - tht).max(1);
-        let rel = (p.y as i16 - bwid - tht / 2).clamp(0, span);
+        let rel = (p.y as i16 - self.sb_top() - bwid - tht / 2).clamp(0, span);
         let mo = self.max_offset();
         self.offset = if span > 0 { rel * mo / span } else { 0 };
         self.clamp_offset();
@@ -789,13 +793,14 @@ impl WinListMenu {
         let w = bwid as u16;
         let h = self.h as i16;
 
+        let top = self.sb_top();
         let _ = g.set_foreground(crate::render::bevel_light(face));
-        let _ = g.fill_rect(x, bwid, w, (h - 2 * bwid).max(1) as u16);
+        let _ = g.fill_rect(x, top + bwid, w, self.trough_h() as u16);
 
         let _ = g.set_foreground(face);
-        let _ = g.fill_rect(x, 0, w, bwid as u16);
-        let _ = crate::render::draw_button_bevel(g, x, 0, w, bwid as u16, face, false);
-        Self::arrow(g, x, 0, bwid, true);
+        let _ = g.fill_rect(x, top, w, bwid as u16);
+        let _ = crate::render::draw_button_bevel(g, x, top, w, bwid as u16, face, false);
+        Self::arrow(g, x, top, bwid, true);
 
         let _ = g.set_foreground(face);
         let _ = g.fill_rect(x, h - bwid, w, bwid as u16);
