@@ -471,9 +471,11 @@ impl App {
                             .ok().map_or_else(|| Point::new(point.x, point.y), |p| {
                                 Point::new(p.root_x as i32, p.root_y as i32)
                             });
+                        let join = self.wm.join_candidates();
                         let mut menu = crate::winmenu::WindowActionMenu::for_focused_client_opts(
                             ws_count,
                             &self.wm.theme_colours,
+                            &join,
                             );
                         menu.show(&*self.backend, pos);
                         let rb: Arc<dyn RenderBackend> = self.wm.render_backend.clone().expect("render backend");
@@ -903,9 +905,11 @@ impl App {
                             .backend
                             .query_pointer(root)
                             .ok().map_or_else(|| Point::new(point.x, point.y), |p| Point::new(p.root_x as i32, p.root_y as i32));
+                        let join = self.wm.join_candidates();
                         let mut menu = crate::winmenu::WindowActionMenu::for_focused_client_opts(
                             ws_count,
                             &self.wm.theme_colours,
+                            &join,
                             );
                         menu.show(&*self.backend, pos);
                         let rb: Arc<dyn RenderBackend> = self.wm.render_backend.clone().expect("render backend");
