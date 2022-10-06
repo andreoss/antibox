@@ -80,6 +80,15 @@ impl XidIndex {
         self.frame_by_xid.retain(|_, &mut v| v != cid);
     }
 
+    pub fn set_frame_xid(&mut self, cid: ClientId, frame_xid: u32) {
+        self.frame_by_xid.retain(|_, &mut v| v != cid);
+        self.frame_by_xid.insert(frame_xid, cid);
+    }
+
+    pub fn remove_frame_xid(&mut self, frame_xid: u32) {
+        self.frame_by_xid.remove(&frame_xid);
+    }
+
     pub fn client_id_for(&self, xid: u32) -> Option<ClientId> {
         self.client_by_xid
             .get(&xid).cloned()

@@ -8,18 +8,20 @@ pub type WindowActionMenu = MenuView<Action>;
 
 impl MenuView<Action> {
     pub fn for_focused_client(workspace_count: u32, tc: &crate::render::ThemeColors) -> Self {
-        Self::for_focused_client_opts(workspace_count, tc)
+        Self::for_focused_client_opts(workspace_count, tc, &[])
     }
 
-    pub fn for_focused_client_opts(workspace_count: u32, tc: &crate::render::ThemeColors) -> Self {
-        let mut items: Vec<MenuRow<Action>> = Vec::new();
-        items.push(MenuRow::item("_Restore", Action::Window(WindowOp::Restore)));
-        items.push(MenuRow::item("_Move", Action::Window(WindowOp::Move)));
-        items.push(MenuRow::item("_Size", Action::Window(WindowOp::Resize)));
-        items.push(MenuRow::item(
-            "Mi_nimize",
-            Action::Window(WindowOp::Minimize),
-        ));
+    pub fn for_focused_client_opts(
+        workspace_count: u32,
+        tc: &crate::render::ThemeColors,
+        join: &[(u32, String)],
+    ) -> Self {
+        let mut items: Vec<MenuRow<Action>> = vec![
+            MenuRow::item("_Restore", Action::Window(WindowOp::Restore)),
+            MenuRow::item("_Move", Action::Window(WindowOp::Move)),
+            MenuRow::item("_Size", Action::Window(WindowOp::Resize)),
+            MenuRow::item("Mi_nimize", Action::Window(WindowOp::Minimize)),
+        ];
         items.push(MenuRow::submenu(
             "Ma_ximize",
             vec![
@@ -52,6 +54,17 @@ impl MenuView<Action> {
             ],
         ));
         items.push(MenuRow::item("_Hide", Action::Window(WindowOp::Hide)));
+        let mut tab_rows = vec![MenuRow::item("_Untab", Action::Tab(TabOp::Untab))];
+        if !join.is_empty() {
+            tab_rows.push(MenuRow::separator());
+            for (xid, title) in join {
+                tab_rows.push(MenuRow::item(
+                    title.clone(),
+                    Action::Tab(TabOp::JoinWindow(*xid)),
+                ));
+            }
+        }
+        items.push(MenuRow::submenu("Ta_b", tab_rows));
         items.push(MenuRow::separator());
         items.push(MenuRow::submenu(
             "La_yer",

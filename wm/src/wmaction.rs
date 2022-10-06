@@ -79,6 +79,14 @@ pub fn handle_wm_action<H: DisplayBackend + 'static + ?Sized>(
         Action::Window(WindowOp::Hide) => hide(wm),
         Action::Window(WindowOp::Close) => close(wm),
         Action::Window(WindowOp::Kill) => kill(wm),
+        Action::Tab(TabOp::Untab) => untab_window(wm),
+        Action::Tab(TabOp::Next) => tab_step(wm, 1),
+        Action::Tab(TabOp::Prev) => tab_step(wm, -1),
+        Action::Tab(TabOp::JoinWindow(xid)) => {
+            if let (Some(src), Some(target)) = (wm.focused_window, wm.cid_for_xid(*xid)) {
+                tab_window(wm, src, target);
+            }
+        }
         Action::Window(WindowOp::Move) => move_win(wm),
         Action::Window(WindowOp::Resize) => resize_win(wm),
         Action::Window(WindowOp::Raise) => raise(wm),
@@ -1286,6 +1294,361 @@ fn arrange<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
 fn undo_arrange<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
     eprintln!("Undo arrange — restoring previous layout");
     wm.restore_layout();
+}
+
+pub(crate) fn apply_tab_frame_size<H: DisplayBackend + 'static + ?Sized>(
+    wm: &mut WindowManager<H>,
+    id: ClientId,
+) {
+    let backend = match wm.backend.clone() {
+        Some(b) => b,
+        None => return,
+    };
+    if let Some(fw) = wm.frame_mut(id) {
+        let cr = fw.client_rect();
+        let [il, it, ir, ib] = fw.client_insets();
+        let fr = antibox_core::rect::Rect::new(
+            cr.x - il,
+            cr.y - it,
+            (cr.w + il + ir).max(1),
+            (cr.h + it + ib).max(1),
+        );
+        fw.set_frame_rect(fr);
+        let _ = backend.configure_window(
+            fw.frame.id(),
+            &[fr.x as u32, fr.y as u32, fr.w as u32, fr.h as u32],
+        );
+        let _ = backend.configure_window(
+            fw.client.xid(),
+            &[il as u32, it as u32, cr.w.max(1) as u32, cr.h.max(1) as u32],
+        );
+        fw.sync_hidden_tab_sizes(backend.as_ref());
+    }
+    crate::handler::redraw_frame_decor(wm, id);
+}
+
+fn untab_window<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
+    let focused = match wm.focused_window {
+        Some(f) => f,
+        None => return,
+    };
+    let step = antibox_core::scale::scaled(24);
+    let at = wm
+        .frames
+        .get(&focused)
+        .map(|fw| {
+            let r = fw.frame_rect();
+            Point::new(r.x + step, r.y + step)
+        })
+        .unwrap_or(Point::new(0, 0));
+    detach_tab(wm, focused, focused, at);
+}
+
+pub(crate) fn detach_tab<H: DisplayBackend + 'static + ?Sized>(
+    wm: &mut WindowManager<H>,
+    owner: ClientId,
+    tab: ClientId,
+    at: Point,
+) {
+    use crate::client::ClientWindow;
+    use crate::frame::{border_width, title_bar_height, top_for, FrameWindow};
+
+    let mut old_frame = match wm.frames.remove(&owner) {
+        Some(f) => f,
+        None => return,
+    };
+    let backend = match wm.backend.clone() {
+        Some(b) => b,
+        None => {
+            wm.frames.insert(owner, old_frame);
+            return;
+        }
+    };
+    let bw = border_width();
+    let th = title_bar_height();
+    let size = old_frame.client_rect();
+    let placed_client =
+        antibox_core::rect::Rect::new(at.x + bw, at.y + top_for(bw, th), size.w, size.h);
+    let frame_bg = wm.theme_colours.border_active;
+    let layer = old_frame.layer();
+    let workspace = old_frame.workspace();
+
+    if tab == owner {
+        if old_frame.tabbed_clients.is_empty() {
+            wm.frames.insert(owner, old_frame);
+            return;
+        }
+        let new_active = old_frame.tabbed_clients.remove(0);
+        old_frame.tab_titles.borrow_mut().remove(&new_active);
+        let tab_xid = wm.xid_index.xid_of(tab);
+        old_frame.tab_order.retain(|&id| id != tab_xid);
+        wm.expect_client_unmap(tab_xid);
+        let created =
+            FrameWindow::create_frame_ex(backend.as_ref(), tab_xid, placed_client, true, frame_bg);
+        let (new_frame, frame_rect) = match created {
+            Ok(v) => v,
+            Err(_) => {
+                wm.consume_expected_unmap(tab_xid);
+                old_frame.tabbed_clients.insert(0, new_active);
+                wm.frames.insert(owner, old_frame);
+                return;
+            }
+        };
+        let cw = match backend.wrap_window(tab_xid) {
+            Ok(cw) => cw,
+            Err(_) => {
+                wm.consume_expected_unmap(tab_xid);
+                let _ = new_frame.destroy();
+                old_frame.tabbed_clients.insert(0, new_active);
+                wm.frames.insert(owner, old_frame);
+                return;
+            }
+        };
+        let mut client = ClientWindow::new(cw);
+        client.read_initial_properties(backend.as_ref(), &wm.atoms);
+        client.id = tab;
+        let mut detached = FrameWindow::new(client, new_frame);
+        detached.set_frame_rect(frame_rect);
+        detached.set_layer(layer);
+        detached.set_workspace(workspace);
+        detached.create_pointer_windows(backend.as_ref(), &wm.cursors);
+        let _ = detached.frame().map();
+        let _ = backend.map_window(tab_xid);
+        wm.xid_index.set_frame_xid(tab, detached.frame().id());
+        wm.frames.insert(tab, detached);
+
+        let nac = match wm.cid_for_xid(new_active) {
+            Some(cid) => cid,
+            None => {
+                crate::focus::focus_window(wm, tab);
+                apply_tab_frame_size(wm, tab);
+                return;
+            }
+        };
+        let nw = match backend.wrap_window(new_active) {
+            Ok(nw) => nw,
+            Err(_) => {
+                crate::focus::focus_window(wm, tab);
+                apply_tab_frame_size(wm, tab);
+                return;
+            }
+        };
+        let mut new_client = ClientWindow::new(nw);
+        new_client.read_initial_properties(backend.as_ref(), &wm.atoms);
+        new_client.id = nac;
+        let _ = backend.map_window(new_active);
+        old_frame.client = new_client;
+        wm.xid_index.set_frame_xid(nac, old_frame.frame().id());
+        wm.frames.insert(nac, old_frame);
+        wm.ensure_in_orders(nac);
+        apply_tab_frame_size(wm, nac);
+        crate::focus::focus_window(wm, tab);
+        apply_tab_frame_size(wm, tab);
+    } else {
+        let tab_xid = wm.xid_index.xid_of(tab);
+        let pos = match old_frame.tabbed_clients.iter().position(|&c| c == tab_xid) {
+            Some(p) => p,
+            None => {
+                wm.frames.insert(owner, old_frame);
+                return;
+            }
+        };
+        old_frame.tabbed_clients.remove(pos);
+        old_frame.tab_order.retain(|&id| id != tab_xid);
+        old_frame.tab_titles.borrow_mut().remove(&tab_xid);
+        wm.frames.insert(owner, old_frame);
+        apply_tab_frame_size(wm, owner);
+        let created =
+            FrameWindow::create_frame_ex(backend.as_ref(), tab_xid, placed_client, true, frame_bg);
+        if let Ok((new_frame, frame_rect)) = created {
+            let cw = match backend.wrap_window(tab_xid) {
+                Ok(cw) => cw,
+                Err(_) => {
+                    let _ = new_frame.destroy();
+                    return;
+                }
+            };
+            let mut client = ClientWindow::new(cw);
+            client.read_initial_properties(backend.as_ref(), &wm.atoms);
+            client.id = tab;
+            let mut fw = FrameWindow::new(client, new_frame);
+            fw.set_frame_rect(frame_rect);
+            fw.set_layer(layer);
+            fw.set_workspace(workspace);
+            fw.create_pointer_windows(backend.as_ref(), &wm.cursors);
+            let _ = fw.frame().map();
+            let _ = backend.map_window(tab_xid);
+            wm.xid_index.set_frame_xid(tab, fw.frame().id());
+            wm.frames.insert(tab, fw);
+            wm.ensure_in_orders(tab);
+            crate::focus::focus_window(wm, tab);
+        }
+    }
+}
+
+pub(crate) fn tab_window<H: DisplayBackend + 'static + ?Sized>(
+    wm: &mut WindowManager<H>,
+    source_id: ClientId,
+    target_id: ClientId,
+) {
+    if source_id == target_id {
+        return;
+    }
+    if !wm.frames.contains_key(&source_id) || !wm.frames.contains_key(&target_id) {
+        return;
+    }
+    let backend = match wm.backend.clone() {
+        Some(b) => b,
+        None => return,
+    };
+    let mut source_frame = match wm.frames.remove(&source_id) {
+        Some(f) => f,
+        None => return,
+    };
+    let source_xid = wm.xid_index.xid_of(source_id);
+    if !source_frame.state().minimized {
+        wm.expect_client_unmap(source_xid);
+        wm.expect_client_unmap(source_xid);
+    }
+    let target_frame = match wm.frame_mut(target_id) {
+        Some(f) => f,
+        None => {
+            wm.frames.insert(source_id, source_frame);
+            return;
+        }
+    };
+    let _ = backend.reparent_window(source_xid, target_frame.frame.id(), Point::new(0, 0));
+    let _ = backend.unmap_window(source_xid);
+    target_frame.tab_order = target_frame.tab_order_synced();
+    target_frame.tabbed_clients.push(source_xid);
+    target_frame.tab_order.push(source_xid);
+    target_frame
+        .tab_titles
+        .borrow_mut()
+        .insert(source_xid, source_frame.client().title().to_string());
+    let target_frame = wm.frame_mut(target_id).expect("target frame present");
+    let hidden_list: Vec<u32> = source_frame.tabbed_clients.clone();
+    for hidden in hidden_list {
+        let _ = backend.reparent_window(hidden, target_frame.frame.id(), Point::new(0, 0));
+        target_frame.tabbed_clients.push(hidden);
+        target_frame.tab_order.push(hidden);
+        let title = source_frame
+            .tab_titles
+            .borrow()
+            .get(&hidden)
+            .cloned()
+            .unwrap_or_default();
+        target_frame.tab_titles.borrow_mut().insert(hidden, title);
+    }
+    source_frame.destroy_pointer_windows(backend.as_ref());
+    let _ = backend.unmap_window(source_frame.frame.id());
+    let _ = source_frame.frame().destroy();
+    wm.xid_index.remove_frame_xid(source_frame.frame.id());
+    wm.drop_from_orders(source_id);
+    apply_tab_frame_size(wm, target_id);
+    if wm.focused_window == Some(source_id) {
+        crate::focus::focus_window(wm, target_id);
+    }
+}
+
+pub(crate) fn tab_select<H: DisplayBackend + 'static + ?Sized>(
+    wm: &mut WindowManager<H>,
+    active: ClientId,
+    target_xid: u32,
+) {
+    use crate::client::ClientWindow;
+
+    let active_xid = wm.xid_index.xid_of(active);
+    if active_xid == target_xid {
+        return;
+    }
+    let mut frame = match wm.frames.remove(&active) {
+        Some(f) => f,
+        None => return,
+    };
+    let pos = match frame.tabbed_clients.iter().position(|&c| c == target_xid) {
+        Some(p) => p,
+        None => {
+            wm.frames.insert(active, frame);
+            return;
+        }
+    };
+    let backend = match wm.backend.clone() {
+        Some(b) => b,
+        None => {
+            wm.frames.insert(active, frame);
+            return;
+        }
+    };
+    if !frame.state().minimized {
+        wm.expect_client_unmap(active_xid);
+    }
+    let _ = backend.unmap_window(active_xid);
+    let nw = match backend.wrap_window(target_xid) {
+        Ok(nw) => nw,
+        Err(_) => {
+            let _ = backend.map_window(active_xid);
+            wm.frames.insert(active, frame);
+            return;
+        }
+    };
+    frame.tabbed_clients.remove(pos);
+    frame.tabbed_clients.push(active_xid);
+    let target = wm.cid_for_xid(target_xid).unwrap_or(active);
+    let mut new_client = ClientWindow::new(nw);
+    new_client.read_initial_properties(backend.as_ref(), &wm.atoms);
+    new_client.id = target;
+    let cr = frame.client_rect();
+    let fr = frame.frame_rect();
+    let _ = backend.configure_window(
+        target_xid,
+        &[
+            (cr.x - fr.x).max(0) as u32,
+            (cr.y - fr.y).max(0) as u32,
+            cr.w.max(1) as u32,
+            cr.h.max(1) as u32,
+        ],
+    );
+    let _ = backend.map_window(target_xid);
+    {
+        let mut titles = frame.tab_titles.borrow_mut();
+        titles.remove(&target_xid);
+        titles.insert(active_xid, frame.client().title().to_string());
+    }
+    frame.client = new_client;
+    wm.xid_index.set_frame_xid(target, frame.frame().id());
+    wm.frames.insert(target, frame);
+    wm.rekey_orders(active, target);
+    wm.focused_window = Some(target);
+    let _ = backend.set_input_focus(1, target_xid, 0);
+    crate::ewmh::set_active_window_prop(backend.as_ref(), &wm.atoms, target_xid);
+    crate::handler::redraw_frame_decor(wm, target);
+    let _ = backend.flush();
+}
+
+fn tab_step<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, dir: i32) {
+    let focused = match wm.focused_window {
+        Some(f) => f,
+        None => return,
+    };
+    let frame = match wm.frame(focused) {
+        Some(f) => f,
+        None => return,
+    };
+    if frame.tabbed_clients.is_empty() {
+        return;
+    }
+    let order = frame.tab_order_synced();
+    let pos = match order
+        .iter()
+        .position(|&id| id == wm.xid_index.xid_of(focused))
+    {
+        Some(p) => p,
+        None => return,
+    };
+    let n = order.len() as i32;
+    let target = order[((pos as i32 + dir + n) % n) as usize];
+    tab_select(wm, focused, target);
 }
 
 #[cfg(test)]

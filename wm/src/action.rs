@@ -86,6 +86,14 @@ pub enum LayerOp {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TabOp {
+    Untab,
+    Next,
+    Prev,
+    JoinWindow(u32),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MenuOp {
     WindowPickerList,
     WindowActionMenu,
@@ -107,6 +115,7 @@ pub enum Action {
     Workspace(WorkspaceOp),
     Focus(FocusOp),
     Layer(LayerOp),
+    Tab(TabOp),
     Menu(MenuOp),
     Misc(MiscOp),
 }
@@ -227,6 +236,12 @@ pub fn action_name(action: &Action) -> &'static str {
         Action::Workspace(op) => workspace_name(op),
         Action::Focus(op) => focus_name(op),
         Action::Layer(op) => layer_name(op),
+        Action::Tab(op) => match op {
+            TabOp::Untab => "Untab",
+            TabOp::Next => "Tab Next",
+            TabOp::Prev => "Tab Prev",
+            TabOp::JoinWindow(_) => "Join Window",
+        },
         Action::Menu(op) => menu_name(op),
         Action::Misc(op) => misc_name(op),
     }

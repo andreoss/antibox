@@ -737,6 +737,47 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
         self.insertion_order.retain(|&x| x != id);
         self.insertion_order.push(id);
     }
+    pub(crate) fn join_candidates(&self) -> Vec<(u32, String)> {
+        let focused = self.focused_window;
+        let ws = self.active_workspace;
+        let mut out: Vec<(u32, String)> = self
+            .frames
+            .iter()
+            .filter(|(id, fw)| {
+                Some(**id) != focused
+                    && !fw.state().skip_taskbar
+                    && (fw.workspace() == ws || fw.workspace() == !0)
+            })
+            .map(|(id, fw)| (self.xid_index.xid_of(*id), fw.client().title().to_string()))
+            .collect();
+        out.sort_by(|a, b| a.1.cmp(&b.1));
+        out
+    }
+
+    pub(crate) fn ensure_in_orders(&mut self, id: ClientId) {
+        if !self.insertion_order.contains(&id) {
+            self.insertion_order.push(id);
+        }
+        if !self.map_order.contains(&id) {
+            self.map_order.push(id);
+        }
+    }
+    pub(crate) fn drop_from_orders(&mut self, id: ClientId) {
+        self.insertion_order.retain(|&x| x != id);
+        self.map_order.retain(|&x| x != id);
+    }
+    pub(crate) fn rekey_orders(&mut self, old: ClientId, new: ClientId) {
+        for slot in self.insertion_order.iter_mut() {
+            if *slot == old {
+                *slot = new;
+            }
+        }
+        for slot in self.map_order.iter_mut() {
+            if *slot == old {
+                *slot = new;
+            }
+        }
+    }
     pub fn lower_to_bottom(&mut self, id: ClientId) {
         if self.insertion_order.first() == Some(&id) {
             return;
@@ -802,9 +843,11 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
             }
             Action::Menu(MenuOp::WindowActionMenu) => {
                 let ws_count = self.config.workspace_count;
+                let join = self.join_candidates();
                 let mut menu = crate::winmenu::WindowActionMenu::for_focused_client_opts(
                     ws_count,
                     &self.theme_colours,
+                    &join,
                 );
                 if let Some(b) = self.backend() {
                     let pos = self.focused_window.and_then(|fwid| {

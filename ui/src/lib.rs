@@ -5,6 +5,7 @@ pub mod inputline;
 pub mod listcore;
 pub mod metrics;
 pub mod searchbar;
+pub mod tabstrip;
 pub mod textmeasure;
 pub mod theme;
 pub mod thumb;

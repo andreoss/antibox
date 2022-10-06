@@ -141,6 +141,28 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
         }
         return;
     }
+    let tab_hit = wm.frames.get(&cid).and_then(|fw| {
+        if fw.tab_strip_h() == 0 {
+            None
+        } else if let Some(t) = fw.tab_close_at_point(p.x, p.y) {
+            Some((t, true))
+        } else {
+            fw.tab_at_point(p.x, p.y).map(|t| (t, false))
+        }
+    });
+    if let Some((xid, close)) = tab_hit {
+        if close {
+            if xid == wm.xid_index.xid_of(cid) {
+                crate::wmaction::close_client(wm, cid);
+            } else if let Some(b) = wm.backend() {
+                crate::ewmh::close_window(b, &wm.atoms, xid);
+                let _ = b.flush();
+            }
+        } else if xid != wm.xid_index.xid_of(cid) {
+            crate::wmaction::tab_select(wm, cid, xid);
+        }
+        return;
+    }
     if let Some(btn) = wm
         .frames
         .get(&cid)

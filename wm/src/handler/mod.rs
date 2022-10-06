@@ -485,8 +485,110 @@ pub(crate) fn apply_csd_extents<H: DisplayBackend + 'static + ?Sized>(
     let _ = b.flush();
 }
 
+fn drop_hidden_tab<H: DisplayBackend + 'static + ?Sized>(
+    wm: &mut WindowManager<H>,
+    w: u32,
+) -> bool {
+    let mut promote: Option<(ClientId, u32)> = None;
+    if let Some(cid) = wm.cid_for_xid(w) {
+        if let Some(fw) = wm.frames.get(&cid) {
+            if fw.client_xid() == w && !fw.tabbed_clients.is_empty() {
+                promote = Some((cid, fw.tabbed_clients[0]));
+            }
+        }
+    }
+    if let Some((cid, next)) = promote {
+        crate::wmaction::tab_select(wm, cid, next);
+    }
+    let mut owner: Option<ClientId> = None;
+    for (id, fw) in wm.frames.iter() {
+        if fw.tabbed_clients.contains(&w) {
+            owner = Some(*id);
+            break;
+        }
+    }
+    let owner = match owner {
+        Some(o) => o,
+        None => return false,
+    };
+    if let Some(fw) = wm.frames.get_mut(&owner) {
+        fw.tabbed_clients.retain(|&c| c != w);
+        fw.tab_order.retain(|&c| c != w);
+        fw.tab_titles.borrow_mut().remove(&w);
+    }
+    if let Some(cid) = wm.cid_for_xid(w) {
+        wm.xid_index.remove(cid);
+        wm.drop_from_orders(cid);
+    }
+    crate::wmaction::apply_tab_frame_size(wm, owner);
+    true
+}
+
+fn hidden_tab_title_sync<H: DisplayBackend + 'static + ?Sized>(
+    wm: &mut WindowManager<H>,
+    w: u32,
+    a: u32,
+) {
+    let is_title = Some(a) == wm.atoms.get("_NET_WM_NAME") || a == 39;
+    if !is_title {
+        return;
+    }
+    let managed = wm
+        .cid_for_xid(w)
+        .map_or(false, |cid| wm.frames.contains_key(&cid));
+    if managed {
+        return;
+    }
+    let mut owner: Option<ClientId> = None;
+    for (id, fw) in wm.frames.iter() {
+        if fw.tabbed_clients.contains(&w) {
+            owner = Some(*id);
+            break;
+        }
+    }
+    let owner = match owner {
+        Some(o) => o,
+        None => return,
+    };
+    let title = read_window_title(wm, w);
+    if let Some(fw) = wm.frames.get(&owner) {
+        if let Some(t) = title {
+            fw.tab_titles.borrow_mut().insert(w, t);
+        }
+    }
+    redraw_frame_decor(wm, owner);
+}
+
+fn read_window_title<H: DisplayBackend + 'static + ?Sized>(
+    wm: &WindowManager<H>,
+    w: u32,
+) -> Option<String> {
+    let b = wm.backend()?;
+    let win = b.wrap_window(w).ok()?;
+    if let Some(a) = wm.atoms.get("_NET_WM_NAME") {
+        if let Ok(Some(d)) = win.get_property(a, 0, 1024) {
+            if let Ok(s) = String::from_utf8(d) {
+                let s = s.trim_end_matches('\0').to_string();
+                if !s.is_empty() {
+                    return Some(s);
+                }
+            }
+        }
+    }
+    if let Ok(Some(d)) = win.get_property(39, 0, 1024) {
+        let s = String::from_utf8_lossy(&d).trim_end_matches('\0').to_string();
+        if !s.is_empty() {
+            return Some(s);
+        }
+    }
+    None
+}
+
 pub fn destroy<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, w: u32) {
     wm.self_windows.remove(&w);
+    if drop_hidden_tab(wm, w) {
+        return;
+    }
     let dragged_frame = wm.frame_by_xid(w).map(FrameWindow::frame_id);
     if dragged_frame.is_some() && wm.drag_state.map(|d| d.0) == dragged_frame {
         wm.drag_state = None;
@@ -634,6 +736,7 @@ pub fn property_notify<H: DisplayBackend + 'static + ?Sized>(
             );
         }
     }
+    hidden_tab_title_sync(wm, w, a);
     let is_decor_hint =
         Some(a) == wm.atoms.get("_GTK_FRAME_EXTENTS") || Some(a) == wm.atoms.get("_MOTIF_WM_HINTS");
     if is_decor_hint {

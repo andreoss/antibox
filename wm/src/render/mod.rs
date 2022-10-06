@@ -202,7 +202,36 @@ pub fn draw_frame(
     draw_buttons(fw, g, focused, colours)?;
     let (text_x, title_right) = fw.title_text_span();
     draw_title_text(fw, g, focused, colours, text_x as i16, title_right as i16)?;
+    draw_tab_strip(fw, g);
     Ok(())
+}
+
+pub(crate) fn draw_tab_strip(fw: &FrameWindow, g: &dyn GraphicsContext) {
+    if fw.tab_strip_h() == 0 {
+        return;
+    }
+    let area = fw.tab_strip_rect();
+    let pairs = fw.tab_display();
+    let labels: Vec<String> = pairs.iter().map(|(_, t)| t.clone()).collect();
+    let active_xid = fw.client_xid();
+    let active = pairs
+        .iter()
+        .position(|(id, _)| *id == active_xid)
+        .unwrap_or(0);
+    let rects = antibox_ui::tabstrip::draw_tabstrip(g, &labels, active, area);
+    let mut hits = fw.tab_hit.borrow_mut();
+    let mut close_hits = fw.tab_close_hit.borrow_mut();
+    hits.clear();
+    close_hits.clear();
+    for (rect, (id, _)) in rects.iter().zip(pairs.iter()) {
+        let (x, y, w, h) = *rect;
+        hits.push((antibox_core::rect::Rect::new(x as i32, y as i32, w as i32, h as i32), *id));
+        let (cx, cy, cw, ch) = antibox_ui::tabstrip::close_rect(*rect);
+        close_hits.push((
+            antibox_core::rect::Rect::new(cx as i32, cy as i32, cw as i32, ch as i32),
+            *id,
+        ));
+    }
 }
 
 #[derive(Clone, Copy)]

@@ -74,7 +74,8 @@ pub fn configure_request<H: DisplayBackend + 'static + ?Sized>(
         )
     });
     let bw = if decorated { border_width() } else { 0 };
-    let bb = if decorated { bottom_border_width() } else { 0 };
+    let strip = wm.frames.get(&id).map_or(0, |f| f.tab_strip_h());
+    let bb = if decorated { bottom_border_width() } else { 0 } + strip;
     let th = if decorated { title_bar_height() } else { 0 };
     let top = top_for(bw, th);
     let [il, ir, it, ib] = inset;

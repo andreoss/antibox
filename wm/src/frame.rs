@@ -126,6 +126,11 @@ pub struct FrameWindow {
     rounded: std::cell::Cell<bool>,
     pub(crate) pointer_windows: Vec<u32>,
     pub(crate) gfx: std::cell::RefCell<Option<Box<dyn GraphicsContext>>>,
+    pub(crate) tabbed_clients: Vec<u32>,
+    pub(crate) tab_order: Vec<u32>,
+    pub(crate) tab_titles: std::cell::RefCell<std::collections::HashMap<u32, String>>,
+    pub(crate) tab_hit: std::cell::RefCell<Vec<(Rect, u32)>>,
+    pub(crate) tab_close_hit: std::cell::RefCell<Vec<(Rect, u32)>>,
 }
 
 impl FrameWindow {
@@ -159,6 +164,11 @@ impl FrameWindow {
             rounded: std::cell::Cell::new(false),
             pointer_windows: Vec::new(),
             gfx: std::cell::RefCell::new(None),
+            tabbed_clients: Vec::new(),
+            tab_order: Vec::new(),
+            tab_titles: std::cell::RefCell::new(std::collections::HashMap::new()),
+            tab_hit: std::cell::RefCell::new(Vec::new()),
+            tab_close_hit: std::cell::RefCell::new(Vec::new()),
         }
     }
 
@@ -303,9 +313,92 @@ impl FrameWindow {
         }
     }
 
+    pub fn tab_strip_h(&self) -> i32 {
+        if self.tabbed_clients.is_empty() || self.state.fullscreen {
+            0
+        } else {
+            title_bar_height()
+        }
+    }
+
+    pub fn tab_strip_rect(&self) -> Rect {
+        let strip = self.tab_strip_h();
+        let bb = self.effective_bottom_border();
+        let bw = self.effective_border();
+        Rect::new(
+            bw,
+            self.frame_rect.h - bb - strip,
+            (self.frame_rect.w - bw * 2).max(1),
+            strip,
+        )
+    }
+
+    pub fn tab_order_synced(&self) -> Vec<u32> {
+        let mut members = vec![self.client.xid()];
+        members.extend(self.tabbed_clients.iter().copied());
+        let mut out: Vec<u32> = self
+            .tab_order
+            .iter()
+            .copied()
+            .filter(|id| members.contains(id))
+            .collect();
+        let mut rest: Vec<u32> = members.into_iter().filter(|id| !out.contains(id)).collect();
+        rest.sort_unstable();
+        out.extend(rest);
+        out
+    }
+
+    pub fn tab_display(&self) -> Vec<(u32, String)> {
+        let titles = self.tab_titles.borrow();
+        let active = self.client.xid();
+        self.tab_order_synced()
+            .into_iter()
+            .map(|id| {
+                let title = if id == active {
+                    self.client.title().to_string()
+                } else {
+                    titles.get(&id).cloned().unwrap_or_default()
+                };
+                (id, title)
+            })
+            .collect()
+    }
+
+    pub fn tab_at_point(&self, x: i32, y: i32) -> Option<u32> {
+        self.tab_hit
+            .borrow()
+            .iter()
+            .find(|(r, _)| r.contains_xy(x, y))
+            .map(|(_, id)| *id)
+    }
+
+    pub fn tab_close_at_point(&self, x: i32, y: i32) -> Option<u32> {
+        self.tab_close_hit
+            .borrow()
+            .iter()
+            .find(|(r, _)| r.contains_xy(x, y))
+            .map(|(_, id)| *id)
+    }
+
+    pub fn sync_hidden_tab_sizes<H: DisplayBackend + 'static + ?Sized>(&self, backend: &H) {
+        let cr = self.client_rect;
+        let fr = self.frame_rect;
+        for &xid in &self.tabbed_clients {
+            let _ = backend.configure_window(
+                xid,
+                &[
+                    (cr.x - fr.x).max(0) as u32,
+                    (cr.y - fr.y).max(0) as u32,
+                    cr.w.max(1) as u32,
+                    cr.h.max(1) as u32,
+                ],
+            );
+        }
+    }
+
     pub fn client_insets(&self) -> [i32; 4] {
         let bw = self.effective_border();
-        let bb = self.effective_bottom_border();
+        let bb = self.effective_bottom_border() + self.tab_strip_h();
         if !self.title_offset() {
             let t = self.effective_top();
             return [bw, t, bw, bb];
