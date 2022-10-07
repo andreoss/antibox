@@ -59,8 +59,8 @@
         let fw = wm.frames.get(&ids[0]).unwrap();
         assert_eq!(fw.tabbed_clients, vec![src_xid]);
         assert!(fw.tab_strip_h() > 0);
-        let [_, _, _, ib] = fw.client_insets();
-        assert!(ib >= crate::frame::title_bar_height());
+        let [_, it, _, _] = fw.client_insets();
+        assert!(it >= crate::frame::title_bar_height() * 2);
         assert_eq!(wm.focused_window, Some(ids[0]));
         assert_eq!(fw.tab_display().len(), 2);
     }

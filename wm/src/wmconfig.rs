@@ -13,6 +13,7 @@ pub struct Prefs {
     pub pointer: PointerPrefs,
     pub graph: GraphColourPrefs,
     pub winlist: WinlistPrefs,
+    pub tabs: TabsPrefs,
     pub keys: Vec<(String, String)>,
 }
 
@@ -64,6 +65,11 @@ pub struct WinlistPrefs {
     pub position: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TabsPrefs {
+    pub position: String,
+}
+
 impl Default for Prefs {
     fn default() -> Prefs {
         Prefs {
@@ -93,6 +99,9 @@ impl Default for Prefs {
             },
             winlist: WinlistPrefs {
                 position: "centre".to_string(),
+            },
+            tabs: TabsPrefs {
+                position: "top".to_string(),
             },
             keys: Vec::new(),
         }
@@ -245,6 +254,10 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
             }
             ("winlist", "position") => match value {
                 "centre" | "pointer" => p.winlist.position = value.to_string(),
+                _ => {}
+            },
+            ("tabs", "position") => match value {
+                "top" | "bottom" => p.tabs.position = value.to_string(),
                 _ => {}
             },
             _ => {}

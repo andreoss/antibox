@@ -131,6 +131,7 @@ impl App {
             .register_all(&self.backend, &crate::keys_parser::entries_from(&prefs.keys));
 
         self.wm.config.warp_pointer = prefs.pointer.warp;
+        crate::frame::set_tabs_on_bottom(prefs.tabs.position == "bottom");
 
         let (count, names) = wmconfig::workspaces_from(&prefs);
         let count_changed = count != self.wm.config.workspace_count;

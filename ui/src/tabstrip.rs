@@ -96,26 +96,12 @@ pub fn draw_tabstrip(
     let (x0, y, max_w, h) = area.as_px();
     let _ = g.set_foreground(theme::face());
     let _ = g.fill_rect(x0, y, max_w, h);
-    let pop = (h as i16 / 4).max(2);
     let rects = tab_rects(labels, area);
     for (i, (&(tx, ty, tw, th), label)) in rects.iter().zip(labels).enumerate() {
-        if i == active || tw == 0 {
+        if tw == 0 {
             continue;
         }
-        draw_one(
-            g,
-            Rect::px(tx, ty, tw, (th as i16 - pop).max(1) as u16),
-            label,
-            false,
-            true,
-        );
-    }
-    if let (Some(&(tx, ty, tw, th)), Some(label)) = (rects.get(active), labels.get(active)) {
-        if tw > 0 {
-            draw_one(g, Rect::px(tx, ty, tw, th), label, true, true);
-            let _ = g.set_foreground(theme::face());
-            let _ = g.fill_rect(tx + 1, ty - 1, tw.saturating_sub(2), 1);
-        }
+        draw_one(g, Rect::px(tx, ty, tw, th), label, i == active, true);
     }
     rects
 }

@@ -724,6 +724,14 @@ pub(crate) fn paint_frame_decorations<H: DisplayBackend + 'static + ?Sized>(
                     let _ = wg.copy_from(pm, Rect::px(0, 0, w, h), Point::ZERO);
                 } else {
                     let _ = wg.copy_from(pm, Rect::px(0, 0, w, top), Point::ZERO);
+                    if fw.tab_strip_h() > 0 {
+                        let sr = fw.tab_strip_rect();
+                        let _ = wg.copy_from(
+                            pm,
+                            Rect::px(0, sr.y as i16, w, sr.h.max(0) as u16),
+                            Point::new(0, sr.y),
+                        );
+                    }
                     if bw > 0 {
                         let bb = fw.effective_bottom_border().max(0) as u16;
                         if h > bb {
