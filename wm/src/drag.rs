@@ -228,9 +228,11 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
             Point::new(fr.x + p.x, fr.y + p.y)
         });
         let tc = wm.theme_colours;
+        let join = wm.join_candidates();
         if let Some(b) = wm.backend() {
             if let Some(pos) = pos {
-                let mut menu = crate::winmenu::WindowActionMenu::for_focused_client(ws_count, &tc);
+                let mut menu =
+                    crate::winmenu::WindowActionMenu::for_focused_client_opts(ws_count, &tc, &join);
                 menu.show(b, pos);
                 if let Some(rb) = wm.render_backend.as_ref() {
                     menu.enable_filter(rb);
@@ -252,8 +254,10 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
         if let Some(pos) = sysmenu_pos {
             let ws_count = wm.config.workspace_count;
             let tc = wm.theme_colours;
+            let join = wm.join_candidates();
             if let Some(b) = wm.backend() {
-                let mut menu = crate::winmenu::WindowActionMenu::for_focused_client(ws_count, &tc);
+                let mut menu =
+                    crate::winmenu::WindowActionMenu::for_focused_client_opts(ws_count, &tc, &join);
                 menu.show(b, pos);
                 if let Some(rb) = wm.render_backend.as_ref() {
                     menu.enable_filter(rb);
@@ -834,9 +838,11 @@ fn open_window_menu<H: DisplayBackend + 'static + ?Sized>(
         Some(pos) => pos,
         None => return,
     };
-    let mut menu = crate::winmenu::WindowActionMenu::for_focused_client(
+    let join = wm.join_candidates();
+    let mut menu = crate::winmenu::WindowActionMenu::for_focused_client_opts(
         wm.config.workspace_count,
         &wm.theme_colours,
+        &join,
     );
     if let Some(b) = wm.backend() {
         menu.show(b, pos);
