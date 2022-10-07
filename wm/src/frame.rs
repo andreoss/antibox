@@ -10,6 +10,16 @@ use antibox_core::rect::Rect;
 
 const CORNER_LEN_BASE: i32 = 24;
 
+static TABS_ON_BOTTOM: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+pub fn tabs_on_bottom() -> bool {
+    TABS_ON_BOTTOM.load(core::sync::atomic::Ordering::Relaxed)
+}
+
+pub fn set_tabs_on_bottom(v: bool) {
+    TABS_ON_BOTTOM.store(v, core::sync::atomic::Ordering::Relaxed);
+}
+
 pub fn title_bar_height() -> i32 {
     let base = crate::layout_preferences::title_height_override()
         .unwrap_or_else(antibox_ui::theme::title_height_base);
@@ -323,14 +333,13 @@ impl FrameWindow {
 
     pub fn tab_strip_rect(&self) -> Rect {
         let strip = self.tab_strip_h();
-        let bb = self.effective_bottom_border();
         let bw = self.effective_border();
-        Rect::new(
-            bw,
-            self.frame_rect.h - bb - strip,
-            (self.frame_rect.w - bw * 2).max(1),
-            strip,
-        )
+        let rel = if tabs_on_bottom() {
+            self.client_rect.y - self.frame_rect.y + self.client_rect.h
+        } else {
+            self.client_rect.y - self.frame_rect.y - strip
+        };
+        Rect::new(bw, rel, (self.frame_rect.w - bw * 2).max(1), strip)
     }
 
     pub fn tab_order_synced(&self) -> Vec<u32> {
@@ -398,18 +407,20 @@ impl FrameWindow {
 
     pub fn client_insets(&self) -> [i32; 4] {
         let bw = self.effective_border();
-        let bb = self.effective_bottom_border() + self.tab_strip_h();
+        let strip = self.tab_strip_h();
+        let (ts, bs) = if tabs_on_bottom() { (0, strip) } else { (strip, 0) };
+        let bb = self.effective_bottom_border() + bs;
         if !self.title_offset() {
             let t = self.effective_top();
-            return [bw, t, bw, bb];
+            return [bw, t + ts, bw, bb];
         }
         let band = self.band_thick();
         if self.title_on_left() {
-            [bw + band, bw, bw, bb]
+            [bw + band, bw + ts, bw, bb]
         } else if self.title_on_right() {
-            [bw, bw, bw + band, bb]
+            [bw, bw + ts, bw + band, bb]
         } else {
-            [bw, bw, bw, bb + band]
+            [bw, bw + ts, bw, bb + band]
         }
     }
 
