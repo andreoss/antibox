@@ -1,5 +1,5 @@
 #![allow(non_camel_case_types)]
-pub use std::os::raw::{c_char, c_int, c_long, c_uint, c_void};
+pub use std::os::raw::{c_char, c_int, c_long, c_uint, c_ulong, c_void};
 
 pub type time_t = i64;
 pub type sighandler_t = usize;
@@ -161,4 +161,5 @@ extern "C" {
     ) -> c_int;
     pub fn getifaddrs(ifap: *mut *mut ifaddrs) -> c_int;
     pub fn freeifaddrs(ifa: *mut ifaddrs);
+    pub fn ioctl(fd: c_int, request: c_ulong, arg: *mut c_void) -> c_int;
 }

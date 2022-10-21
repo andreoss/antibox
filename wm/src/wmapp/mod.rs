@@ -21,15 +21,17 @@ enum AppletTick {
     Cpu,
     Mem,
     Net,
+    Battery,
 }
 
 impl AppletTick {
-    const COUNT: usize = 4;
+    const COUNT: usize = 5;
     const ALL: [Self; AppletTick::COUNT] = [
         AppletTick::Clock,
         AppletTick::Cpu,
         AppletTick::Mem,
         AppletTick::Net,
+        AppletTick::Battery,
     ];
 
     fn interval(self) -> Duration {
@@ -37,6 +39,7 @@ impl AppletTick {
             AppletTick::Clock => Duration::from_secs(1),
             AppletTick::Cpu | AppletTick::Net => Duration::from_secs(2),
             AppletTick::Mem => Duration::from_secs(5),
+            AppletTick::Battery => Duration::from_secs(15),
         }
     }
 
@@ -50,6 +53,7 @@ impl AppletTick {
             AppletTick::Cpu => tb.update_cpu(),
             AppletTick::Mem => tb.update_mem(),
             AppletTick::Net => tb.update_net(),
+            AppletTick::Battery => tb.update_battery(),
         }
     }
 }
@@ -737,6 +741,11 @@ impl App {
             if let Ok(n) = crate::net_status_applet::NetStatusApplet::new(conn, wid, prefs.net.width)
             {
                 core.push(Box::new(n));
+            }
+        }
+        if taskbar_wants(Widget::Battery) {
+            if let Ok(b) = crate::battery_status_applet::BatteryStatusApplet::new(conn, wid) {
+                core.push(Box::new(b));
             }
         }
         if taskbar_wants(Widget::Keyboard) {
