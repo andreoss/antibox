@@ -27,12 +27,13 @@ pub enum Widget {
     Cpu,
     Mem,
     Net,
+    Battery,
     Keyboard,
     Clock,
 }
 
 impl Widget {
-    pub const COUNT: usize = 8;
+    pub const COUNT: usize = 9;
     pub const ALL: [Self; Self::COUNT] = [
         Widget::Workspaces,
         Widget::Windows,
@@ -40,6 +41,7 @@ impl Widget {
         Widget::Cpu,
         Widget::Mem,
         Widget::Net,
+        Widget::Battery,
         Widget::Keyboard,
         Widget::Clock,
     ];
@@ -56,6 +58,7 @@ fn widget_token(name: &str) -> Option<Widget> {
         "cpu" => Some(Widget::Cpu),
         "mem" | "memory" | "ram" => Some(Widget::Mem),
         "net" | "network" => Some(Widget::Net),
+        "battery" | "power" | "batt" => Some(Widget::Battery),
         "keyboard" | "kbd" | "layout" => Some(Widget::Keyboard),
         "clock" | "time" => Some(Widget::Clock),
         _ => None,
@@ -94,6 +97,7 @@ pub fn apply() {
         Widget::Cpu => true,
         Widget::Mem => true,
         Widget::Net => true,
+        Widget::Battery => true,
         Widget::Keyboard => true,
         Widget::Clock => true,
     };

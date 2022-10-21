@@ -166,6 +166,15 @@ pub fn pref_h() -> u32 {
     antibox_ui::metrics::button_height() as u32
 }
 
+pub fn pref_w() -> u32 {
+    (antibox_ui::metrics::button_height() * 3 / 2).max(antibox_core::scale::scaled(28)) as u32
+}
+
+pub fn glyph_h(cell_h: i16) -> i16 {
+    let s = antibox_ui::metrics::icon() as i16 - antibox_core::scale::scaled(2).max(1) as i16;
+    s.clamp(8, (cell_h - INSET * 2).max(8))
+}
+
 macro_rules! impl_status_applet {
     ($t:ty) => {
         impl crate::applet::Applet for $t {
