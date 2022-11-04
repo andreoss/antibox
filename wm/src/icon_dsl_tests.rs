@@ -106,6 +106,21 @@ fn test_draw_outlined_fills_then_strokes() {
 }
 
 #[test]
+fn test_rasterize_is_opaque_and_sized() {
+    let icon = &WINDOW_ICON;
+    let data = icon.rasterize(16, 0x808080, &[0x111111, 0x222222, 0x333333]);
+    assert_eq!(data.len(), 16 * 16 * 4);
+    assert!(data.chunks_exact(4).all(|px| px[3] == 255));
+}
+
+#[test]
+fn test_rasterize_paints_bg_where_no_shape_covers() {
+    let icon = Icon(&[Shape::Rect(0.5, 0.5, 0.25, 0.25)]);
+    let data = icon.rasterize(4, 0xAABBCC, &[0x000000]);
+    assert_eq!(&data[0..3], &[0xAA, 0xBB, 0xCC]);
+}
+
+#[test]
 fn test_power_icon_draws_without_crash() {
     let g = MockGraphics::new(1);
     POWER_ICON.draw_outlined(&g, 0, 0, 16, 16, 0xFFFFFF, 0x000000);
