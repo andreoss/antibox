@@ -50,6 +50,31 @@ pub fn stroke_polygon(g: &dyn GraphicsContext, pts: &[(i16, i16)], colour: Colou
     }
 }
 
+fn fill_rect_px(
+    data: &mut [u8],
+    stride: usize,
+    x: usize,
+    y: usize,
+    w: usize,
+    h: usize,
+    colour: Colour,
+) {
+    let (r, g, b) = (
+        ((colour >> 16) & 0xff) as u8,
+        ((colour >> 8) & 0xff) as u8,
+        (colour & 0xff) as u8,
+    );
+    for py in y..(y + h).min(stride) {
+        for px in x..(x + w).min(stride) {
+            let i = (py * stride + px) * 4;
+            data[i] = r;
+            data[i + 1] = g;
+            data[i + 2] = b;
+            data[i + 3] = 255;
+        }
+    }
+}
+
 impl Icon {
     pub fn draw(&self, g: &dyn GraphicsContext, x: i16, y: i16, w: u16, h: u16, colour: Colour) {
         self.draw_shaded(g, x, y, w, h, &[colour]);
@@ -134,6 +159,31 @@ impl Icon {
         self.draw(g, x, y, w, h, fill);
         self.stroke(g, x, y, w, h, outline);
     }
+
+    pub fn rasterize(&self, size: u16, bg: Colour, colours: &[Colour]) -> Vec<u8> {
+        let s = size as usize;
+        let mut data = vec![0u8; s * s * 4];
+        fill_rect_px(&mut data, s, 0, 0, s, s, bg);
+        for (i, shape) in self.0.iter().enumerate() {
+            if let Shape::Rect(nx, ny, nw, nh) = *shape {
+                let colour = colours[i % colours.len().max(1)];
+                let x0 = (nx * size as f32).round() as usize;
+                let y0 = (ny * size as f32).round() as usize;
+                let x1 = ((nx + nw) * size as f32).round() as usize;
+                let y1 = ((ny + nh) * size as f32).round() as usize;
+                fill_rect_px(
+                    &mut data,
+                    s,
+                    x0,
+                    y0,
+                    x1.saturating_sub(x0).max(1),
+                    y1.saturating_sub(y0).max(1),
+                    colour,
+                );
+            }
+        }
+        data
+    }
 }
 
 const BOLT_PTS: [(f32, f32); 6] = [
@@ -151,6 +201,12 @@ pub const MIC_ICON: Icon = Icon(&[
     Shape::Rect(0.30, 0.05, 0.40, 0.45),
     Shape::Line(0.5, 0.50, 0.5, 0.75, 0.14),
     Shape::Line(0.25, 0.85, 0.75, 0.85, 0.14),
+]);
+
+pub const WINDOW_ICON: Icon = Icon(&[
+    Shape::Rect(0.125, 0.125, 0.75, 0.75),
+    Shape::Rect(0.215, 0.215, 0.57, 0.16),
+    Shape::Rect(0.215, 0.375, 0.57, 0.41),
 ]);
 
 #[cfg(test)]

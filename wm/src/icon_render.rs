@@ -49,43 +49,14 @@ pub fn icon_to_pixmap(
 }
 
 pub fn default_icon(size: u32, bg: antibox_core::colour::Colour) -> PixmapData {
-    let s = size.max(4);
-    let (br, bgc, bb) = (
-        ((bg >> 16) & 0xff) as u8,
-        ((bg >> 8) & 0xff) as u8,
-        (bg & 0xff) as u8,
-    );
-    let split = |c: u32| {
-        (
-            ((c >> 16) & 0xff) as u8,
-            ((c >> 8) & 0xff) as u8,
-            (c & 0xff) as u8,
-        )
-    };
-    let (frame, title, body) = (
-        split(antibox_ui::theme::shadow()),
-        split(antibox_ui::theme::title_active()),
-        split(antibox_ui::theme::field()),
-    );
-    let m = (s / 8).max(1);
-    let title_h = (s / 4).max(2);
-    let mut data = Vec::with_capacity((s * s * 4) as usize);
-    for y in 0..s {
-        for x in 0..s {
-            let inside = x >= m && x < s - m && y >= m && y < s - m;
-            let (r, g, b) = if !inside {
-                (br, bgc, bb)
-            } else if x == m || x == s - m - 1 || y == m || y == s - m - 1 {
-                frame
-            } else if y < m + title_h {
-                title
-            } else {
-                body
-            };
-            data.extend_from_slice(&[r, g, b, 255]);
-        }
-    }
-    PixmapData::new(s as u16, s as u16, data)
+    let s = size.max(4).min(u16::MAX as u32) as u16;
+    let colours = [
+        antibox_ui::theme::shadow(),
+        antibox_ui::theme::title_active(),
+        antibox_ui::theme::field(),
+    ];
+    let data = crate::icon_dsl::WINDOW_ICON.rasterize(s, bg, &colours);
+    PixmapData::new(s, s, data)
 }
 
 pub fn resolve_client_icon(
