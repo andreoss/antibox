@@ -20,6 +20,7 @@ pub mod fonts;
 pub mod frame;
 pub mod frame_store;
 pub mod geom;
+pub mod audio;
 pub mod handler;
 pub mod icon_dsl;
 pub mod icon_render;
