@@ -39,3 +39,24 @@ fn test_layout_buttons_use_theme_item_gap() {
     }
 }
 
+#[test]
+fn test_button_bg_differs_between_active_and_inactive() {
+    let face = antibox_ui::theme::tray_face();
+    assert_ne!(
+        TaskPane::button_bg(face, true),
+        TaskPane::button_bg(face, false),
+        "icon blend background must follow the active button surface"
+    );
+}
+
+#[test]
+fn test_active_button_bg_matches_pressed_surface() {
+    let face = antibox_ui::theme::tray_face();
+    let active = TaskPane::button_bg(face, true);
+    let expected = if antibox_ui::theme::pressed_dither(true) {
+        antibox_core::colour::lerp(antibox_ui::theme::face(), antibox_ui::theme::light(), 0.5)
+    } else {
+        antibox_ui::theme::pressed_face(face)
+    };
+    assert_eq!(active, expected);
+}

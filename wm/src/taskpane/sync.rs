@@ -3,10 +3,12 @@ use super::TaskPane;
 
 impl TaskPane {
     pub(super) fn button_bg(face: antibox_core::colour::Colour, active: bool) -> u32 {
-        if active && !antibox_ui::theme::pressed_dither(true) {
-            antibox_ui::theme::pressed_face(face)
-        } else {
+        if !active {
             face
+        } else if antibox_ui::theme::pressed_dither(true) {
+            antibox_core::colour::lerp(antibox_ui::theme::face(), antibox_ui::theme::light(), 0.5)
+        } else {
+            antibox_ui::theme::pressed_face(face)
         }
     }
 
@@ -141,7 +143,8 @@ impl TaskPane {
                 membership_changed = true;
             }
             let shown = members
-                .iter().cloned()
+                .iter()
+                .cloned()
                 .find(|&m| m == new_focused)
                 .unwrap_or(btn.window_id);
             if let Some(fw) = xid_index
