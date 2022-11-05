@@ -40,7 +40,11 @@ impl PowerAudioApplet {
             Rect::new(0, 0, w as i32, h as i32),
             WmWindowClass::InputOutput,
             true,
-            EventMask::ENTER_WINDOW | EventMask::LEAVE_WINDOW | EventMask::POINTER_MOTION,
+            EventMask::ENTER_WINDOW
+                | EventMask::LEAVE_WINDOW
+                | EventMask::POINTER_MOTION
+                | EventMask::BUTTON_PRESS
+                | EventMask::BUTTON_RELEASE,
         )?;
         Ok(Self {
             conn: Arc::clone(conn),
@@ -138,7 +142,27 @@ impl Applet for PowerAudioApplet {
         crate::status_graph::pref_h()
     }
 
-    fn handle_click(&mut self, _x: i32, _y: i32, _button: u8) -> Option<u32> {
+    fn handle_click(&mut self, x: i32, _y: i32, button: u8) -> Option<u32> {
+        if !self.audio.present() || (x as i16) < self.audio_x() {
+            return None;
+        }
+        match button {
+            1 => self.audio_system.toggle_sink_mute(),
+            2 => self.audio_system.toggle_source_mute(),
+            4 => self.audio_system.nudge_sink_volume(5),
+            5 => self.audio_system.nudge_sink_volume(-5),
+            _ => return None,
+        }
+        self.update();
+        if self.hovered == Some(true) {
+            let text = self.audio.tooltip();
+            crate::tooltip::show_window_tip(
+                &mut self.tooltip,
+                self.conn.as_ref(),
+                &*self.window,
+                &text,
+            );
+        }
         None
     }
 
