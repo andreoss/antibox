@@ -186,6 +186,26 @@ impl Icon {
     }
 }
 
+pub fn slot_margin() -> i16 {
+    antibox_ui::metrics::gap() as i16
+}
+
+pub fn stroke_w() -> i16 {
+    (antibox_core::scale::scaled(2) as i16).max(2)
+}
+
+pub fn glyph_top() -> i16 {
+    slot_margin()
+}
+
+pub fn glyph_zone_h(h: u16) -> i16 {
+    ((h as i16) - 2 * slot_margin()).max(6)
+}
+
+pub fn slot_content_w(h: u16) -> i16 {
+    ((h as i16) - 2 * slot_margin()).max(6)
+}
+
 const BOLT_PTS: [(f32, f32); 6] = [
     (0.60, 0.0),
     (0.05, 0.58),
@@ -202,6 +222,30 @@ pub const MIC_ICON: Icon = Icon(&[
     Shape::Line(0.5, 0.50, 0.5, 0.75, 0.14),
     Shape::Line(0.25, 0.85, 0.75, 0.85, 0.14),
 ]);
+
+const SPEAKER_PTS: [(f32, f32); 6] = [
+    (0.0, 0.30),
+    (0.43, 0.30),
+    (1.0, 0.0),
+    (1.0, 1.0),
+    (0.43, 0.70),
+    (0.0, 0.70),
+];
+
+pub const SPEAKER_ICON: Icon = Icon(&[Shape::Poly(&SPEAKER_PTS)]);
+
+const BATTERY_PTS: [(f32, f32); 8] = [
+    (0.32, 0.0),
+    (0.68, 0.0),
+    (0.68, 0.10),
+    (0.84, 0.10),
+    (0.84, 1.0),
+    (0.16, 1.0),
+    (0.16, 0.10),
+    (0.32, 0.10),
+];
+
+pub const BATTERY_ICON: Icon = Icon(&[Shape::Poly(&BATTERY_PTS)]);
 
 pub const WINDOW_ICON: Icon = Icon(&[
     Shape::Rect(0.125, 0.125, 0.75, 0.75),
