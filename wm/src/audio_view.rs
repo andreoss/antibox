@@ -42,7 +42,9 @@ fn wave_zone_w(h: u16) -> i16 {
 }
 
 fn wave_count(volume: i32) -> i16 {
-    if volume < 34 {
+    if volume <= 0 {
+        0
+    } else if volume < 34 {
         1
     } else if volume < 67 {
         2
@@ -133,13 +135,14 @@ impl AudioView {
         if muted {
             draw_mute_x(g, wave_x, cy - zone, zone, zone * 2, COLOR_MUTED);
         } else {
-            let waves = wave_count(state.volume);
+            let lit = wave_count(state.volume);
             let t = wave_thickness();
             let min_r = (zone / 3).max(2);
             let step = ((zone - min_r) / 2).max(2);
-            for i in 0..waves {
+            for i in 0..3 {
                 let r = (min_r + step * i).min(zone).max(2);
-                draw_wave(g, wave_x, cy, r, t, COLOR_ACTIVE);
+                let colour = if i < lit { COLOR_ACTIVE } else { outline };
+                draw_wave(g, wave_x, cy, r, t, colour);
             }
         }
     }
