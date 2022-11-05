@@ -103,6 +103,36 @@ impl AudioView {
         s
     }
 
+    fn draw_mic_badge(&self, g: &dyn GraphicsContext, x0: i16, h: u16, state: &AudioState) {
+        if !state.source_muted && state.readers.is_empty() {
+            return;
+        }
+        let badge = (glyph_h(h) * 3 / 4).max(8);
+        let bx = x0 + h as i16 - margin() - badge;
+        let by = (icon_dsl::glyph_top() + glyph_h(h) - badge).max(0);
+        let colour = if state.source_muted {
+            COLOR_MUTED
+        } else {
+            COLOR_ACTIVE
+        };
+        let _ = g.set_foreground(theme::tray_face());
+        let _ = g.fill_rect(bx, by, badge as u16, badge as u16);
+        icon_dsl::MIC_ICON.draw_outlined(
+            g,
+            bx,
+            by,
+            badge as u16,
+            badge as u16,
+            colour,
+            theme::shadow(),
+        );
+        if state.source_muted {
+            let t = (badge / 4).max(2);
+            let _ = g.set_foreground(theme::shadow());
+            let _ = g.fill_polygon(&thick_line(bx, by + badge, bx + badge, by, t));
+        }
+    }
+
     pub fn draw(&self, g: &dyn GraphicsContext, x0: i16, h: u16) {
         let state = match &self.state {
             Some(s) => s,
@@ -145,6 +175,8 @@ impl AudioView {
                 draw_wave(g, wave_x, cy, r, t, colour);
             }
         }
+
+        self.draw_mic_badge(g, x0, h, state);
     }
 }
 

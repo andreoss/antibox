@@ -145,6 +145,72 @@ fn test_muted_colour_distinct_from_shape_colour() {
 }
 
 #[test]
+fn test_source_muted_draws_a_mic_badge() {
+    let plain = antibox_core::mock::MockGraphics::new(1);
+    AudioView::new(Some(state(50, false, false))).draw(&plain, 0, 18);
+    let with_mic = antibox_core::mock::MockGraphics::new(1);
+    AudioView::new(Some(state(50, false, true))).draw(&with_mic, 0, 18);
+    assert!(
+        with_mic.commands().len() > plain.commands().len(),
+        "sink unmuted + source muted should draw extra shapes for the mic badge"
+    );
+}
+
+#[test]
+fn test_mic_badge_is_prominent() {
+    use antibox_core::mock::MockCommand;
+    for h in [16u16, 18, 22, 28] {
+        let g = antibox_core::mock::MockGraphics::new(1);
+        AudioView::new(Some(state(50, false, true))).draw(&g, 0, h);
+        let mut fg = 0u32;
+        let mut backing = 0u16;
+        for c in g.commands() {
+            match c {
+                MockCommand::SetForeground(p) => fg = p,
+                MockCommand::FillRect(_, _, w, hh) if fg == theme::tray_face() && w == hh => {
+                    backing = backing.max(w);
+                }
+                _ => {}
+            }
+        }
+        assert!(
+            backing as i16 >= (glyph_h(h) * 3 / 4).min(glyph_h(h)),
+            "h={}: mic badge backing {} too small for glyph zone {}",
+            h,
+            backing,
+            glyph_h(h)
+        );
+    }
+}
+
+#[test]
+fn test_mic_badge_stays_within_natural_width() {
+    for h in [16u16, 18, 22, 28] {
+        let g = antibox_core::mock::MockGraphics::new(1);
+        AudioView::new(Some(state(50, false, true))).draw(&g, 0, h);
+        assert!(max_x(&g.commands()) <= AudioView::natural_width(h) as i16);
+    }
+}
+
+#[test]
+fn test_recording_shows_mic_badge() {
+    let plain = antibox_core::mock::MockGraphics::new(1);
+    AudioView::new(Some(state(50, false, false))).draw(&plain, 0, 18);
+    let recording = antibox_core::mock::MockGraphics::new(1);
+    AudioView::new(Some(AudioState {
+        sink_muted: false,
+        volume: 50,
+        source_muted: false,
+        readers: vec!["Firefox".to_string()],
+    }))
+    .draw(&recording, 0, 18);
+    assert!(
+        recording.commands().len() > plain.commands().len(),
+        "an app reading the mic should surface the mic badge"
+    );
+}
+
+#[test]
 fn test_draw_all_states_no_crash() {
     let g = antibox_core::mock::MockGraphics::new(1);
     for (vol, muted, src_muted) in [
