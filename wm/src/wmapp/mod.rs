@@ -21,7 +21,7 @@ enum AppletTick {
     Cpu,
     Mem,
     Net,
-    Battery,
+    PowerAudio,
 }
 
 impl AppletTick {
@@ -31,15 +31,14 @@ impl AppletTick {
         AppletTick::Cpu,
         AppletTick::Mem,
         AppletTick::Net,
-        AppletTick::Battery,
+        AppletTick::PowerAudio,
     ];
 
     fn interval(self) -> Duration {
         match self {
             AppletTick::Clock => Duration::from_secs(1),
-            AppletTick::Cpu | AppletTick::Net => Duration::from_secs(2),
+            AppletTick::Cpu | AppletTick::Net | AppletTick::PowerAudio => Duration::from_secs(2),
             AppletTick::Mem => Duration::from_secs(5),
-            AppletTick::Battery => Duration::from_secs(15),
         }
     }
 
@@ -53,7 +52,7 @@ impl AppletTick {
             AppletTick::Cpu => tb.update_cpu(),
             AppletTick::Mem => tb.update_mem(),
             AppletTick::Net => tb.update_net(),
-            AppletTick::Battery => tb.update_battery(),
+            AppletTick::PowerAudio => tb.update_power_audio(),
         }
     }
 }
@@ -743,9 +742,9 @@ impl App {
                 core.push(Box::new(n));
             }
         }
-        if taskbar_wants(Widget::Battery) {
-            if let Ok(b) = crate::battery_status_applet::BatteryStatusApplet::new(conn, wid) {
-                core.push(Box::new(b));
+        if taskbar_wants(Widget::PowerAudio) {
+            if let Ok(pa) = crate::power_audio_applet::PowerAudioApplet::new(conn, wid) {
+                core.push(Box::new(pa));
             }
         }
         if taskbar_wants(Widget::Keyboard) {

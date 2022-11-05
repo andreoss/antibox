@@ -764,22 +764,22 @@ impl TaskBar {
         })
     }
 
-    pub fn update_battery(&mut self) -> Vec<u32> {
+    pub fn update_power_audio(&mut self) -> Vec<u32> {
         let mut relayout = false;
         let mut changed = Vec::new();
         for applet in &mut self.applets {
-            let bat = match applet
+            let pa = match applet
                 .as_any_mut()
-                .downcast_mut::<crate::battery_status_applet::BatteryStatusApplet>()
+                .downcast_mut::<crate::power_audio_applet::PowerAudioApplet>()
             {
-                Some(bat) => bat,
+                Some(pa) => pa,
                 None => continue,
             };
-            let was_present = bat.preferred_width() > 0;
-            if guard_applet("update", || bat.update()).unwrap_or(false) {
-                changed.push(bat.window().id());
+            let was_present = pa.preferred_width() > 0;
+            if guard_applet("update", || pa.update()).unwrap_or(false) {
+                changed.push(pa.window().id());
             }
-            if (bat.preferred_width() > 0) != was_present {
+            if (pa.preferred_width() > 0) != was_present {
                 relayout = true;
             }
         }
@@ -852,7 +852,7 @@ enum PanelSlot {
     Cpu,
     Mem,
     Net,
-    Battery,
+    PowerAudio,
     Keyboard,
     Clock,
 }
@@ -862,7 +862,7 @@ const DEFAULT_RIGHT: [PanelSlot; 7] = [
     PanelSlot::Cpu,
     PanelSlot::Mem,
     PanelSlot::Net,
-    PanelSlot::Battery,
+    PanelSlot::PowerAudio,
     PanelSlot::Keyboard,
     PanelSlot::Tray,
     PanelSlot::Clock,
@@ -878,7 +878,7 @@ impl PanelSlot {
             Widget::Cpu => PanelSlot::Cpu,
             Widget::Mem => PanelSlot::Mem,
             Widget::Net => PanelSlot::Net,
-            Widget::Battery => PanelSlot::Battery,
+            Widget::PowerAudio => PanelSlot::PowerAudio,
             Widget::Keyboard => PanelSlot::Keyboard,
             Widget::Clock => PanelSlot::Clock,
         }
@@ -892,7 +892,7 @@ impl PanelSlot {
             PanelSlot::Cpu => any.is::<crate::cpu_status_applet::CpuStatusApplet>(),
             PanelSlot::Mem => any.is::<crate::mem_status_applet::MemStatusApplet>(),
             PanelSlot::Net => any.is::<crate::net_status_applet::NetStatusApplet>(),
-            PanelSlot::Battery => any.is::<crate::battery_status_applet::BatteryStatusApplet>(),
+            PanelSlot::PowerAudio => any.is::<crate::power_audio_applet::PowerAudioApplet>(),
             PanelSlot::Keyboard => any.is::<crate::keyboard_applet::KeyboardApplet>(),
             PanelSlot::Clock => any.is::<ClockApplet>(),
             #[cfg(feature = "tray")]

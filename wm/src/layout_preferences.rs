@@ -27,7 +27,7 @@ pub enum Widget {
     Cpu,
     Mem,
     Net,
-    Battery,
+    PowerAudio,
     Keyboard,
     Clock,
 }
@@ -41,7 +41,7 @@ impl Widget {
         Widget::Cpu,
         Widget::Mem,
         Widget::Net,
-        Widget::Battery,
+        Widget::PowerAudio,
         Widget::Keyboard,
         Widget::Clock,
     ];
@@ -58,7 +58,7 @@ fn widget_token(name: &str) -> Option<Widget> {
         "cpu" => Some(Widget::Cpu),
         "mem" | "memory" | "ram" => Some(Widget::Mem),
         "net" | "network" => Some(Widget::Net),
-        "battery" | "power" | "batt" => Some(Widget::Battery),
+        "battery" | "power" | "batt" | "audio" | "volume" | "sound" => Some(Widget::PowerAudio),
         "keyboard" | "kbd" | "layout" => Some(Widget::Keyboard),
         "clock" | "time" => Some(Widget::Clock),
         _ => None,
@@ -97,7 +97,7 @@ pub fn apply() {
         Widget::Cpu => true,
         Widget::Mem => true,
         Widget::Net => true,
-        Widget::Battery => true,
+        Widget::PowerAudio => true,
         Widget::Keyboard => true,
         Widget::Clock => true,
     };
