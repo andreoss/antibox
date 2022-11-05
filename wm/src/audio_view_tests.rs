@@ -71,20 +71,43 @@ fn fill_polygon_count(commands: &[antibox_core::mock::MockCommand]) -> usize {
         .count()
 }
 
-#[test]
-fn test_wave_count_grows_with_volume() {
-    let g_low = antibox_core::mock::MockGraphics::new(1);
-    AudioView::new(Some(state(10, false, false))).draw(&g_low, 0, 18);
-    let g_high = antibox_core::mock::MockGraphics::new(1);
-    AudioView::new(Some(state(90, false, false))).draw(&g_high, 0, 18);
-    assert!(fill_polygon_count(&g_low.commands()) < fill_polygon_count(&g_high.commands()));
+fn polys_with_colour(commands: &[antibox_core::mock::MockCommand], colour: u32) -> usize {
+    use antibox_core::mock::MockCommand;
+    let mut fg = 0u32;
+    let mut n = 0;
+    for c in commands {
+        match c {
+            MockCommand::SetForeground(p) => fg = *p,
+            MockCommand::FillPolygon(_) if fg == colour => n += 1,
+            _ => {}
+        }
+    }
+    n
+}
+
+fn lit_segments(volume: i32) -> usize {
+    let g = antibox_core::mock::MockGraphics::new(1);
+    AudioView::new(Some(state(volume, false, false))).draw(&g, 0, 18);
+    polys_with_colour(&g.commands(), COLOR_ACTIVE) / 2
 }
 
 #[test]
-fn test_zero_volume_still_draws_a_wave() {
+fn test_lit_wave_segments_grow_with_volume() {
+    assert!(lit_segments(10) < lit_segments(50));
+    assert!(lit_segments(50) < lit_segments(90));
+}
+
+#[test]
+fn test_full_volume_lights_three_segments() {
+    assert_eq!(lit_segments(100), 3);
+}
+
+#[test]
+fn test_zero_volume_lights_no_segments_but_keeps_them_visible() {
+    assert_eq!(lit_segments(0), 0);
     let g = antibox_core::mock::MockGraphics::new(1);
     AudioView::new(Some(state(0, false, false))).draw(&g, 0, 18);
-    assert!(fill_polygon_count(&g.commands()) >= 3);
+    assert_eq!(polys_with_colour(&g.commands(), theme::shadow()), 6);
 }
 
 #[test]
@@ -95,7 +118,11 @@ fn test_muted_draws_no_waves_but_draws_shape() {
     AudioView::new(Some(state(90, false, false))).draw(&unmuted, 0, 18);
     assert!(
         fill_polygon_count(&muted.commands()) < fill_polygon_count(&unmuted.commands()),
-        "muted icon swaps waves for a mute mark, so it draws fewer polygons"
+        "muted icon swaps wave segments for a mute mark, so it draws fewer polygons"
+    );
+    assert!(
+        polys_with_colour(&muted.commands(), COLOR_MUTED) >= 3,
+        "muted icon draws the red speaker and the mute mark"
     );
 }
 
