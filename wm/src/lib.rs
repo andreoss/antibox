@@ -22,6 +22,7 @@ pub mod frame_store;
 pub mod geom;
 pub mod audio;
 pub mod audio_view;
+pub mod battery_view;
 pub mod handler;
 pub mod icon_dsl;
 pub mod icon_render;
