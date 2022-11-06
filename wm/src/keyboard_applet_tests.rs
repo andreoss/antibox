@@ -112,6 +112,14 @@ fn test_update_returns_false_when_unchanged() {
 }
 
 #[test]
+fn test_update_keeps_layouts_when_backend_has_none() {
+    let mut app = make_applet();
+    let before = app.layouts.clone();
+    let _ = app.update();
+    assert_eq!(app.layouts, before);
+}
+
+#[test]
 fn test_tooltip_not_empty() {
     let app = make_applet();
     let tt = app.tooltip();
