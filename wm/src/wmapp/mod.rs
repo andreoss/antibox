@@ -22,22 +22,26 @@ enum AppletTick {
     Mem,
     Net,
     PowerAudio,
+    Keyboard,
 }
 
 impl AppletTick {
-    const COUNT: usize = 5;
+    const COUNT: usize = 6;
     const ALL: [Self; AppletTick::COUNT] = [
         AppletTick::Clock,
         AppletTick::Cpu,
         AppletTick::Mem,
         AppletTick::Net,
         AppletTick::PowerAudio,
+        AppletTick::Keyboard,
     ];
 
     fn interval(self) -> Duration {
         match self {
             AppletTick::Clock => Duration::from_secs(1),
-            AppletTick::Cpu | AppletTick::Net | AppletTick::PowerAudio => Duration::from_secs(2),
+            AppletTick::Cpu | AppletTick::Net | AppletTick::PowerAudio | AppletTick::Keyboard => {
+                Duration::from_secs(2)
+            }
             AppletTick::Mem => Duration::from_secs(5),
         }
     }
@@ -53,6 +57,7 @@ impl AppletTick {
             AppletTick::Mem => tb.update_mem(),
             AppletTick::Net => tb.update_net(),
             AppletTick::PowerAudio => tb.update_power_audio(),
+            AppletTick::Keyboard => tb.update_keyboard(),
         }
     }
 }
