@@ -753,7 +753,7 @@ impl App {
             }
         }
         if taskbar_wants(Widget::Keyboard) {
-            if let Ok(Some(kb)) = crate::keyboard_applet::KeyboardApplet::new(
+            if let Ok(kb) = crate::keyboard_applet::KeyboardApplet::new(
                 conn,
                 wid,
                 wmconfig::split_layout_list(&prefs.keyboard.layouts),

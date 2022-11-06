@@ -210,7 +210,7 @@ impl App {
             if crate::layout_preferences::taskbar_wants(crate::layout_preferences::Widget::Keyboard)
             {
                 let parent = tb.window.id();
-                if let Ok(Some(kb)) = crate::keyboard_applet::KeyboardApplet::new(
+                if let Ok(kb) = crate::keyboard_applet::KeyboardApplet::new(
                     &self.backend,
                     parent,
                     layouts,

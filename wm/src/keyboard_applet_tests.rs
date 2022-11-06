@@ -35,13 +35,21 @@ fn test_new_default_state() {
 }
 
 #[test]
-fn test_new_hides_without_layouts() {
+fn test_new_zero_width_without_layouts() {
     let conn: Arc<dyn DisplayBackend> = Arc::new(MockDisplay::new(800, 600, 24));
     let tc = crate::render::ThemeColors::default();
-    match KeyboardApplet::new(&conn, 1, Vec::new(), &tc) {
-        Ok(None) => {}
-        _ => panic!("expected hidden applet without layouts"),
-    }
+    let app = KeyboardApplet::new(&conn, 1, Vec::new(), &tc).unwrap();
+    assert_eq!(app.preferred_width(), 0);
+}
+
+#[test]
+fn test_becomes_visible_when_layouts_appear() {
+    let conn: Arc<dyn DisplayBackend> = Arc::new(MockDisplay::new(800, 600, 24));
+    let tc = crate::render::ThemeColors::default();
+    let mut app = KeyboardApplet::new(&conn, 1, Vec::new(), &tc).unwrap();
+    assert_eq!(app.preferred_width(), 0);
+    app.layouts = vec!["us".to_string(), "ru".to_string()];
+    assert!(app.preferred_width() > 0);
 }
 
 #[test]
@@ -49,12 +57,10 @@ fn test_new_with_configured_layouts() {
     let conn: Arc<dyn DisplayBackend> = Arc::new(MockDisplay::new(800, 600, 24));
     let tc = crate::render::ThemeColors::default();
     let layouts = vec!["us".to_string(), "ru".to_string()];
-    let app = match KeyboardApplet::new(&conn, 1, layouts, &tc) {
-        Ok(Some(app)) => app,
-        _ => panic!("applet hidden with two configured layouts"),
-    };
+    let app = KeyboardApplet::new(&conn, 1, layouts, &tc).unwrap();
     assert_eq!(app.layouts.len(), 2);
     assert!(!app.xkb_groups);
+    assert!(app.preferred_width() > 0);
 }
 
 #[test]
