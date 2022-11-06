@@ -790,9 +790,28 @@ impl TaskBar {
     }
 
     pub fn update_keyboard(&mut self) -> Vec<u32> {
-        self.update_applets::<crate::keyboard_applet::KeyboardApplet, _>(
-            crate::keyboard_applet::KeyboardApplet::update,
-        )
+        let mut relayout = false;
+        let mut changed = Vec::new();
+        for applet in &mut self.applets {
+            let kb = match applet
+                .as_any_mut()
+                .downcast_mut::<crate::keyboard_applet::KeyboardApplet>()
+            {
+                Some(kb) => kb,
+                None => continue,
+            };
+            let was_present = kb.preferred_width() > 0;
+            if guard_applet("update", || kb.update()).unwrap_or(false) {
+                changed.push(kb.window().id());
+            }
+            if (kb.preferred_width() > 0) != was_present {
+                relayout = true;
+            }
+        }
+        if relayout {
+            self.relayout();
+        }
+        changed
     }
 
     pub fn reflow(&mut self) {
