@@ -216,6 +216,12 @@ impl KeyboardApplet {
         let (layout, tooltip_text) = detect_layout(&self.conn);
         self.layout = layout;
         self.tooltip_text = tooltip_text;
+        if self.xkb_groups {
+            let fresh = xkb_layouts(&self.conn);
+            if !fresh.is_empty() && fresh != self.layouts {
+                self.layouts = fresh;
+            }
+        }
         if let Some(i) = self
             .layouts
             .iter()
