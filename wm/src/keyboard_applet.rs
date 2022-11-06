@@ -130,16 +130,13 @@ impl KeyboardApplet {
         parent: u32,
         layouts: Vec<String>,
         colours: &crate::render::ThemeColors,
-    ) -> Result<Option<Self>, Box<dyn std::error::Error>> {
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let (layout, tooltip_text) = detect_layout(conn);
         let (layouts, xkb_groups) = if layouts.is_empty() {
             (xkb_layouts(conn), true)
         } else {
             (layouts, false)
         };
-        if layouts.len() <= 1 {
-            return Ok(None);
-        }
         let w = estimate_width();
         let h = antibox_ui::metrics::panel_height() as u16;
         let window = conn.create_window(
@@ -156,7 +153,7 @@ impl KeyboardApplet {
             .iter()
             .position(|l| l.eq_ignore_ascii_case(&layout))
             .unwrap_or(0);
-        Ok(Some(KeyboardApplet {
+        Ok(KeyboardApplet {
             window,
             conn: Arc::clone(conn),
             layout,
@@ -176,7 +173,7 @@ impl KeyboardApplet {
             sel_bg: colours.workspace_active_bg,
             sel_fg: colours.workspace_active_fg,
             tooltip: None,
-        }))
+        })
     }
 
     pub fn set_colours(&mut self, tc: &crate::render::ThemeColors) {
@@ -436,6 +433,9 @@ impl Applet for KeyboardApplet {
     }
     fn preferred_width(&self) -> u32 {
         use antibox_ui::metrics;
+        if self.layouts.len() <= 1 {
+            return 0;
+        }
         let spec = FontSpec::ui(metrics::font_pt());
         let measured = global_text_width(&spec, &self.layout).map_or_else(
             || metrics::text_w(self.layout.chars().count().max(2)),
