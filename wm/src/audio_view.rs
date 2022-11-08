@@ -9,10 +9,6 @@ fn margin() -> i16 {
     icon_dsl::slot_margin()
 }
 
-fn wave_thickness() -> i16 {
-    icon_dsl::stroke_w()
-}
-
 fn glyph_h(h: u16) -> i16 {
     icon_dsl::glyph_zone_h(h)
 }
@@ -21,24 +17,20 @@ fn content_w(h: u16) -> i16 {
     icon_dsl::slot_content_w(h)
 }
 
-fn box_w(h: u16) -> i16 {
-    (content_w(h) * 2 / 9).max(2)
-}
-
-fn cone_w(h: u16) -> i16 {
-    (content_w(h) / 3).max(3)
-}
-
-fn open_h(h: u16) -> i16 {
-    (glyph_h(h) * 14 / 16).max(5)
+fn spk_w(h: u16) -> i16 {
+    (content_w(h) * 2 / 5).max(4)
 }
 
 fn inner_gap(h: u16) -> i16 {
-    (content_w(h) / 9).max(1)
+    (content_w(h) / 12).max(1)
 }
 
-fn wave_zone_w(h: u16) -> i16 {
-    (content_w(h) - box_w(h) - cone_w(h) - inner_gap(h) - wave_thickness()).max(2)
+fn bar_zone_w(h: u16) -> i16 {
+    (content_w(h) - spk_w(h) - inner_gap(h)).max(5)
+}
+
+fn bar_w(h: u16) -> i16 {
+    ((bar_zone_w(h) - 2) / 3).max(2)
 }
 
 fn wave_count(volume: i32) -> i16 {
@@ -58,12 +50,6 @@ fn draw_mute_x(g: &dyn GraphicsContext, x: i16, y: i16, w: i16, h: i16, colour: 
     let _ = g.set_foreground(colour);
     let _ = g.fill_polygon(&thick_line(x, y, x + w, y + h, t));
     let _ = g.fill_polygon(&thick_line(x, y + h, x + w, y, t));
-}
-
-fn draw_wave(g: &dyn GraphicsContext, cx: i16, cy: i16, r: i16, t: i16, colour: u32) {
-    let _ = g.set_foreground(colour);
-    let _ = g.fill_polygon(&thick_line(cx, cy - r, cx + r, cy, t));
-    let _ = g.fill_polygon(&thick_line(cx + r, cy, cx, cy + r, t));
 }
 
 pub struct AudioView {
@@ -117,6 +103,7 @@ impl AudioView {
         };
         let _ = g.set_foreground(theme::tray_face());
         let _ = g.fill_rect(bx, by, badge as u16, badge as u16);
+        icon_dsl::stroke_rect(g, bx, by, badge as u16, badge as u16, theme::shadow());
         icon_dsl::MIC_ICON.draw_outlined(
             g,
             bx,
@@ -127,8 +114,8 @@ impl AudioView {
             theme::shadow(),
         );
         if state.source_muted {
-            let t = (badge / 4).max(2);
-            let _ = g.set_foreground(theme::shadow());
+            let t = (badge / 3).max(2);
+            let _ = g.set_foreground(theme::text());
             let _ = g.fill_polygon(&thick_line(bx, by + badge, bx + badge, by, t));
         }
     }
@@ -143,36 +130,41 @@ impl AudioView {
         let outline = theme::shadow();
 
         let gh = glyph_h(h);
-        let top = icon_dsl::glyph_top();
-        let cy = top + gh / 2;
-        let sw = box_w(h) + cone_w(h);
-        let sh = open_h(h);
-        let bx = x0 + margin();
+        let gy = icon_dsl::glyph_top();
+        let sw = spk_w(h);
+        let sx = x0 + margin();
 
         icon_dsl::SPEAKER_ICON.draw_outlined(
             g,
-            bx,
-            cy - sh / 2,
+            sx,
+            gy,
             sw as u16,
-            sh as u16,
+            gh as u16,
             shape_colour,
             outline,
         );
 
-        let zone = wave_zone_w(h);
-        let wave_x = bx + sw + inner_gap(h);
+        let bx0 = sx + sw + inner_gap(h);
+        let zone = bar_zone_w(h);
 
         if muted {
-            draw_mute_x(g, wave_x, cy - zone, zone, zone * 2, COLOR_MUTED);
+            let mh = (gh * 3 / 4).max(5);
+            draw_mute_x(g, bx0, gy + (gh - mh) / 2, zone, mh, COLOR_MUTED);
         } else {
             let lit = wave_count(state.volume);
-            let t = wave_thickness();
-            let min_r = (zone / 3).max(2);
-            let step = ((zone - min_r) / 2).max(2);
-            for i in 0..3 {
-                let r = (min_r + step * i).min(zone).max(2);
-                let colour = if i < lit { COLOR_ACTIVE } else { outline };
-                draw_wave(g, wave_x, cy, r, t, colour);
+            let bw = bar_w(h);
+            for i in 0..3i16 {
+                let bh = (gh * (2 + i) / 4).max(3);
+                let bx = bx0 + i * (bw + 1);
+                let by = gy + gh - bh;
+                let colour = if i < lit {
+                    COLOR_ACTIVE
+                } else {
+                    theme::graph_bg()
+                };
+                let _ = g.set_foreground(colour);
+                let _ = g.fill_rect(bx, by, bw as u16, bh as u16);
+                icon_dsl::stroke_rect(g, bx, by, bw as u16, bh as u16, outline);
             }
         }
 

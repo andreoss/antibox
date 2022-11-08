@@ -23,9 +23,9 @@ fn test_present_true_with_state() {
 fn test_glyph_occupies_a_square_slot() {
     for h in [16u16, 18, 22, 28] {
         assert_eq!(AudioView::natural_width(h), h, "h={}", h);
-        assert!(box_w(h) >= 1, "h={}", h);
-        assert!(cone_w(h) >= 1, "h={}", h);
-        assert!(wave_zone_w(h) >= 1, "h={}", h);
+        assert!(spk_w(h) >= 4, "h={}", h);
+        assert!(bar_zone_w(h) >= 5, "h={}", h);
+        assert!(bar_w(h) >= 2, "h={}", h);
     }
 }
 
@@ -63,14 +63,6 @@ fn test_tooltip_shows_readers() {
     assert!(v.tooltip().contains("Firefox"));
 }
 
-fn fill_polygon_count(commands: &[antibox_core::mock::MockCommand]) -> usize {
-    use antibox_core::mock::MockCommand;
-    commands
-        .iter()
-        .filter(|c| matches!(c, MockCommand::FillPolygon(_)))
-        .count()
-}
-
 fn polys_with_colour(commands: &[antibox_core::mock::MockCommand], colour: u32) -> usize {
     use antibox_core::mock::MockCommand;
     let mut fg = 0u32;
@@ -85,41 +77,51 @@ fn polys_with_colour(commands: &[antibox_core::mock::MockCommand], colour: u32) 
     n
 }
 
-fn lit_segments(volume: i32) -> usize {
+fn rects_with_colour(commands: &[antibox_core::mock::MockCommand], colour: u32) -> usize {
+    use antibox_core::mock::MockCommand;
+    let mut fg = 0u32;
+    let mut n = 0;
+    for c in commands {
+        match c {
+            MockCommand::SetForeground(p) => fg = *p,
+            MockCommand::FillRect(..) if fg == colour => n += 1,
+            _ => {}
+        }
+    }
+    n
+}
+
+fn lit_bars(volume: i32) -> usize {
     let g = antibox_core::mock::MockGraphics::new(1);
     AudioView::new(Some(state(volume, false, false))).draw(&g, 0, 18);
-    polys_with_colour(&g.commands(), COLOR_ACTIVE) / 2
+    rects_with_colour(&g.commands(), COLOR_ACTIVE)
 }
 
 #[test]
-fn test_lit_wave_segments_grow_with_volume() {
-    assert!(lit_segments(10) < lit_segments(50));
-    assert!(lit_segments(50) < lit_segments(90));
+fn test_lit_bars_grow_with_volume() {
+    assert!(lit_bars(10) < lit_bars(50));
+    assert!(lit_bars(50) < lit_bars(90));
 }
 
 #[test]
-fn test_full_volume_lights_three_segments() {
-    assert_eq!(lit_segments(100), 3);
+fn test_full_volume_lights_three_bars() {
+    assert_eq!(lit_bars(100), 3);
 }
 
 #[test]
-fn test_zero_volume_lights_no_segments_but_keeps_them_visible() {
-    assert_eq!(lit_segments(0), 0);
+fn test_zero_volume_lights_no_bars_but_keeps_them_visible() {
+    assert_eq!(lit_bars(0), 0);
     let g = antibox_core::mock::MockGraphics::new(1);
     AudioView::new(Some(state(0, false, false))).draw(&g, 0, 18);
-    assert_eq!(polys_with_colour(&g.commands(), theme::shadow()), 6);
+    assert_eq!(rects_with_colour(&g.commands(), theme::graph_bg()), 3);
 }
 
 #[test]
-fn test_muted_draws_no_waves_but_draws_shape() {
+fn test_muted_draws_no_bars_but_draws_shape() {
     let muted = antibox_core::mock::MockGraphics::new(1);
     AudioView::new(Some(state(90, true, false))).draw(&muted, 0, 18);
-    let unmuted = antibox_core::mock::MockGraphics::new(1);
-    AudioView::new(Some(state(90, false, false))).draw(&unmuted, 0, 18);
-    assert!(
-        fill_polygon_count(&muted.commands()) < fill_polygon_count(&unmuted.commands()),
-        "muted icon swaps wave segments for a mute mark, so it draws fewer polygons"
-    );
+    assert_eq!(rects_with_colour(&muted.commands(), COLOR_ACTIVE), 0);
+    assert_eq!(rects_with_colour(&muted.commands(), theme::graph_bg()), 0);
     assert!(
         polys_with_colour(&muted.commands(), COLOR_MUTED) >= 3,
         "muted icon draws the red speaker and the mute mark"

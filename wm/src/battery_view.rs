@@ -31,7 +31,10 @@ pub struct BatteryView {
 
 impl BatteryView {
     pub fn new(vertical: bool) -> Self {
-        let st = read_status();
+        Self::from_status(read_status(), vertical)
+    }
+
+    pub fn from_status(st: crate::power::PowerStatus, vertical: bool) -> Self {
         Self {
             batteries: st.batteries,
             ac_online: st.ac_online,
@@ -251,8 +254,8 @@ impl BatteryView {
                 gy,
                 bw,
                 bh,
-                COLOR_FULL,
-                theme::shadow(),
+                theme::light(),
+                theme::text(),
             );
         }
     }
@@ -278,8 +281,8 @@ impl BatteryView {
         };
         BATTERY_ICON.draw_outlined(g, gx, gy, gw as u16, gh as u16, body, theme::shadow());
 
-        let side = ((gw as f32 * 0.16).round() as i16 + 1).max(2);
-        let top_in = ((gh as f32 * 0.10).round() as i16 + 1).max(2);
+        let side = ((gw as f32 * 0.14).round() as i16 + 1).max(2);
+        let top_in = ((gh as f32 * 0.12).round() as i16 + 1).max(2);
         let ix = gx + side;
         let iw = (gw - 2 * side).max(2) as u16;
         let iy = gy + top_in;
@@ -304,16 +307,22 @@ impl BatteryView {
             self.draw_exclamation(g, ix, iy, iw, ih as u16, COLOR_CRITICAL);
         } else if self.combined_charging() {
             let bw2 = (gw * 3 / 5).max(3);
-            let bh2 = (ih * 3 / 5).max(4);
-            POWER_ICON.draw_outlined(
-                g,
-                gx + (gw - bw2) / 2,
-                iy + (ih - bh2) / 2,
-                bw2 as u16,
-                bh2 as u16,
-                COLOR_FULL,
-                theme::shadow(),
-            );
+            let bh2 = (ih * 3 / 4).max(5);
+            let bx2 = gx + (gw - bw2) / 2;
+            let by2 = iy + (ih - bh2) / 2;
+            if bw2 >= 8 {
+                POWER_ICON.draw_outlined(
+                    g,
+                    bx2,
+                    by2,
+                    bw2 as u16,
+                    bh2 as u16,
+                    theme::light(),
+                    theme::text(),
+                );
+            } else {
+                POWER_ICON.draw(g, bx2, by2, bw2 as u16, bh2 as u16, theme::text());
+            }
         }
     }
 
