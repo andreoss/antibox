@@ -218,9 +218,9 @@ const BOLT_PTS: [(f32, f32); 6] = [
 pub const POWER_ICON: Icon = Icon(&[Shape::Poly(&BOLT_PTS)]);
 
 pub const MIC_ICON: Icon = Icon(&[
-    Shape::Rect(0.30, 0.05, 0.40, 0.45),
-    Shape::Line(0.5, 0.50, 0.5, 0.75, 0.14),
-    Shape::Line(0.25, 0.85, 0.75, 0.85, 0.14),
+    Shape::Rect(0.34, 0.02, 0.32, 0.50),
+    Shape::Line(0.5, 0.56, 0.5, 0.74, 0.12),
+    Shape::Line(0.28, 0.82, 0.72, 0.82, 0.12),
 ]);
 
 const SPEAKER_PTS: [(f32, f32); 6] = [
@@ -235,14 +235,14 @@ const SPEAKER_PTS: [(f32, f32); 6] = [
 pub const SPEAKER_ICON: Icon = Icon(&[Shape::Poly(&SPEAKER_PTS)]);
 
 const BATTERY_PTS: [(f32, f32); 8] = [
-    (0.32, 0.0),
-    (0.68, 0.0),
-    (0.68, 0.10),
-    (0.84, 0.10),
-    (0.84, 1.0),
-    (0.16, 1.0),
-    (0.16, 0.10),
-    (0.32, 0.10),
+    (0.30, 0.0),
+    (0.70, 0.0),
+    (0.70, 0.12),
+    (0.86, 0.12),
+    (0.86, 1.0),
+    (0.14, 1.0),
+    (0.14, 0.12),
+    (0.30, 0.12),
 ];
 
 pub const BATTERY_ICON: Icon = Icon(&[Shape::Poly(&BATTERY_PTS)]);

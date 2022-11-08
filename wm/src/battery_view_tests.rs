@@ -1,11 +1,13 @@
 use super::*;
 
 fn view_with(batteries: Vec<BatInfo>, ac_online: bool) -> BatteryView {
-    BatteryView {
-        batteries,
-        ac_online,
-        vertical: true,
-    }
+    BatteryView::from_status(
+        crate::power::PowerStatus {
+            ac_online,
+            batteries,
+        },
+        true,
+    )
 }
 
 fn bat(percent: i32, charging: bool, discharging: bool) -> BatInfo {
