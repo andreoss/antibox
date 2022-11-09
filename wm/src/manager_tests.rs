@@ -41,6 +41,20 @@ fn insert_test<H: DisplayBackend + 'static + ?Sized>(m: &mut WindowManager<H>) -
     cid
 }
 #[test]
+fn test_menu_actions_reach_pending_action() {
+    let mut m = WindowManager::<MockDisplay>::new_test();
+    for op in [MenuOp::WindowPickerList, MenuOp::Pager, MenuOp::Omni] {
+        m.pending_action = None;
+        m.handle_action(&Action::Menu(op.clone()));
+        assert_eq!(
+            m.pending_action,
+            Some(Action::Menu(op)),
+            "menu action must be forwarded to the app layer"
+        );
+    }
+}
+
+#[test]
 fn test_new() {
     let m = WindowManager::<MockDisplay>::new_test();
     assert_eq!(m.workspace_count(), 4);
