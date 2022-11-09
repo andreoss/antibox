@@ -838,7 +838,9 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
                     let _ = std::process::Command::new(p).args(a).spawn();
                 }
             }
-            Action::Menu(MenuOp::WindowPickerList) | Action::Menu(MenuOp::Pager) => {
+            Action::Menu(MenuOp::WindowPickerList)
+            | Action::Menu(MenuOp::Pager)
+            | Action::Menu(MenuOp::Omni) => {
                 self.pending_action = Some(a.clone());
             }
             Action::Menu(MenuOp::WindowActionMenu) => {

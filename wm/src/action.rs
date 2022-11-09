@@ -98,6 +98,7 @@ pub enum MenuOp {
     WindowPickerList,
     WindowActionMenu,
     Pager,
+    Omni,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -217,6 +218,7 @@ fn menu_name(op: &MenuOp) -> &'static str {
         MenuOp::WindowPickerList => "Window List",
         MenuOp::WindowActionMenu => "Window Menu",
         MenuOp::Pager => "Pager",
+        MenuOp::Omni => "Omni",
     }
 }
 

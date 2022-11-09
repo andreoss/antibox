@@ -36,6 +36,7 @@ pub mod manager;
 pub mod mem_status_applet;
 pub mod net_status_applet;
 pub mod menu;
+pub mod omni;
 pub mod mouse_parser;
 pub mod option;
 pub mod paintbuf;

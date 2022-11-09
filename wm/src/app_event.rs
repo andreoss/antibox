@@ -263,6 +263,19 @@ impl App {
             }
             let _ = self.backend.flush();
         }
+        if self.omni.visible {
+            let take = match event {
+                BackendEvent::KeyPress { .. } | BackendEvent::ButtonPress { .. } => true,
+                BackendEvent::MotionNotify { window, .. }
+                | BackendEvent::ButtonRelease { window, .. }
+                | BackendEvent::Expose { window, .. } => self.omni.owns_window(*window),
+                _ => false,
+            };
+            if take {
+                self.handle_omni_event(event);
+                return;
+            }
+        }
         if self.group_menu.as_ref().map_or(false, |m| m.visible) && self.handle_group_menu_event(event)
         {
             return;
@@ -333,6 +346,7 @@ impl App {
         if let Some(a) = self.wm.pending_action.take() {
             match a {
                 Action::Menu(MenuOp::WindowPickerList) => self.show_window_list(),
+                Action::Menu(MenuOp::Omni) => self.show_omni(),
                 Action::Menu(MenuOp::Pager) => self.preview.show(&self.backend, &self.wm),
                 _ => {
                     if let Some(window) = event.window() {
@@ -394,6 +408,7 @@ impl App {
         {
             match action {
                 Action::Menu(MenuOp::WindowPickerList) => self.show_window_list(),
+                Action::Menu(MenuOp::Omni) => self.show_omni(),
                 Action::Workspace(WorkspaceOp::WorkspaceMenu(ws)) => {
                     let current = self.wm.layout_for(ws);
                     if let Some(ref mut tb) = self.taskbar {
@@ -770,6 +785,56 @@ impl App {
         }
     }
 
+
+    fn show_omni(&mut self) {
+        if self.omni.visible {
+            self.omni.hide(&self.backend);
+            return;
+        }
+        if self.winlist.visible {
+            self.winlist.hide(&self.backend);
+        }
+        self.omni.show(&self.backend, &self.wm);
+    }
+
+    fn handle_omni_event(&mut self, event: &BackendEvent) {
+        use crate::omni::OmniOutcome;
+        match self.omni.handle_event(&self.backend, event) {
+            OmniOutcome::Consumed => {}
+            OmniOutcome::Close => self.omni.hide(&self.backend),
+            OmniOutcome::Activate(id) => {
+                self.omni.hide(&self.backend);
+                self.activate_omni_target(id);
+            }
+        }
+    }
+
+    fn activate_omni_target(&mut self, id: u32) {
+        let id = match self.wm.cid_for_xid(id) {
+            Some(i) => i,
+            None => return,
+        };
+        let ws = match self.wm.frame(id).map(|f| f.workspace()) {
+            Some(w) => w,
+            None => return,
+        };
+        if ws != !0 && ws != self.wm.active_workspace() {
+            self.wm.activate_workspace(ws);
+        }
+        let minimized = self
+            .wm
+            .frames
+            .get(&id)
+            .map_or(false, |f| f.state().minimized);
+        if minimized {
+            if let Some(fw) = self.wm.frame_mut(id) {
+                fw.state_mut().minimized = false;
+            }
+            crate::wmaction::set_minimized_visible(&mut self.wm, id, false);
+            crate::placement::set_transients_minimized(&mut self.wm.frames, id, false);
+        }
+        crate::focus::focus_window(&mut self.wm, id);
+    }
 
     fn show_window_list(&mut self) {
         if self.winlist.visible {
