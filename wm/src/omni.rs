@@ -14,11 +14,15 @@ pub struct OmniItem {
     pub client_id: u32,
     pub icon_normal: PixmapData,
     pub icon_selected: PixmapData,
+    pub run: bool,
+    pub command: Vec<String>,
 }
 
 pub enum OmniOutcome {
     Consumed,
     Activate(u32),
+    Run(String),
+    Launch(Vec<String>),
     Close,
 }
 
@@ -31,6 +35,9 @@ pub struct Omni {
     pub offset: usize,
     pub pos: Point,
     pub visible: bool,
+    pub run_mode: bool,
+    pub run_items: Vec<OmniItem>,
+    run_history: Vec<String>,
     mapping: Option<KeyboardMapping>,
     min_keycode: u8,
     panel_w: u16,
@@ -44,6 +51,39 @@ impl Default for Omni {
 }
 
 const DEFAULT_ROWS: usize = 14;
+const RUN_HISTORY_MAX: usize = 50;
+
+fn run_history_file() -> Option<std::path::PathBuf> {
+    let base = std::env::var_os("XDG_CACHE_HOME")
+        .map(std::path::PathBuf::from)
+        .filter(|p| p.is_absolute())
+        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".cache")))?;
+    Some(base.join("antibox").join("run_history"))
+}
+
+fn load_run_history() -> Vec<String> {
+    let text = match run_history_file().and_then(|p| std::fs::read_to_string(p).ok()) {
+        Some(t) => t,
+        None => return Vec::new(),
+    };
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .map(str::to_string)
+        .take(RUN_HISTORY_MAX)
+        .collect()
+}
+
+fn save_run_history(history: &[String]) {
+    let path = match run_history_file() {
+        Some(p) => p,
+        None => return,
+    };
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let _ = std::fs::write(&path, history.join("\n"));
+}
 
 fn panel_min_w() -> i32 {
     scaled(340)
@@ -85,6 +125,9 @@ impl Omni {
             offset: 0,
             pos: Point::new(0, 0),
             visible: false,
+            run_mode: false,
+            run_items: Vec::new(),
+            run_history: load_run_history(),
             mapping: None,
             min_keycode: 8,
             panel_w: 0,
@@ -97,6 +140,25 @@ impl Omni {
             self.panel_w
         } else {
             panel_min_w() as u16
+        }
+    }
+
+    pub fn record_run(&mut self, line: &str) {
+        let line = line.trim();
+        if line.is_empty() {
+            return;
+        }
+        self.run_history.retain(|h| h != line);
+        self.run_history.insert(0, line.to_string());
+        self.run_history.truncate(RUN_HISTORY_MAX);
+        save_run_history(&self.run_history);
+    }
+
+    const fn cur_items(&self) -> &Vec<OmniItem> {
+        if self.run_mode {
+            &self.run_items
+        } else {
+            &self.items
         }
     }
 
@@ -113,8 +175,43 @@ impl Omni {
         (pad() as u16) * 2 + bar_h() + row_h() * self.visible_rows() as u16
     }
 
-    fn activate_selected(&mut self) -> OmniOutcome {
+    fn enter_run_mode(&mut self, conn: &Arc<dyn DisplayBackend>) {
+        self.run_mode = true;
+        self.selected = 0;
+        self.offset = 0;
+        if let Some(bar) = self.bar.as_mut() {
+            bar.set_text("");
+        }
+        self.refilter(conn);
+        self.paint(conn);
+    }
+
+    fn exit_run_mode(&mut self, conn: &Arc<dyn DisplayBackend>) {
+        self.run_mode = false;
+        self.selected = 0;
+        if let Some(bar) = self.bar.as_mut() {
+            bar.set_text("");
+        }
+        self.refilter(conn);
+        self.paint(conn);
+    }
+
+    fn activate_selected(&mut self, conn: &Arc<dyn DisplayBackend>) -> OmniOutcome {
+        if self.run_mode {
+            if let Some(&i) = self.filtered.get(self.selected) {
+                return OmniOutcome::Launch(self.run_items[i].command.clone());
+            }
+            let line = self.bar.as_ref().map(|b| b.text().trim().to_string());
+            return match line {
+                Some(l) if !l.is_empty() => OmniOutcome::Run(l),
+                _ => OmniOutcome::Consumed,
+            };
+        }
         match self.filtered.get(self.selected).copied() {
+            Some(i) if self.items[i].run => {
+                self.enter_run_mode(conn);
+                OmniOutcome::Consumed
+            }
             Some(i) => OmniOutcome::Activate(self.items[i].client_id),
             None => OmniOutcome::Consumed,
         }
@@ -195,9 +292,34 @@ impl Omni {
                     client_id: wm.xid_index.xid_of(id),
                     icon_normal,
                     icon_selected,
+                    run: false,
+                    command: Vec::new(),
                 }
             })
             .collect();
+        self.items.push(OmniItem {
+            title: "Run\u{2026}".to_string(),
+            class: "run".to_string(),
+            client_id: 0,
+            icon_normal: crate::icon_render::resolve_client_icon(&[], isz, colours.bg),
+            icon_selected: crate::icon_render::resolve_client_icon(&[], isz, colours.sel_bg),
+            run: true,
+            command: Vec::new(),
+        });
+        self.run_items = self
+            .run_history
+            .iter()
+            .map(|line| OmniItem {
+                title: line.clone(),
+                class: line.clone(),
+                client_id: 0,
+                icon_normal: crate::icon_render::resolve_client_icon(&[], isz, colours.bg),
+                icon_selected: crate::icon_render::resolve_client_icon(&[], isz, colours.sel_bg),
+                run: false,
+                command: vec!["sh".to_string(), "-c".to_string(), line.clone()],
+            })
+            .collect();
+        self.run_mode = false;
         self.selected = 0;
         self.offset = 0;
         self.filtered = (0..self.items.len()).collect();
@@ -275,12 +397,13 @@ impl Omni {
             .as_ref()
             .map(|b| b.text().to_ascii_lowercase())
             .unwrap_or_default();
-        let filtered: Vec<usize> = self
-            .items
+        let src = self.cur_items();
+        let filtered: Vec<usize> = src
             .iter()
             .enumerate()
             .filter(|(_, it)| {
-                needle.is_empty()
+                it.run
+                    || needle.is_empty()
                     || it.title.to_ascii_lowercase().contains(&needle)
                     || it.class.to_ascii_lowercase().contains(&needle)
             })
@@ -414,8 +537,15 @@ impl Omni {
                         self.paint(conn);
                         OmniOutcome::Consumed
                     }
-                    SearchEvent::Submitted => self.activate_selected(),
-                    SearchEvent::Cancelled => OmniOutcome::Close,
+                    SearchEvent::Submitted => self.activate_selected(conn),
+                    SearchEvent::Cancelled => {
+                        if self.run_mode {
+                            self.exit_run_mode(conn);
+                            OmniOutcome::Consumed
+                        } else {
+                            OmniOutcome::Close
+                        }
+                    }
                     SearchEvent::None => OmniOutcome::Consumed,
                 }
             }
@@ -436,7 +566,7 @@ impl Omni {
                 }
                 if let Some(row) = own.then(|| self.row_at(point.y)).flatten() {
                     self.selected = row;
-                    return self.activate_selected();
+                    return self.activate_selected(conn);
                 }
                 if let Some(bar) = self.bar.as_mut() {
                     if bar.handle_button(*window, point.x, point.y, *button) == SearchEvent::Changed
@@ -514,7 +644,7 @@ impl Omni {
                 crate::render::fill_menu_selection(g, pad(), y, inner_w, row_h(), c.sel_bg);
             }
             let row_bg = if sel { c.sel_bg } else { c.bg };
-            let item = &self.items[i];
+            let item = &self.cur_items()[i];
             let icon = if sel {
                 &item.icon_selected
             } else {
@@ -545,7 +675,7 @@ impl Omni {
             let _ = g.set_foreground(antibox_ui::theme::shadow());
             let _ = g.fill_rect(sb_x, ty as i16, sb_w, th as u16);
         }
-        if self.filtered.is_empty() {
+        if self.filtered.is_empty() && !self.run_mode {
             let _ = g.set_foreground(antibox_ui::theme::disabled());
             let _ = g.set_background(c.bg);
             let baseline = antibox_ui::metrics::baseline(top as i32, row_h() as i32) as i16;
