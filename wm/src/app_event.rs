@@ -806,6 +806,20 @@ impl App {
                 self.omni.hide(&self.backend);
                 self.activate_omni_target(id);
             }
+            OmniOutcome::Run(line) => {
+                self.omni.hide(&self.backend);
+                self.omni.record_run(&line);
+                let _ = std::process::Command::new("sh").args(["-c", &line]).spawn();
+            }
+            OmniOutcome::Launch(argv) => {
+                self.omni.hide(&self.backend);
+                if argv.len() == 3 && argv[0] == "sh" && argv[1] == "-c" {
+                    self.omni.record_run(&argv[2]);
+                }
+                if let Some((prog, args)) = argv.split_first() {
+                    let _ = std::process::Command::new(prog).args(args).spawn();
+                }
+            }
         }
     }
 
