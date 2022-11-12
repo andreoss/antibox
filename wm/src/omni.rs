@@ -1,7 +1,9 @@
 use crate::id::ClientId;
 use crate::manager::WindowManager;
 use antibox_core::backend::*;
-use antibox_core::keysyms::{KEY_Down, KEY_End, KEY_Home, KEY_Next, KEY_Prior, KEY_Tab, KEY_Up};
+use antibox_core::keysyms::{
+    KEY_Down, KEY_End, KEY_Home, KEY_Next, KEY_Prior, KEY_Right, KEY_Tab, KEY_Up,
+};
 use antibox_core::point::Point;
 use antibox_core::rect::Rect;
 use antibox_core::scale::scaled;
@@ -40,6 +42,7 @@ pub struct Omni {
     run_history: Vec<String>,
     mapping: Option<KeyboardMapping>,
     min_keycode: u8,
+    path_cmds: Option<Vec<String>>,
     panel_w: u16,
     max_rows: usize,
 }
@@ -83,6 +86,25 @@ fn save_run_history(history: &[String]) {
         let _ = std::fs::create_dir_all(dir);
     }
     let _ = std::fs::write(&path, history.join("\n"));
+}
+
+fn longest_common_prefix<'a>(items: &[&'a str]) -> &'a str {
+    let first = match items.first() {
+        Some(f) => f,
+        None => return "",
+    };
+    let mut len = first.len();
+    for s in &items[1..] {
+        len = len.min(s.len());
+        while len > 0
+            && (!first.is_char_boundary(len)
+                || !s.is_char_boundary(len)
+                || first[..len] != s[..len])
+        {
+            len -= 1;
+        }
+    }
+    &first[..len]
 }
 
 fn panel_min_w() -> i32 {
@@ -130,6 +152,7 @@ impl Omni {
             run_history: load_run_history(),
             mapping: None,
             min_keycode: 8,
+            path_cmds: None,
             panel_w: 0,
             max_rows: DEFAULT_ROWS,
         }
@@ -391,6 +414,113 @@ impl Omni {
         let _ = conn.flush();
     }
 
+    fn path_commands(&mut self) -> &[String] {
+        if self.path_cmds.is_none() {
+            let mut set = std::collections::BTreeSet::new();
+            if let Some(path) = std::env::var_os("PATH") {
+                for dir in std::env::split_paths(&path) {
+                    let rd = match std::fs::read_dir(&dir) {
+                        Ok(rd) => rd,
+                        Err(_) => continue,
+                    };
+                    for entry in rd.flatten() {
+                        let is_exec = entry
+                            .file_type()
+                            .map_or(false, |t| t.is_file() || t.is_symlink());
+                        if is_exec {
+                            if let Ok(name) = entry.file_name().into_string() {
+                                set.insert(name);
+                            }
+                        }
+                    }
+                }
+            }
+            self.path_cmds = Some(set.into_iter().collect());
+        }
+        self.path_cmds.as_deref().unwrap_or(&[])
+    }
+
+    fn complete_command(&mut self, conn: &Arc<dyn DisplayBackend>) -> OmniOutcome {
+        let text = self
+            .bar
+            .as_ref()
+            .map(|b| b.text().to_string())
+            .unwrap_or_default();
+        if text.is_empty() {
+            return OmniOutcome::Consumed;
+        }
+        let single_word = !text.contains(char::is_whitespace);
+        if single_word {
+            let _ = self.path_commands();
+        }
+        let completed = {
+            let mut matches: Vec<&str> = self
+                .run_history
+                .iter()
+                .filter(|h| h.starts_with(&text))
+                .map(String::as_str)
+                .collect();
+            if single_word {
+                let cmds: &[String] = self.path_cmds.as_deref().unwrap_or(&[]);
+                matches.extend(
+                    cmds.iter()
+                        .filter(|c| c.starts_with(&text))
+                        .map(String::as_str),
+                );
+            }
+            if matches.is_empty() {
+                None
+            } else {
+                let lcp = longest_common_prefix(&matches);
+                Some(if lcp.len() > text.len() {
+                    lcp.to_string()
+                } else {
+                    matches[0].to_string()
+                })
+            }
+        };
+        if let Some(completed) = completed.filter(|c| *c != text) {
+            if let Some(bar) = self.bar.as_mut() {
+                bar.set_text(&completed);
+            }
+            self.selected = 0;
+            self.refilter(conn);
+            self.paint(conn);
+        }
+        OmniOutcome::Consumed
+    }
+
+    fn cursor_at_end(&self) -> bool {
+        self.bar
+            .as_ref()
+            .map_or(false, |b| b.input.cursor_pos() == b.text().len())
+    }
+
+    fn command_line(item: &OmniItem) -> String {
+        match item.command.as_slice() {
+            [sh, flag, line] if sh == "sh" && flag == "-c" => line.clone(),
+            cmd => cmd.join(" "),
+        }
+    }
+
+    fn complete_selection(&mut self, conn: &Arc<dyn DisplayBackend>) -> bool {
+        let i = match self.filtered.get(self.selected) {
+            Some(&i) => i,
+            None => return false,
+        };
+        let line = Self::command_line(&self.run_items[i]);
+        if line.is_empty() || self.bar.as_ref().map_or(false, |b| b.text() == line) {
+            return false;
+        }
+        if let Some(bar) = self.bar.as_mut() {
+            bar.set_text(&line);
+        }
+        self.selected = 0;
+        self.refilter(conn);
+        self.paint(conn);
+        true
+    }
+
     fn refilter(&mut self, conn: &Arc<dyn DisplayBackend>) {
         let needle = self
             .bar
@@ -486,6 +616,13 @@ impl Omni {
             BackendEvent::KeyPress { keycode, state, .. } => {
                 let shift = state & 0x01 != 0;
                 let ks = self.keysym_for(*keycode);
+                if ks == KEY_Right
+                    && self.run_mode
+                    && self.cursor_at_end()
+                    && self.complete_selection(conn)
+                {
+                    return OmniOutcome::Consumed;
+                }
                 match ks {
                     k if k == KEY_Up => {
                         self.select(self.selected.saturating_sub(1), conn);
@@ -496,6 +633,9 @@ impl Omni {
                         return OmniOutcome::Consumed;
                     }
                     k if k == KEY_Tab => {
+                        if self.run_mode && !shift {
+                            return self.complete_command(conn);
+                        }
                         let next = if shift {
                             self.selected.saturating_sub(1)
                         } else {
