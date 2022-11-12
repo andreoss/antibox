@@ -768,6 +768,32 @@ fn kill<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
     kill_client_id(wm, id);
 }
 
+pub(crate) fn send_to_workspace<H: DisplayBackend + 'static + ?Sized>(
+    wm: &mut WindowManager<H>,
+    id: ClientId,
+    target: u32,
+) {
+    if target >= wm.config.workspace_count {
+        return;
+    }
+    let moved = match wm.frames.get_mut(&id) {
+        Some(fw) if fw.workspace() != !0 && fw.workspace() != target => {
+            fw.set_workspace(target);
+            true
+        }
+        _ => false,
+    };
+    if moved {
+        if let Some(b) = wm.backend() {
+            crate::ewmh::set_wm_desktop(b, &wm.atoms, wm.xid_index.xid_of(id), target);
+        }
+        wm.apply_workspace_visibility();
+        crate::focus::recover_focus(wm);
+        let ws = wm.active_workspace();
+        wm.layout_for(ws).arrange(wm, ws);
+    }
+}
+
 pub(crate) fn kill_client_id<H: DisplayBackend + 'static + ?Sized>(
     wm: &mut WindowManager<H>,
     id: ClientId,

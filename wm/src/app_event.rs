@@ -820,6 +820,47 @@ impl App {
                     let _ = std::process::Command::new(prog).args(args).spawn();
                 }
             }
+            OmniOutcome::WindowOp { target, op } => {
+                self.omni.hide(&self.backend);
+                self.perform_omni_win_op(target, op);
+            }
+            OmniOutcome::CloseMarked => {
+                self.omni.hide(&self.backend);
+                let ids: Vec<crate::id::ClientId> = self.wm.frames.keys().collect();
+                for id in ids {
+                    if self.omni.is_marked(self.wm.xid_index.xid_of(id)) {
+                        crate::wmaction::close_client(&mut self.wm, id);
+                    }
+                }
+            }
+            OmniOutcome::KillMarked => {
+                self.omni.hide(&self.backend);
+                let ids: Vec<crate::id::ClientId> = self.wm.frames.keys().collect();
+                for id in ids {
+                    if self.omni.is_marked(self.wm.xid_index.xid_of(id)) {
+                        crate::wmaction::kill_client_id(&mut self.wm, id);
+                    }
+                }
+            }
+        }
+    }
+
+    fn perform_omni_win_op(&mut self, target: u32, op: crate::omni::OmniWinOp) {
+        use crate::omni::OmniWinOp;
+        let target = match self.wm.cid_for_xid(target) {
+            Some(t) => t,
+            None => return,
+        };
+        match op {
+            OmniWinOp::Close => crate::wmaction::close_client(&mut self.wm, target),
+            OmniWinOp::Kill => crate::wmaction::kill_client_id(&mut self.wm, target),
+            OmniWinOp::SendTo(ws) => crate::wmaction::send_to_workspace(&mut self.wm, target, ws),
+            OmniWinOp::Join(other) => {
+                if let Some(other_cid) = self.wm.cid_for_xid(other) {
+                    crate::wmaction::tab_window(&mut self.wm, target, other_cid);
+                }
+            }
+            _ => {}
         }
     }
 
