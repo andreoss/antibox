@@ -15,6 +15,7 @@ pub struct OmniItem {
     pub title: String,
     pub class: String,
     pub client_id: u32,
+    pub workspace: u32,
     pub icon_normal: PixmapData,
     pub icon_selected: PixmapData,
     pub run: bool,
@@ -51,6 +52,81 @@ enum OpAction {
     Do(OmniWinOp),
     OpenSend,
     OpenJoin,
+    CycleSort,
+    ToggleGrouping,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum OmniSort {
+    Natural,
+    Title,
+    Class,
+    Workspace,
+    Window,
+}
+
+impl Default for OmniSort {
+    fn default() -> OmniSort {
+        OmniSort::Natural
+    }
+}
+
+impl OmniSort {
+    pub const fn next(self) -> Self {
+        match self {
+            Self::Natural => Self::Title,
+            Self::Title => Self::Class,
+            Self::Class => Self::Workspace,
+            Self::Workspace => Self::Window,
+            Self::Window => Self::Natural,
+        }
+    }
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Natural => "natural",
+            Self::Title => "title",
+            Self::Class => "class",
+            Self::Workspace => "workspace",
+            Self::Window => "window",
+        }
+    }
+}
+
+fn cmp_ci(a: &str, b: &str) -> std::cmp::Ordering {
+    a.chars()
+        .map(|c| c.to_ascii_lowercase())
+        .cmp(b.chars().map(|c| c.to_ascii_lowercase()))
+}
+
+fn compare_windows(
+    mode: OmniSort,
+    a: (&str, &str, u32, u32),
+    b: (&str, &str, u32, u32),
+) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    let (at, ac, aw, ai) = a;
+    let (bt, bc, bw, bi) = b;
+    match mode {
+        OmniSort::Natural => Ordering::Equal,
+        OmniSort::Title => cmp_ci(at, bt).then(ai.cmp(&bi)),
+        OmniSort::Class => cmp_ci(ac, bc).then(cmp_ci(at, bt)).then(ai.cmp(&bi)),
+        OmniSort::Workspace => aw.cmp(&bw).then(cmp_ci(at, bt)).then(ai.cmp(&bi)),
+        OmniSort::Window => ai.cmp(&bi),
+    }
+}
+
+fn compare_items(mode: OmniSort, a: &OmniItem, b: &OmniItem) -> std::cmp::Ordering {
+    match (a.run, b.run) {
+        (false, true) => std::cmp::Ordering::Less,
+        (true, false) => std::cmp::Ordering::Greater,
+        (true, true) => std::cmp::Ordering::Equal,
+        (false, false) => compare_windows(
+            mode,
+            (&a.title, &a.class, a.workspace, a.client_id),
+            (&b.title, &b.class, b.workspace, b.client_id),
+        ),
+    }
 }
 
 struct OpLevel {
@@ -106,6 +182,8 @@ pub struct Omni {
     menu_target: u32,
     menu_levels: Vec<OpLevel>,
     saved_query: String,
+    sort: OmniSort,
+    group_override: Option<bool>,
     ws_count: u32,
     ws_names: Vec<String>,
     win_list: Vec<(u32, String)>,
@@ -222,6 +300,8 @@ impl Omni {
             menu_target: 0,
             menu_levels: Vec::new(),
             saved_query: String::new(),
+            sort: OmniSort::default(),
+            group_override: None,
             ws_count: 1,
             ws_names: Vec::new(),
             win_list: Vec::new(),
@@ -276,6 +356,10 @@ impl Omni {
         self.filtered.len().clamp(1, self.max_rows)
     }
 
+    fn height(&self) -> u16 {
+        (pad() as u16) * 2 + bar_h() + row_h() * self.visible_rows() as u16
+    }
+
     fn in_submenu(&self) -> bool {
         !self.menu_levels.is_empty()
     }
@@ -288,6 +372,39 @@ impl Omni {
         }
         self.paint(conn);
         let _ = conn.flush();
+    }
+
+    fn grouping_enabled(&self) -> bool {
+        self.group_override
+            .unwrap_or_else(crate::layout_preferences::taskbar_grouping)
+    }
+
+    fn sort_row_label(&self) -> String {
+        format!("Sort: {}", self.sort.label())
+    }
+
+    fn group_row_label(&self) -> String {
+        let state = if self.grouping_enabled() { "on" } else { "off" };
+        format!("Group by class: {}", state)
+    }
+
+    fn apply_sort(&mut self) {
+        let mode = self.sort;
+        self.items.sort_by(|a, b| compare_items(mode, a, b));
+    }
+
+    fn refresh_ops_labels(&mut self) {
+        let sort_label = self.sort_row_label();
+        let group_label = self.group_row_label();
+        if let Some(level) = self.menu_levels.last_mut() {
+            for (label, action) in level.all.iter_mut().chain(level.rows.iter_mut()) {
+                match action {
+                    OpAction::CycleSort => *label = sort_label.clone(),
+                    OpAction::ToggleGrouping => *label = group_label.clone(),
+                    _ => {}
+                }
+            }
+        }
     }
 
     fn ops_bar_reset(&mut self) {
@@ -319,6 +436,28 @@ impl Omni {
         if let Some(level) = self.menu_levels.last_mut() {
             level.apply_filter(&needle);
         }
+        self.relayout(conn);
+    }
+
+    fn resort(&mut self, conn: &Arc<dyn DisplayBackend>) {
+        let keep = self.menu_target;
+        self.apply_sort();
+        self.win_list = self
+            .items
+            .iter()
+            .filter(|it| !it.run)
+            .map(|it| (it.client_id, it.title.clone()))
+            .collect();
+        self.refilter(conn);
+        if let Some(pos) = self
+            .filtered
+            .iter()
+            .position(|&i| !self.items[i].run && self.items[i].client_id == keep)
+        {
+            self.selected = pos;
+        }
+        self.ensure_visible();
+        self.refresh_ops_labels();
         self.relayout(conn);
     }
 
@@ -365,6 +504,9 @@ impl Omni {
                 rows.push(("Unmark all".into(), OpAction::Do(OmniWinOp::UnmarkAll)));
             }
         }
+        rows.push((String::new(), OpAction::Do(OmniWinOp::Separator)));
+        rows.push((self.sort_row_label(), OpAction::CycleSort));
+        rows.push((self.group_row_label(), OpAction::ToggleGrouping));
         self.menu_levels.push(OpLevel::new(rows));
         self.saved_query = self
             .bar
@@ -460,11 +602,18 @@ impl Omni {
                 self.relayout(conn);
                 OmniOutcome::Consumed
             }
+            OpAction::CycleSort => {
+                self.sort = self.sort.next();
+                self.resort(conn);
+                OmniOutcome::Consumed
+            }
+            OpAction::ToggleGrouping => {
+                self.group_override = Some(!self.grouping_enabled());
+                self.refresh_ops_labels();
+                self.paint(conn);
+                OmniOutcome::Consumed
+            }
         }
-    }
-
-    fn height(&self) -> u16 {
-        (pad() as u16) * 2 + bar_h() + row_h() * self.visible_rows() as u16
     }
 
     fn enter_run_mode(&mut self, conn: &Arc<dyn DisplayBackend>) {
@@ -555,7 +704,12 @@ impl Omni {
         }
         let colours = crate::menu::MenuColors::default();
         let isz = icon_size();
+        let grouping = self.grouping_enabled();
+
         let mut order: Vec<ClientId> = Vec::new();
+        let mut counts: std::collections::HashMap<(String, u32), usize> =
+            std::collections::HashMap::new();
+        let mut first: std::collections::HashSet<(String, u32)> = std::collections::HashSet::new();
         for id in &wm.insertion_order {
             let fw = match wm.frames.get(id) {
                 Some(fw) => fw,
@@ -564,7 +718,18 @@ impl Omni {
             if fw.state().skip_taskbar {
                 continue;
             }
-            order.push(*id);
+            if grouping {
+                let key = (
+                    fw.client().class_instance().unwrap_or("").to_string(),
+                    fw.workspace(),
+                );
+                *counts.entry(key.clone()).or_insert(0) += 1;
+                if first.insert(key) {
+                    order.push(*id);
+                }
+            } else {
+                order.push(*id);
+            }
         }
         self.items = order
             .iter()
@@ -578,10 +743,22 @@ impl Omni {
                     isz,
                     colours.sel_bg,
                 );
+                let count = if grouping {
+                    *counts.get(&(class.clone(), fw.workspace())).unwrap_or(&1)
+                } else {
+                    1
+                };
+                let base = fw.client().title();
+                let title = if count > 1 {
+                    format!("{}  ({})", base, count)
+                } else {
+                    base.to_string()
+                };
                 OmniItem {
-                    title: fw.client().title().to_string(),
+                    title,
                     class,
                     client_id: wm.xid_index.xid_of(id),
+                    workspace: fw.workspace(),
                     icon_normal,
                     icon_selected,
                     marked: false,
@@ -590,16 +767,20 @@ impl Omni {
                 }
             })
             .collect();
+
         self.items.push(OmniItem {
             title: "Run\u{2026}".to_string(),
             class: "run".to_string(),
             client_id: 0,
+            workspace: !0,
             icon_normal: crate::icon_render::resolve_client_icon(&[], isz, colours.bg),
             icon_selected: crate::icon_render::resolve_client_icon(&[], isz, colours.sel_bg),
             marked: false,
             run: true,
             command: Vec::new(),
         });
+        self.apply_sort();
+
         self.run_items = self
             .run_history
             .iter()
@@ -607,6 +788,7 @@ impl Omni {
                 title: line.clone(),
                 class: line.clone(),
                 client_id: 0,
+                workspace: !0,
                 icon_normal: crate::icon_render::resolve_client_icon(&[], isz, colours.bg),
                 icon_selected: crate::icon_render::resolve_client_icon(&[], isz, colours.sel_bg),
                 marked: false,
@@ -1115,9 +1297,9 @@ impl Omni {
         let _ = conn.flush();
     }
 
-    fn render(&self, g: &dyn GraphicsContext, w: u16, _h: u16) {
+    fn render(&self, g: &dyn GraphicsContext, w: u16, h: u16) {
         let c = crate::menu::MenuColors::default();
-        let (light, dark) = crate::render::draw_menu_frame(g, w, self.height(), c.bg);
+        let (light, dark) = crate::render::draw_menu_frame(g, w, h, c.bg);
         let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
         let top = pad() * 2 + bar_h() as i16;
         let vis = self.visible_rows();
