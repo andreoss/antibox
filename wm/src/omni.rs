@@ -16,8 +16,7 @@ pub struct OmniItem {
     pub class: String,
     pub client_id: u32,
     pub workspace: u32,
-    pub icon_normal: PixmapData,
-    pub icon_selected: PixmapData,
+    pub icon: PixmapData,
     pub run: bool,
     pub marked: bool,
     pub command: Vec<String>,
@@ -266,19 +265,19 @@ fn rows_for(mon_h: i32) -> usize {
 }
 
 fn bar_h() -> u16 {
-    (antibox_ui::metrics::field_height() + antibox_ui::metrics::gap()) as u16
+    crate::winlist::bar_h() as u16
 }
 
 fn row_h() -> u16 {
-    (antibox_ui::metrics::menu_item_height() + antibox_ui::metrics::gap()) as u16
+    crate::winlist::row_h() as u16
 }
 
 fn pad() -> i16 {
-    antibox_ui::metrics::pad() as i16
+    crate::winlist::pad()
 }
 
 fn icon_size() -> u16 {
-    (row_h() as i32 - antibox_ui::metrics::gap()).max(8) as u16
+    crate::winlist::row_icon_px()
 }
 
 impl Omni {
@@ -702,7 +701,6 @@ impl Omni {
         if self.visible {
             return;
         }
-        let colours = crate::menu::MenuColors::default();
         let isz = icon_size();
         let grouping = self.grouping_enabled();
 
@@ -736,12 +734,10 @@ impl Omni {
             .filter_map(|id| wm.frames.get(id).map(|fw| (*id, fw)))
             .map(|(id, fw)| {
                 let class = fw.client().class_instance().unwrap_or("").to_string();
-                let icon_normal =
-                    crate::icon_render::resolve_client_icon(fw.client().icons(), isz, colours.bg);
-                let icon_selected = crate::icon_render::resolve_client_icon(
+                let icon = crate::icon_render::resolve_client_icon(
                     fw.client().icons(),
                     isz,
-                    colours.sel_bg,
+                    antibox_ui::theme::field(),
                 );
                 let count = if grouping {
                     *counts.get(&(class.clone(), fw.workspace())).unwrap_or(&1)
@@ -759,8 +755,7 @@ impl Omni {
                     class,
                     client_id: wm.xid_index.xid_of(id),
                     workspace: fw.workspace(),
-                    icon_normal,
-                    icon_selected,
+                    icon,
                     marked: false,
                     run: false,
                     command: Vec::new(),
@@ -773,8 +768,7 @@ impl Omni {
             class: "run".to_string(),
             client_id: 0,
             workspace: !0,
-            icon_normal: crate::icon_render::resolve_client_icon(&[], isz, colours.bg),
-            icon_selected: crate::icon_render::resolve_client_icon(&[], isz, colours.sel_bg),
+            icon: crate::icon_render::resolve_client_icon(&[], isz, antibox_ui::theme::field()),
             marked: false,
             run: true,
             command: Vec::new(),
@@ -789,8 +783,7 @@ impl Omni {
                 class: line.clone(),
                 client_id: 0,
                 workspace: !0,
-                icon_normal: crate::icon_render::resolve_client_icon(&[], isz, colours.bg),
-                icon_selected: crate::icon_render::resolve_client_icon(&[], isz, colours.sel_bg),
+                icon: crate::icon_render::resolve_client_icon(&[], isz, antibox_ui::theme::field()),
                 marked: false,
                 run: false,
                 command: vec!["sh".to_string(), "-c".to_string(), line.clone()],
@@ -1282,89 +1275,95 @@ impl Omni {
         };
         let w = self.width();
         let h = self.height();
-        let depth = conn.screen_depth();
-        if let Ok(pm) = conn.create_pixmap(w, h, depth) {
-            if let Ok(g) = conn.create_graphics(pm) {
-                self.render(&*g, w, h);
-            }
-            if let Ok(wg) = conn.create_graphics(win.id()) {
-                let _ = wg.copy_from(pm, Rect::px(0, 0, w, h), Point::ZERO);
-            }
-            let _ = conn.free_pixmap(pm);
-        } else if let Ok(g) = conn.create_graphics(win.id()) {
-            self.render(&*g, w, h);
+        crate::paintbuf::buffered(&**conn, win.id(), w, h, |g| self.render(g, w, h));
+        if let Some(bar) = self.bar.as_ref() {
+            bar.repaint();
         }
         let _ = conn.flush();
     }
 
+    fn needs_sb(&self) -> bool {
+        self.menu_levels.is_empty() && self.filtered.len() > self.max_rows
+    }
+
+    fn list_w(&self, w: u16) -> u16 {
+        if self.needs_sb() {
+            (w as i16 - crate::winlist::sb_w()).max(1) as u16
+        } else {
+            w
+        }
+    }
+
     fn render(&self, g: &dyn GraphicsContext, w: u16, h: u16) {
         let c = crate::menu::MenuColors::default();
-        let (light, dark) = crate::render::draw_menu_frame(g, w, h, c.bg);
-        let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
+        let field = antibox_ui::theme::field();
+        let lw = self.list_w(w);
+        let _ = g.set_foreground(field);
+        let _ = g.fill_rect(0, 0, w, h);
+        let _ = g.set_font(&FontSpec::role(
+            FontRole::Switch,
+            antibox_ui::metrics::font_pt(),
+        ));
         let top = pad() * 2 + bar_h() as i16;
         let vis = self.visible_rows();
-        let inner_w = (w as i16 - pad() * 2) as u16;
         if let Some(level) = self.menu_levels.last() {
-            let text_x = pad() * 2;
             for (row, (label, action)) in level.rows.iter().enumerate().take(vis) {
                 let y = top + row as i16 * row_h() as i16;
                 if label.is_empty() {
-                    crate::render::draw_menu_separator(
-                        g,
-                        pad(),
-                        y + row_h() as i16 / 2,
-                        inner_w,
-                        light,
-                        dark,
-                    );
+                    let _ = g.set_foreground(antibox_ui::theme::shadow());
+                    let _ =
+                        g.draw_line(0, y + row_h() as i16 / 2, lw as i16, y + row_h() as i16 / 2);
                     continue;
                 }
                 let sel = row == level.selected;
                 if sel {
-                    crate::render::fill_menu_selection(g, pad(), y, inner_w, row_h(), c.sel_bg);
+                    crate::render::fill_menu_selection(g, 0, y, lw, row_h(), c.sel_bg);
                 }
-                let fg = if sel { c.sel_fg } else { c.fg };
+                let fg = if sel {
+                    c.sel_fg
+                } else {
+                    antibox_ui::theme::text()
+                };
                 let _ = g.set_foreground(fg);
-                let _ = g.set_background(if sel { c.sel_bg } else { c.bg });
+                let _ = g.set_background(if sel { c.sel_bg } else { field });
                 let baseline = antibox_ui::metrics::baseline(y as i32, row_h() as i32) as i16;
-                let _ = g.draw_text(text_x, baseline, label);
+                let _ = g.draw_text(20, baseline, label);
                 if matches!(action, OpAction::OpenSend | OpAction::OpenJoin) {
                     crate::render::draw_submenu_arrow(
                         g,
-                        w as i16 - pad() * 2 - scaled(8) as i16,
+                        lw as i16 - scaled(12) as i16,
                         y + row_h() as i16 / 2,
                         scaled(7) as i16,
                         fg,
                     );
                 }
             }
+            antibox_ui::theme::well(g, 0, 0, w, h);
             return;
         }
         for (row, &i) in self.filtered.iter().skip(self.offset).take(vis).enumerate() {
             let y = top + row as i16 * row_h() as i16;
             let sel = self.offset + row == self.selected;
             if sel {
-                crate::render::fill_menu_selection(g, pad(), y, inner_w, row_h(), c.sel_bg);
+                crate::render::fill_menu_selection(g, 0, y, lw, row_h(), c.sel_bg);
             }
-            let row_bg = if sel { c.sel_bg } else { c.bg };
             let item = &self.cur_items()[i];
-            let icon = if sel {
-                &item.icon_selected
+            let iy = y + ((row_h() as i16 - item.icon.height as i16) / 2).max(0);
+            let _ = g.draw_pixmap(4, iy, &item.icon);
+            let text_x = 4 + item.icon.width as i16 + antibox_ui::metrics::gap() as i16;
+            let fg = if sel {
+                c.sel_fg
             } else {
-                &item.icon_normal
+                antibox_ui::theme::text()
             };
-            let iy = y + ((row_h() as i16 - icon.height as i16) / 2).max(0);
-            let _ = g.draw_pixmap(pad() * 2, iy, icon);
-            let text_x = pad() * 2 + icon_size() as i16 + scaled(6) as i16;
-            let fg = if sel { c.sel_fg } else { c.fg };
             let _ = g.set_foreground(fg);
-            let _ = g.set_background(row_bg);
-            let avail = (w as i16 - text_x - pad() * 2) as u16;
+            let _ = g.set_background(if sel { c.sel_bg } else { field });
+            let avail = (lw as i16 - text_x - pad() * 2) as u16;
             let label = crate::applet::fit_label(g, &item.title, avail);
             let baseline = antibox_ui::metrics::baseline(y as i32, row_h() as i32) as i16;
             let _ = g.draw_text(text_x, baseline, &label);
             if item.marked {
-                let mx = w as i16 - pad() - scaled(12) as i16;
+                let mx = lw as i16 - pad() - scaled(12) as i16;
                 let my = y + (row_h() as i16 - scaled(10) as i16) / 2;
                 let _ = g.set_foreground(if sel {
                     c.sel_fg
@@ -1374,26 +1373,26 @@ impl Omni {
                 let _ = g.fill_rect(mx, my, scaled(8) as u16, scaled(8) as u16);
             }
         }
-        if self.filtered.len() > self.max_rows {
-            let track_h = (row_h() * vis as u16) as i32;
-            let sb_w = scaled(3).max(2) as u16;
-            let sb_x = w as i16 - pad() + (pad() - sb_w as i16) / 2;
+        if self.needs_sb() {
+            let bwid = crate::winlist::sb_w();
+            let track_top = top + bwid;
+            let track_h = (h as i16 - track_top - bwid).max(1);
             let thumb = antibox_ui::thumb::Thumb::new(
-                top as i32,
+                track_top as i32,
                 vis as i32,
                 self.offset as i32,
                 self.filtered.len() as i32,
             );
-            let (ty, th) = thumb.rect(track_h);
-            let _ = g.set_foreground(antibox_ui::theme::shadow());
-            let _ = g.fill_rect(sb_x, ty as i16, sb_w, th as u16);
+            let (ty, th) = thumb.rect(track_h as i32);
+            crate::winlist::draw_scrollbar(g, lw as i16, top, h as i16, (ty as i16, th as i16));
         }
         if self.filtered.is_empty() && !self.run_mode {
             let _ = g.set_foreground(antibox_ui::theme::disabled());
-            let _ = g.set_background(c.bg);
+            let _ = g.set_background(field);
             let baseline = antibox_ui::metrics::baseline(top as i32, row_h() as i32) as i16;
-            let _ = g.draw_text(pad() * 2, baseline, "No matches");
+            let _ = g.draw_text(20, baseline, "No matches");
         }
+        antibox_ui::theme::well(g, 0, 0, w, h);
     }
 }
 

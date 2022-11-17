@@ -8,26 +8,24 @@ use std::sync::Arc;
 use antibox_ui::searchbar::{SearchBar, SearchEvent};
 use antibox_ui::theme;
 
-fn row_h() -> i16 {
+pub(crate) fn row_h() -> i16 {
     antibox_ui::metrics::menu_item_height() as i16
 }
 
-fn row_icon_px() -> u16 {
-    antibox_ui::metrics::icon()
-        .min(row_h() as i32 - 2)
-        .max(8) as u16
+pub(crate) fn row_icon_px() -> u16 {
+    antibox_ui::metrics::icon().min(row_h() as i32 - 2).max(8) as u16
 }
 const TOP_PAD: i16 = 3;
 
-fn bar_h() -> i16 {
+pub(crate) fn bar_h() -> i16 {
     (antibox_ui::metrics::field_height() + antibox_ui::metrics::gap()) as i16
 }
 
-fn pad() -> i16 {
+pub(crate) fn pad() -> i16 {
     antibox_ui::metrics::pad() as i16
 }
 
-fn sb_w() -> i16 {
+pub(crate) fn sb_w() -> i16 {
     scaled(16) as i16
 }
 
@@ -498,7 +496,11 @@ impl WinListMenu {
             return None;
         }
         let row = (self.offset + vr) as usize;
-        if row < self.rows.len() { Some(row) } else { None }
+        if row < self.rows.len() {
+            Some(row)
+        } else {
+            None
+        }
     }
 
     pub fn window_at(&mut self, p: Point) -> Option<u32> {
@@ -696,7 +698,10 @@ impl WinListMenu {
     }
 
     pub fn paint(&self, conn: &Arc<dyn DisplayBackend>) {
-        let win = match &self.window { Some(v) => v, None => return };
+        let win = match &self.window {
+            Some(v) => v,
+            None => return,
+        };
         crate::paintbuf::buffered(&**conn, win.id(), self.w, self.h, |g| self.paint_to(g));
         if let Some(ref bar) = self.bar {
             bar.repaint();
@@ -787,42 +792,49 @@ impl WinListMenu {
     }
 
     fn paint_scrollbar(&self, g: &dyn GraphicsContext) {
-        let face = theme::face();
-        let x = self.sb_x();
-        let bwid = sb_w();
-        let w = bwid as u16;
-        let h = self.h as i16;
-
-        let top = self.sb_top();
-        let _ = g.set_foreground(crate::render::bevel_light(face));
-        let _ = g.fill_rect(x, top + bwid, w, self.trough_h() as u16);
-
-        let _ = g.set_foreground(face);
-        let _ = g.fill_rect(x, top, w, bwid as u16);
-        let _ = crate::render::draw_button_bevel(g, x, top, w, bwid as u16, face, false);
-        Self::arrow(g, x, top, bwid, true);
-
-        let _ = g.set_foreground(face);
-        let _ = g.fill_rect(x, h - bwid, w, bwid as u16);
-        let _ = crate::render::draw_button_bevel(g, x, h - bwid, w, bwid as u16, face, false);
-        Self::arrow(g, x, h - bwid, bwid, false);
-
-        let (ty, tht) = self.thumb();
-        let _ = g.set_foreground(face);
-        let _ = g.fill_rect(x, ty, w, tht as u16);
-        let _ = crate::render::draw_button_bevel(g, x, ty, w, tht as u16, face, false);
+        draw_scrollbar(g, self.sb_x(), self.sb_top(), self.h as i16, self.thumb());
     }
+}
 
-    fn arrow(g: &dyn GraphicsContext, x: i16, y: i16, bwid: i16, up: bool) {
-        let cx = x + bwid / 2;
-        let cy = y + bwid / 2;
-        let r = (bwid / 4).max(2);
-        let _ = g.set_foreground(theme::text());
-        if up {
-            let _ = g.fill_polygon(&[(cx, cy - r), (cx - r, cy + r), (cx + r, cy + r)]);
-        } else {
-            let _ = g.fill_polygon(&[(cx, cy + r), (cx - r, cy - r), (cx + r, cy - r)]);
-        }
+pub(crate) fn draw_scrollbar(
+    g: &dyn GraphicsContext,
+    x: i16,
+    top: i16,
+    bottom: i16,
+    thumb: (i16, i16),
+) {
+    let face = theme::face();
+    let bwid = sb_w();
+    let w = bwid as u16;
+
+    let _ = g.set_foreground(crate::render::bevel_light(face));
+    let _ = g.fill_rect(x, top + bwid, w, (bottom - top - 2 * bwid).max(0) as u16);
+
+    let _ = g.set_foreground(face);
+    let _ = g.fill_rect(x, top, w, bwid as u16);
+    let _ = crate::render::draw_button_bevel(g, x, top, w, bwid as u16, face, false);
+    sb_arrow(g, x, top, bwid, true);
+
+    let _ = g.set_foreground(face);
+    let _ = g.fill_rect(x, bottom - bwid, w, bwid as u16);
+    let _ = crate::render::draw_button_bevel(g, x, bottom - bwid, w, bwid as u16, face, false);
+    sb_arrow(g, x, bottom - bwid, bwid, false);
+
+    let (ty, tht) = thumb;
+    let _ = g.set_foreground(face);
+    let _ = g.fill_rect(x, ty, w, tht as u16);
+    let _ = crate::render::draw_button_bevel(g, x, ty, w, tht as u16, face, false);
+}
+
+fn sb_arrow(g: &dyn GraphicsContext, x: i16, y: i16, bwid: i16, up: bool) {
+    let cx = x + bwid / 2;
+    let cy = y + bwid / 2;
+    let r = (bwid / 4).max(2);
+    let _ = g.set_foreground(theme::text());
+    if up {
+        let _ = g.fill_polygon(&[(cx, cy - r), (cx - r, cy + r), (cx + r, cy + r)]);
+    } else {
+        let _ = g.fill_polygon(&[(cx, cy + r), (cx - r, cy - r), (cx + r, cy - r)]);
     }
 }
 
