@@ -8,11 +8,20 @@ use std::sync::Arc;
 pub struct MiniWin {
     pub rect: (i16, i16, u16, u16),
     pub focused: bool,
+    pub icon: Option<PixmapData>,
 }
 
 impl PartialEq for MiniWin {
     fn eq(&self, other: &Self) -> bool {
-        self.rect == other.rect && self.focused == other.focused
+        self.rect == other.rect
+            && self.focused == other.focused
+            && match (&self.icon, &other.icon) {
+                (None, None) => true,
+                (Some(a), Some(b)) => {
+                    a.width == b.width && a.height == b.height && a.data == b.data
+                }
+                _ => false,
+            }
     }
 }
 
@@ -34,6 +43,19 @@ pub(crate) fn mini_rect(
 
 pub(crate) fn mini_title_height(mh: u16) -> u16 {
     (mh / 4).max(1)
+}
+
+pub(crate) fn mini_icon_rect(mx: i16, my: i16, mw: u16, mh: u16) -> Option<(i16, i16, u16)> {
+    let th = mini_title_height(mh);
+    let pad = antibox_core::scale::scaled(1).max(1) as u16;
+    let body_h = mh.saturating_sub(th);
+    let side = mw.min(body_h).saturating_sub(2 * pad);
+    if (side as i32) < (antibox_ui::metrics::icon() / 2).max(4) {
+        return None;
+    }
+    let ix = mx + ((mw - side) / 2) as i16;
+    let iy = my + th as i16 + ((body_h - side) / 2) as i16;
+    Some((ix, iy, side))
 }
 
 pub struct WorkspaceButton {
@@ -150,9 +172,18 @@ impl WorkspacesPane {
             let mut minis = Vec::new();
             for (id, fw) in wins {
                 let rect = mini_rect(fw.frame_rect(), sw, sh, btn.rect);
+                let (mx, my, mw, mh) = rect;
+                let icon = mini_icon_rect(mx, my, mw, mh).map(|(_, _, side)| {
+                    crate::icon_render::resolve_client_icon(
+                        fw.client().icons(),
+                        side,
+                        self.theme_colours.task_bar_colour,
+                    )
+                });
                 minis.push(MiniWin {
                     rect,
                     focused: Some(*id) == focused,
+                    icon,
                 });
             }
             if minis != btn.minis {
@@ -240,6 +271,11 @@ impl Applet for WorkspacesPane {
                             self.theme_colours.inactive_title_top
                         });
                         let _ = g.fill_rect(mx, my, mw, th);
+                    }
+                    if let Some(icon) = &mini.icon {
+                        if let Some((ix, iy, _)) = mini_icon_rect(mx, my, mw, mh) {
+                            let _ = g.draw_pixmap(ix, iy, icon);
+                        }
                     }
                     let _ = g.set_foreground(outline);
                     let _ = g.draw_rect(mx, my, mw, mh);

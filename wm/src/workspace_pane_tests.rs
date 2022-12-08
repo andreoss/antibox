@@ -37,3 +37,14 @@
         assert!(!pane.buttons[0].active);
     }
 
+    #[test]
+    fn test_mini_icon_rect_gates_on_size() {
+        assert!(mini_icon_rect(0, 0, 4, 4).is_none());
+        let big = mini_icon_rect(10, 5, 40, 40);
+        let (ix, iy, side) = big.expect("large mini fits an icon");
+        assert!(side >= 4);
+        assert!(ix >= 10);
+        assert!(iy > 5 + mini_title_height(40) as i16 - 1);
+        assert!(ix as i32 + side as i32 <= 50);
+        assert!(iy as i32 + side as i32 <= 45);
+    }
