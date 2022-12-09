@@ -187,6 +187,7 @@ pub struct Omni {
     ws_names: Vec<String>,
     win_list: Vec<(u32, String)>,
     path_cmds: Option<Vec<String>>,
+    apps: Option<Vec<crate::desktop_apps::DesktopApp>>,
     panel_w: u16,
     max_rows: usize,
 }
@@ -305,6 +306,7 @@ impl Omni {
             ws_names: Vec::new(),
             win_list: Vec::new(),
             path_cmds: None,
+            apps: None,
             panel_w: 0,
             max_rows: DEFAULT_ROWS,
         }
@@ -775,7 +777,26 @@ impl Omni {
         });
         self.apply_sort();
 
+        if self.apps.is_none() {
+            self.apps = Some(crate::desktop_apps::scan());
+        }
         self.run_items = self
+            .apps
+            .as_deref()
+            .unwrap_or(&[])
+            .iter()
+            .map(|app| OmniItem {
+                title: app.name.clone(),
+                class: app.command.first().cloned().unwrap_or_default(),
+                client_id: 0,
+                workspace: !0,
+                icon: crate::icon_render::resolve_client_icon(&[], isz, antibox_ui::theme::field()),
+                marked: false,
+                run: false,
+                command: app.command.clone(),
+            })
+            .collect();
+        let history: Vec<OmniItem> = self
             .run_history
             .iter()
             .map(|line| OmniItem {
@@ -789,6 +810,7 @@ impl Omni {
                 command: vec!["sh".to_string(), "-c".to_string(), line.clone()],
             })
             .collect();
+        self.run_items.splice(0..0, history);
         self.run_mode = false;
         self.selected = 0;
         self.offset = 0;
