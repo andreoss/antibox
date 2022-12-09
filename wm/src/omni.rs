@@ -916,6 +916,12 @@ impl Omni {
                     }
                 }
             }
+            for it in &self.run_items {
+                if let Some(prog) = it.command.first().filter(|p| *p != "sh") {
+                    let base = prog.rsplit('/').next().unwrap_or(prog);
+                    set.insert(base.to_string());
+                }
+            }
             self.path_cmds = Some(set.into_iter().collect());
         }
         self.path_cmds.as_deref().unwrap_or(&[])
