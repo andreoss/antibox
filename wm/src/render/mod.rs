@@ -225,7 +225,10 @@ pub(crate) fn draw_tab_strip(fw: &FrameWindow, g: &dyn GraphicsContext) {
     close_hits.clear();
     for (rect, (id, _)) in rects.iter().zip(pairs.iter()) {
         let (x, y, w, h) = *rect;
-        hits.push((antibox_core::rect::Rect::new(x as i32, y as i32, w as i32, h as i32), *id));
+        hits.push((
+            antibox_core::rect::Rect::new(x as i32, y as i32, w as i32, h as i32),
+            *id,
+        ));
         let (cx, cy, cw, ch) = antibox_ui::tabstrip::close_rect(*rect);
         close_hits.push((
             antibox_core::rect::Rect::new(cx as i32, cy as i32, cw as i32, ch as i32),
@@ -361,8 +364,7 @@ fn draw_title_text(
         .min(title_bar_height() - 2)
         .max(8) as u16;
     if text_right - text_x > icon_px as i16 * 2 {
-        let icon =
-            crate::icon_render::resolve_client_icon(fw.client().icons(), icon_px, bar_bg);
+        let icon = crate::icon_render::resolve_client_icon(fw.client().icons(), icon_px, bar_bg);
         let iy = (bar_top + (title_bar_height() - icon_px as i32) / 2) as i16;
         let _ = g.draw_pixmap(text_x, iy, &icon);
         text_x += icon_px as i16 + antibox_ui::metrics::gap() as i16;
@@ -372,13 +374,35 @@ fn draw_title_text(
     let baseline = bar_top + bar_baseline;
 
     let text_avail = avail;
-    let title = crate::applet::fit_label(g, fw.client().title(), text_avail);
-    let tw = g.text_width(&title).unwrap_or(0) as i32;
+    let (title, shift) = match antibox_ui::ticker::fit_on(
+        antibox_ui::ticker::Surface::Title,
+        g,
+        fw.client().title(),
+        text_avail,
+    ) {
+        antibox_ui::ticker::Fit::Plain(text) => (text.into_owned(), None),
+        antibox_ui::ticker::Fit::Scroll { text, shift } => (text, Some(shift)),
+    };
+    let tw = match shift {
+        Some(_) => avail as i32,
+        None => g.text_width(&title).unwrap_or(0) as i32,
+    };
     let slack = (avail as i32 - tw).max(0);
     let justify = crate::layout_preferences::title_justify() as i32;
     let block_x = text_x + (slack * justify / 100) as i16;
     let tx = block_x;
-    g.draw_text_transparent(tx, baseline as i16, &title)?;
+    match shift {
+        Some(shift) => {
+            let clip =
+                antibox_core::rect::Rect::new(tx as i32, bar_top, avail as i32, title_bar_height());
+            let _ = g.push_clip(&clip);
+            g.draw_text_transparent(tx - shift as i16, baseline as i16, &title)?;
+            let _ = g.pop_clip();
+        }
+        None => {
+            g.draw_text_transparent(tx, baseline as i16, &title)?;
+        }
+    }
     if focused && !fw.state().urgent {
         let gap = antibox_core::scale::scaled(3) as i16;
         let s = antibox_core::scale::scaled(1).max(1);

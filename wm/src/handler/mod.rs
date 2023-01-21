@@ -662,16 +662,14 @@ pub fn redraw_all_frames<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManage
         None => return,
     };
     for (id, fw) in wm.frames.iter() {
-        let mut cache = fw.gfx.borrow_mut();
-        if cache.is_none() {
-            if let Ok(g) = b.create_graphics(fw.frame().id()) {
-                *cache = Some(g);
-            }
-        }
-        if let Some(g) = cache.as_ref().map(|v| v.as_ref()) {
-            let focused = wm.focused_window == Some(*id);
-            let _ = render::draw_frame(fw, g, focused, &wm.theme_colours, wm.config.gradients);
-        }
+        let focused = wm.focused_window == Some(*id);
+        crate::drag::paint_frame_decorations(
+            fw,
+            b,
+            focused,
+            &wm.theme_colours,
+            wm.config.gradients,
+        );
     }
 }
 
