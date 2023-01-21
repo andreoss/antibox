@@ -14,6 +14,7 @@ pub struct Prefs {
     pub graph: GraphColourPrefs,
     pub winlist: WinlistPrefs,
     pub tabs: TabsPrefs,
+    pub ticker: TickerPrefs,
     pub keys: Vec<(String, String)>,
 }
 
@@ -70,6 +71,11 @@ pub struct TabsPrefs {
     pub position: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TickerPrefs {
+    pub enabled: bool,
+}
+
 impl Default for Prefs {
     fn default() -> Prefs {
         Prefs {
@@ -103,6 +109,7 @@ impl Default for Prefs {
             tabs: TabsPrefs {
                 position: "top".to_string(),
             },
+            ticker: TickerPrefs { enabled: true },
             keys: Vec::new(),
         }
     }
@@ -260,6 +267,11 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                 "top" | "bottom" => p.tabs.position = value.to_string(),
                 _ => {}
             },
+            ("ticker", "enabled") => {
+                if let Some(v) = parse_bool(value) {
+                    p.ticker.enabled = v;
+                }
+            }
             _ => {}
         }
     }

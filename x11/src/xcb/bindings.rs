@@ -856,6 +856,15 @@ extern "C" {
         value_list: *const u32,
     ) -> c_uint;
     pub fn xcb_free_gc(c: *mut xcb_connection_t, gc: xcb_gcontext_t) -> c_uint;
+    pub fn xcb_set_clip_rectangles(
+        c: *mut xcb_connection_t,
+        ordering: u8,
+        gc: xcb_gcontext_t,
+        clip_x_origin: i16,
+        clip_y_origin: i16,
+        rects_len: u32,
+        rects: *const xcb_rectangle_t,
+    ) -> c_uint;
     pub fn xcb_poly_fill_rectangle(
         c: *mut xcb_connection_t,
         drawable: xcb_drawable_t,
@@ -1362,6 +1371,14 @@ extern "C" {
         value_list: *const u32,
     ) -> c_uint;
     pub fn xcb_render_free_picture(c: *mut xcb_connection_t, picture: u32) -> c_uint;
+    pub fn xcb_render_set_picture_clip_rectangles(
+        c: *mut xcb_connection_t,
+        picture: u32,
+        clip_x_origin: i16,
+        clip_y_origin: i16,
+        rectangles_len: u32,
+        rectangles: *const xcb_rectangle_t,
+    ) -> c_uint;
     pub fn xcb_render_create_solid_fill(
         c: *mut xcb_connection_t,
         picture: u32,

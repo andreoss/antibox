@@ -16,6 +16,7 @@ pub struct XcbGraphics {
     fg: antibox_core::sync::atomic::AtomicU32,
     bg: antibox_core::sync::atomic::AtomicU32,
     font: std::sync::Mutex<Option<ResolvedFont>>,
+    clip: std::sync::Mutex<Vec<Rect>>,
 }
 
 impl XcbGraphics {
@@ -28,6 +29,37 @@ impl XcbGraphics {
             fg: antibox_core::sync::atomic::AtomicU32::new(0),
             bg: antibox_core::sync::atomic::AtomicU32::new(0xFFFFFF),
             font: std::sync::Mutex::new(None),
+            clip: std::sync::Mutex::new(Vec::new()),
+        }
+    }
+
+    fn current_clip(&self) -> Option<Rect> {
+        match self.clip.lock() {
+            Ok(s) => s.last().copied(),
+            Err(e) => e.into_inner().last().copied(),
+        }
+    }
+
+    fn apply_clip(&self) {
+        let stack = match self.clip.lock() {
+            Ok(s) => s,
+            Err(e) => e.into_inner(),
+        };
+        match stack.last() {
+            Some(r) => {
+                let rect = xcb_rectangle_t {
+                    x: r.x as i16,
+                    y: r.y as i16,
+                    width: r.w.max(0) as u16,
+                    height: r.h.max(0) as u16,
+                };
+                unsafe {
+                    xcb_set_clip_rectangles(self.conn.raw(), 0, self.gc, 0, 0, 1, &rect);
+                }
+            }
+            None => {
+                self.change_gc(0x80000, &[0]);
+            }
         }
     }
 
@@ -61,6 +93,17 @@ impl XcbGraphics {
         let raw = self.conn.raw();
         let pic = unsafe { xcb_generate_id(raw) };
         unsafe { xcb_render_create_picture(raw, pic, self.drawable, dst_fmt, 0, std::ptr::null()) };
+        if let Some(r) = self.current_clip() {
+            let rect = xcb_rectangle_t {
+                x: r.x as i16,
+                y: r.y as i16,
+                width: r.w.max(0) as u16,
+                height: r.h.max(0) as u16,
+            };
+            unsafe {
+                xcb_render_set_picture_clip_rectangles(raw, pic, 0, 0, 1, &rect);
+            }
+        }
         let fg = self.fg.load(std::sync::atomic::Ordering::Relaxed);
         let colour = xcb_render_color_t {
             red: (((fg >> 16) & 0xff) * 0x101) as u16,
@@ -324,10 +367,30 @@ impl GraphicsContext for XcbGraphics {
         let _ = (x, y, w, h, angle1, angle2);
         Ok(())
     }
-    fn push_clip(&self, _rect: &Rect) -> Result<(), Box<dyn std::error::Error>> {
+    fn push_clip(&self, rect: &Rect) -> Result<(), Box<dyn std::error::Error>> {
+        {
+            let mut stack = match self.clip.lock() {
+                Ok(s) => s,
+                Err(e) => e.into_inner(),
+            };
+            let next = match stack.last() {
+                Some(top) => top.intersection(rect),
+                None => *rect,
+            };
+            stack.push(next);
+        }
+        self.apply_clip();
         Ok(())
     }
     fn pop_clip(&self) -> Result<(), Box<dyn std::error::Error>> {
+        {
+            let mut stack = match self.clip.lock() {
+                Ok(s) => s,
+                Err(e) => e.into_inner(),
+            };
+            stack.pop();
+        }
+        self.apply_clip();
         Ok(())
     }
 }

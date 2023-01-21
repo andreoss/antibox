@@ -173,15 +173,24 @@ pub fn panel_button(g: &dyn GraphicsContext, b: &PanelButton<'_>) {
         }
     };
     let avail = (x + w as i16 - tx - inset).max(0) as u16;
-    let text = fit_label(g, label, avail);
-    let tw = g.text_width(&text).unwrap_or(0) as i16;
-    let slack = (avail as i16 - tw).max(0);
-    let lx = match align {
-        LabelAlign::Left => tx,
-        LabelAlign::Center => tx + slack / 2,
-        LabelAlign::Right => tx + slack,
-    };
-    draw(lx, &text);
+    match crate::ticker::fit(g, label, avail) {
+        crate::ticker::Fit::Plain(text) => {
+            let tw = g.text_width(&text).unwrap_or(0) as i16;
+            let slack = (avail as i16 - tw).max(0);
+            let lx = match align {
+                LabelAlign::Left => tx,
+                LabelAlign::Center => tx + slack / 2,
+                LabelAlign::Right => tx + slack,
+            };
+            draw(lx, &text);
+        }
+        crate::ticker::Fit::Scroll { text, shift } => {
+            let clip = Rect::new(tx as i32, y as i32, avail as i32, h as i32);
+            let _ = g.push_clip(&clip);
+            draw(tx - shift as i16, &text);
+            let _ = g.pop_clip();
+        }
+    }
 }
 
 #[cfg(test)]

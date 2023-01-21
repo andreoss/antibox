@@ -23,10 +23,11 @@ enum AppletTick {
     Net,
     PowerAudio,
     Keyboard,
+    Ticker,
 }
 
 impl AppletTick {
-    const COUNT: usize = 6;
+    const COUNT: usize = 7;
     const ALL: [Self; AppletTick::COUNT] = [
         AppletTick::Clock,
         AppletTick::Cpu,
@@ -34,6 +35,7 @@ impl AppletTick {
         AppletTick::Net,
         AppletTick::PowerAudio,
         AppletTick::Keyboard,
+        AppletTick::Ticker,
     ];
 
     fn interval(self) -> Duration {
@@ -43,6 +45,7 @@ impl AppletTick {
                 Duration::from_secs(2)
             }
             AppletTick::Mem => Duration::from_secs(5),
+            AppletTick::Ticker => antibox_ui::ticker::interval(),
         }
     }
 
@@ -58,6 +61,7 @@ impl AppletTick {
             AppletTick::Net => tb.update_net(),
             AppletTick::PowerAudio => tb.update_power_audio(),
             AppletTick::Keyboard => tb.update_keyboard(),
+            AppletTick::Ticker => Vec::new(),
         }
     }
 }
@@ -97,6 +101,7 @@ fn apply_font_prefs(b: &Arc<dyn DisplayBackend>, prefs: &wmconfig::Prefs) {
 struct AppletTickers {
     last: [Instant; AppletTick::COUNT],
     last_clock_sec: u64,
+    ticker_fired: antibox_ui::ticker::Scrolled,
 }
 
 impl AppletTickers {
@@ -105,6 +110,7 @@ impl AppletTickers {
         AppletTickers {
             last: [now; AppletTick::COUNT],
             last_clock_sec: Self::wall_secs(),
+            ticker_fired: antibox_ui::ticker::Scrolled::default(),
         }
     }
 
@@ -142,6 +148,9 @@ impl AppletTickers {
                 false
             };
             if due {
+                if matches!(kind, AppletTick::Ticker) {
+                    self.ticker_fired = antibox_ui::ticker::advance();
+                }
                 changed.extend(kind.update(tb));
             }
         }
@@ -153,7 +162,7 @@ impl AppletTickers {
         let interval_min = AppletTick::ALL
             .iter()
             .enumerate()
-            .filter(|(_, kind)| !matches!(kind, AppletTick::Clock))
+            .filter(|(_, kind)| !matches!(kind, AppletTick::Clock | AppletTick::Ticker))
             .map(|(i, kind)| {
                 kind.interval()
                     .checked_sub(now.duration_since(self.last[i]))
@@ -462,6 +471,7 @@ impl App {
             &crate::render::ThemeColors::default(),
         );
         wm.config.warp_pointer = prefs.pointer.warp;
+        antibox_ui::ticker::set_enabled(prefs.ticker.enabled);
         crate::frame::set_tabs_on_bottom(prefs.tabs.position == "bottom");
         wm.render_backend = Some(render_backend);
         let _ = wm.atoms.intern_all(&*b);
@@ -581,6 +591,18 @@ impl App {
 
         self.tick_taskbar(tickers, &mut work);
 
+        let fired = std::mem::take(&mut tickers.ticker_fired);
+        if work.events > 0 {
+            antibox_ui::ticker::rearm(fired);
+        } else {
+            if fired.panel {
+                work.repaint_taskbar = true;
+            }
+            if fired.title {
+                crate::handler::redraw_all_frames(&self.wm);
+            }
+        }
+
         if let Some(ref tb) = self.taskbar {
             if work.repaint_taskbar {
                 let _ = tb.paint();
@@ -610,6 +632,9 @@ impl App {
             .map_or(false, TaskBar::any_tooltip_pending)
         {
             timeout = timeout.min(Duration::from_millis(100));
+        }
+        if antibox_ui::ticker::active() {
+            timeout = timeout.min(antibox_ui::ticker::interval());
         }
         timeout
     }
