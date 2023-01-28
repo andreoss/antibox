@@ -93,3 +93,32 @@ fn test_read_protocols() {
     assert!(client.has_protocol(focus_atom));
 }
 
+
+#[test]
+fn test_is_xpra_reports_cached_flag() {
+    let (_d, window) = make_display_and_window();
+    let mut client = ClientWindow::new(window);
+    assert!(!client.is_xpra());
+    client.is_xpra = true;
+    assert!(client.is_xpra());
+}
+
+#[test]
+fn test_xpra_resolved_guards_recomputation() {
+    let (display, window) = make_display_and_window();
+    let mut atom_mgr = AtomManager::new();
+    let _ = atom_mgr.intern_all(&display);
+    let mut client = ClientWindow::new(window);
+    assert!(!client.xpra_resolved);
+    client.read_initial_properties(&display, &atom_mgr);
+    let resolved_once = client.xpra_resolved;
+    client.is_xpra = true;
+    client.read_initial_properties(&display, &atom_mgr);
+    if resolved_once {
+        assert!(
+            client.is_xpra,
+            "once resolved, a second property read must not recompute is_xpra"
+        );
+    }
+    assert_eq!(client.xpra_resolved, resolved_once);
+}

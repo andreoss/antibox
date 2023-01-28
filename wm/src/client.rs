@@ -28,6 +28,8 @@ pub struct ClientWindow {
     pub(crate) window_type: WindowType,
     pub(crate) transient_for: Option<u32>,
     pub(crate) pid: u32,
+    pub(crate) is_xpra: bool,
+    pub(crate) xpra_resolved: bool,
     pub(crate) title: String,
     pub(crate) class_instance: Option<String>,
     pub(crate) client_id: Option<String>,
@@ -59,6 +61,8 @@ impl ClientWindow {
             window_type: WindowType::Normal,
             transient_for: None,
             pid: 0,
+            is_xpra: false,
+            xpra_resolved: false,
             title: String::new(),
             class_instance: None,
             client_id: None,
@@ -160,6 +164,10 @@ impl ClientWindow {
 
     pub fn class_instance(&self) -> Option<&str> {
         self.class_instance.as_ref().map(|v| v.as_ref())
+    }
+
+    pub fn is_xpra(&self) -> bool {
+        self.is_xpra
     }
 
     pub fn client_id(&self) -> Option<&str> {

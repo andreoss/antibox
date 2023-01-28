@@ -27,3 +27,17 @@
     fn test_read_cptime() {
         assert!(read_cptime().unwrap().iter().any(|v| *v > 0));
     }
+
+    #[test]
+    fn test_pid_command_zero_is_none() {
+        assert!(pid_command(0).is_none());
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_pid_command_reads_own_cmdline() {
+        let pid = std::process::id();
+        let cmd = pid_command(pid).expect("own cmdline readable");
+        assert!(!cmd.is_empty());
+        assert!(!cmd.contains('\0'));
+    }
