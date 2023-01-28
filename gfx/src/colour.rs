@@ -54,6 +54,29 @@ pub fn shift(c: Colour, d: i32) -> Colour {
         | clamp_i32((c & 0xFF) as i32 + d)
 }
 
+pub const fn blue_to_green(c: Colour) -> Colour {
+    let r = (c >> 16) & 0xFF;
+    let g = (c >> 8) & 0xFF;
+    let b = c & 0xFF;
+    (r << 16) | (b << 8) | g
+}
+
+pub const fn greenish(c: Colour) -> Colour {
+    let s = blue_to_green(c);
+    let r = (((s >> 16) & 0xFF) * 2 / 5) & 0xFF;
+    let g = (((s >> 8) & 0xFF) * 13 / 20) & 0xFF;
+    let b = ((s & 0xFF) * 2 / 5) & 0xFF;
+    (r << 16) | (g << 8) | b
+}
+
+pub const fn grey_green(c: Colour) -> Colour {
+    let s = blue_to_green(c);
+    let r = (((s >> 16) & 0xFF) * 13 / 16) & 0xFF;
+    let g = ((s >> 8) & 0xFF) & 0xFF;
+    let b = ((s & 0xFF) * 13 / 16) & 0xFF;
+    (r << 16) | (g << 8) | b
+}
+
 fn luma(c: Colour) -> u32 {
     (((c >> 16) & 0xFF) * 299 + ((c >> 8) & 0xFF) * 587 + (c & 0xFF) * 114) / 1000
 }

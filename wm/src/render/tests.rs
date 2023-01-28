@@ -13,6 +13,7 @@
             &g,
             false,
             true,
+            false,
             TitleBarDims { fw_w: 300, bw: 1 },
             &tc,
             true,

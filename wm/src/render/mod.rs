@@ -195,6 +195,7 @@ pub fn draw_frame(
         g,
         focused,
         fw.state().urgent,
+        fw.client().is_xpra(),
         TitleBarDims { fw_w, bw },
         colours,
         gradients_enabled,
@@ -247,6 +248,7 @@ fn draw_title_bar(
     g: &dyn GraphicsContext,
     focused: bool,
     urgent: bool,
+    xpra: bool,
     dims: TitleBarDims,
     colours: &ThemeColors,
     gradients_enabled: bool,
@@ -275,7 +277,19 @@ fn draw_title_bar(
     let (left, right) = if urgent && !focused {
         (colours.urgent_bg, darken_colour(colours.urgent_bg, 0.33))
     } else if focused {
-        (colours.active_title_top, colours.active_title_bottom)
+        if xpra {
+            (
+                antibox_core::colour::greenish(colours.active_title_top),
+                antibox_core::colour::greenish(colours.active_title_bottom),
+            )
+        } else {
+            (colours.active_title_top, colours.active_title_bottom)
+        }
+    } else if xpra {
+        (
+            antibox_core::colour::grey_green(colours.inactive_title_top),
+            antibox_core::colour::grey_green(colours.inactive_title_bottom),
+        )
     } else {
         (colours.inactive_title_top, colours.inactive_title_bottom)
     };
