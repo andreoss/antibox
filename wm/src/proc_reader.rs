@@ -4,6 +4,20 @@ pub fn read_proc(path: &str) -> Option<String> {
     std::fs::read_to_string(path).ok()
 }
 
+pub fn pid_command(pid: u32) -> Option<String> {
+    if pid == 0 {
+        return None;
+    }
+    let raw = std::fs::read(format!("/proc/{}/cmdline", pid)).ok()?;
+    let text = String::from_utf8_lossy(&raw).replace('\0', " ");
+    let text = text.trim().to_string();
+    if text.is_empty() {
+        None
+    } else {
+        Some(text)
+    }
+}
+
 pub fn load_average() -> Option<[f64; 3]> {
     let mut avgs = [0f64; 3];
     let n = unsafe { libc::getloadavg(avgs.as_mut_ptr(), 3) };

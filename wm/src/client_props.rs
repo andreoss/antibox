@@ -103,6 +103,11 @@ impl ClientWindow {
         }
         if let Some(atom) = atoms.get("_NET_WM_PID") {
             self.pid = self.read_u32_prop(atom).unwrap_or(0);
+            if !self.xpra_resolved && self.pid != 0 {
+                self.is_xpra = crate::proc_reader::pid_command(self.pid)
+                    .map_or(false, |cmd| cmd.to_ascii_lowercase().contains("xpra"));
+                self.xpra_resolved = true;
+            }
         }
         if let Some(val) = self.fetch_string(atoms, "_NET_STARTUP_ID") {
             if !val.is_empty() {
