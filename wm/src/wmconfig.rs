@@ -126,10 +126,10 @@ impl Default for Prefs {
     }
 }
 
-const DEFAULTS_INI: &str = include_str!("../../defaults.ini");
+const DEFAULTS_TOML: &str = include_str!("../../defaults.toml");
 
 pub fn default_prefs() -> Prefs {
-    parse_prefs(DEFAULTS_INI)
+    parse_prefs(DEFAULTS_TOML)
 }
 
 pub fn parse_prefs(text: &str) -> Prefs {
@@ -166,129 +166,148 @@ pub fn parse_colour_list(value: &str) -> Vec<u32> {
         .collect()
 }
 
-fn parse_bool(value: &str) -> Option<bool> {
-    match value {
-        "true" | "yes" | "1" => Some(true),
-        "false" | "no" | "0" => Some(false),
-        _ => None,
+fn parse_width(value: &toml::Value) -> Option<u16> {
+    let width = u16::try_from(value.as_integer()?).ok()?;
+    if (8..=220).contains(&width) {
+        Some(width)
+    } else {
+        None
     }
 }
 
-fn parse_width(value: &str) -> Option<u16> {
-    match value.parse::<u16>() {
-        Ok(v) if (8..=220).contains(&v) => Some(v),
-        _ => None,
-    }
+fn as_count(value: &toml::Value) -> Option<u32> {
+    u32::try_from(value.as_integer()?).ok()
 }
 
 pub fn apply_prefs(p: &mut Prefs, text: &str) {
-    let mut section = String::new();
-    for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') || line.starts_with(';') {
-            continue;
-        }
-        if line.starts_with('[') && line.ends_with(']') {
-            section = line[1..line.len() - 1].trim().to_ascii_lowercase();
-            continue;
-        }
-        let eq = match line.find('=') {
-            Some(v) => v,
-            None => continue,
+    let doc = match toml::from_str::<toml::Value>(text) {
+        Ok(toml::Value::Table(doc)) => doc,
+        _ => return,
+    };
+    for (section, entries) in &doc {
+        let entries = match entries {
+            toml::Value::Table(entries) => entries,
+            _ => continue,
         };
-        let raw_key = line[..eq].trim();
-        let key = raw_key.to_ascii_lowercase();
-        let raw = line[eq + 1..].trim();
-        let value = if let Some(inner) = raw.strip_prefix('"') {
-            match inner.find('"') {
-                Some(end) => &inner[..end],
-                None => raw.trim_matches('"'),
-            }
-        } else {
-            raw.split(['#', ';'].as_ref())
-                .next()
-                .unwrap_or("")
-                .trim()
-        };
-        if section == "keys" {
-            let combo = raw_key.to_string();
-            let action = value.to_string();
-            match p
-                .keys
-                .iter_mut()
-                .find(|(c, _)| c.eq_ignore_ascii_case(&combo))
-            {
-                Some(entry) => entry.1 = action,
-                None => p.keys.push((combo, action)),
+        if section.eq_ignore_ascii_case("keys") {
+            for (combo, value) in entries {
+                let action = match value.as_str() {
+                    Some(action) => action.to_string(),
+                    None => continue,
+                };
+                match p
+                    .keys
+                    .iter_mut()
+                    .find(|(c, _)| c.eq_ignore_ascii_case(combo))
+                {
+                    Some(entry) => entry.1 = action,
+                    None => p.keys.push((combo.clone(), action)),
+                }
             }
             continue;
         }
-        match (section.as_str(), key.as_str()) {
-            ("font", "name") => p.font.name = value.to_string(),
-            ("workspace", "count") => {
-                if let Ok(v) = value.parse::<u32>() {
-                    if (1..=32).contains(&v) {
-                        p.workspace.count = v;
+        let section = section.to_ascii_lowercase();
+        for (key, value) in entries {
+            let key = key.to_ascii_lowercase();
+            match (section.as_str(), key.as_str()) {
+                ("font", "name") => {
+                    if let Some(v) = value.as_str() {
+                        p.font.name = v.to_string();
                     }
                 }
-            }
-            ("workspace", "layouts") => p.workspace.layouts = value.to_string(),
-            ("keyboard", "layouts") => p.keyboard.layouts = value.to_string(),
-            ("cpu", "width") => {
-                if let Some(v) = parse_width(value) {
-                    p.cpu.width = v;
+                ("workspace", "count") => {
+                    if let Some(v) = as_count(value) {
+                        if (1..=32).contains(&v) {
+                            p.workspace.count = v;
+                        }
+                    }
                 }
-            }
-            ("mem", "width") => {
-                if let Some(v) = parse_width(value) {
-                    p.mem.width = v;
+                ("workspace", "layouts") => {
+                    if let Some(v) = value.as_str() {
+                        p.workspace.layouts = v.to_string();
+                    }
                 }
-            }
-            ("net", "width") => {
-                if let Some(v) = parse_width(value) {
-                    p.net.width = v;
+                ("keyboard", "layouts") => {
+                    if let Some(v) = value.as_str() {
+                        p.keyboard.layouts = v.to_string();
+                    }
                 }
-            }
-            ("net", "device") => p.net.device = value.to_string(),
-            ("clock", "format") => {
-                if !value.is_empty() {
-                    p.clock.format = value.to_string();
+                ("cpu", "width") => {
+                    if let Some(v) = parse_width(value) {
+                        p.cpu.width = v;
+                    }
                 }
-            }
-            ("graph", "series") => {
-                if !parse_colour_list(value).is_empty() {
-                    p.graph.series = value.to_string();
+                ("mem", "width") => {
+                    if let Some(v) = parse_width(value) {
+                        p.mem.width = v;
+                    }
                 }
-            }
-            ("graph", "heat") => {
-                if parse_colour(value).is_some() {
-                    p.graph.heat = value.to_string();
+                ("net", "width") => {
+                    if let Some(v) = parse_width(value) {
+                        p.net.width = v;
+                    }
                 }
-            }
-            ("pointer", "warp") => {
-                if let Some(v) = parse_bool(value) {
-                    p.pointer.warp = v;
+                ("net", "device") => {
+                    if let Some(v) = value.as_str() {
+                        p.net.device = v.to_string();
+                    }
                 }
-            }
-            ("winlist", "position") => match value {
-                "centre" | "pointer" => p.winlist.position = value.to_string(),
+                ("clock", "format") => {
+                    if let Some(v) = value.as_str() {
+                        if !v.is_empty() {
+                            p.clock.format = v.to_string();
+                        }
+                    }
+                }
+                ("graph", "series") => {
+                    if let Some(v) = value.as_str() {
+                        if !parse_colour_list(v).is_empty() {
+                            p.graph.series = v.to_string();
+                        }
+                    }
+                }
+                ("graph", "heat") => {
+                    if let Some(v) = value.as_str() {
+                        if parse_colour(v).is_some() {
+                            p.graph.heat = v.to_string();
+                        }
+                    }
+                }
+                ("pointer", "warp") => {
+                    if let Some(v) = value.as_bool() {
+                        p.pointer.warp = v;
+                    }
+                }
+                ("winlist", "position") => {
+                    if let Some(v) = value.as_str() {
+                        match v {
+                            "centre" | "pointer" => p.winlist.position = v.to_string(),
+                            _ => {}
+                        }
+                    }
+                }
+                ("tabs", "position") => {
+                    if let Some(v) = value.as_str() {
+                        match v {
+                            "top" | "bottom" => p.tabs.position = v.to_string(),
+                            _ => {}
+                        }
+                    }
+                }
+                ("taskbar", "layout") => {
+                    if let Some(v) = value.as_str() {
+                        if !v.trim().is_empty() {
+                            p.taskbar.layout = v.to_string();
+                        }
+                    }
+                }
+                ("ticker", "enabled") => {
+                    if let Some(v) = value.as_bool() {
+                        p.ticker.enabled = v;
+                    }
+                }
                 _ => {}
-            },
-            ("tabs", "position") => match value {
-                "top" | "bottom" => p.tabs.position = value.to_string(),
-                _ => {}
-            },
-            ("taskbar", "layout") => {
-                if !value.trim().is_empty() {
-                    p.taskbar.layout = value.to_string();
-                }
             }
-            ("ticker", "enabled") => {
-                if let Some(v) = parse_bool(value) {
-                    p.ticker.enabled = v;
-                }
-            }
-            _ => {}
         }
     }
 }

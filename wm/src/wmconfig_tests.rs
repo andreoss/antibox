@@ -31,17 +31,30 @@
     }
 
     #[test]
-    fn test_parse_prefs_unquoted_and_comments() {
-        let p = parse_prefs("# antibox\n[workspace]\ncount = 6 # six of them\n; note\n[font]\nname = fixed\n");
+    fn test_parse_prefs_comments() {
+        let p = parse_prefs("# antibox\n[workspace]\ncount = 6 # six of them\n[font]\nname = \"fixed\"\n");
         assert_eq!(p.workspace.count, 6);
         assert_eq!(p.font.name, "fixed");
     }
 
     #[test]
     fn test_parse_prefs_ignores_unknown_and_invalid() {
-        let p = parse_prefs("[general]\ncount = 9\n[workspace]\ncount = zero\nname = x\n[font]\nsize = 12\n");
+        let p = parse_prefs("[general]\ncount = 9\n[workspace]\ncount = \"zero\"\nname = \"x\"\n[font]\nsize = 12\n");
         assert_eq!(p.workspace.count, 4);
         assert_eq!(p.font, Prefs::default().font);
+    }
+
+    #[test]
+    fn test_parse_prefs_rejects_malformed_toml() {
+        let p = parse_prefs("[workspace\ncount = 6\n");
+        assert_eq!(p.workspace.count, 4);
+        assert_eq!(p.font, Prefs::default().font);
+    }
+
+    #[test]
+    fn test_parse_prefs_semicolon_is_not_a_comment() {
+        let p = parse_prefs("; note\n[workspace]\ncount = 6\n");
+        assert_eq!(p.workspace.count, 4);
     }
 
     #[test]
@@ -58,7 +71,7 @@
     }
 
     #[test]
-    fn test_defaults_ini_matches_builtin_defaults() {
+    fn test_defaults_toml_matches_builtin_defaults() {
         let d = default_prefs();
         assert_eq!(d.font, Prefs::default().font);
         assert_eq!(d.workspace, Prefs::default().workspace);
@@ -79,7 +92,7 @@
     }
 
     #[test]
-    fn test_defaults_ini_keys_all_parse() {
+    fn test_defaults_toml_keys_all_parse() {
         for (combo, action) in default_prefs().keys {
             assert!(
                 crate::keys_parser::parse_key_binding(&combo, &action).is_some(),
@@ -92,9 +105,9 @@
 
     #[test]
     fn test_keys_merge_overrides_and_unbinds() {
-        let mut p = parse_prefs("[keys]\nAlt+F4 = \"Close\"\nSuper+D = \"ShowDesktop\"\n");
+        let mut p = parse_prefs("[keys]\n\"Alt+F4\" = \"Close\"\n\"Super+D\" = \"ShowDesktop\"\n");
         assert_eq!(p.keys.len(), 2);
-        apply_prefs(&mut p, "[keys]\nalt+f4 = \"Kill\"\nSuper+K = \"Kill\"\nSuper+D = \"\"\n");
+        apply_prefs(&mut p, "[keys]\n\"alt+f4\" = \"Kill\"\n\"Super+K\" = \"Kill\"\n\"Super+D\" = \"\"\n");
         assert_eq!(p.keys.len(), 3);
         assert_eq!(p.keys[0], ("Alt+F4".to_string(), "Kill".to_string()));
         assert_eq!(p.keys[1], ("Super+D".to_string(), String::new()));
@@ -147,7 +160,6 @@
     }
 
     #[test]
-    #[test]
     fn test_parse_prefs_taskbar_layout() {
         assert_eq!(parse_prefs("").taskbar.layout, DEFAULT_TASKBAR_LAYOUT);
         let p = parse_prefs("[taskbar]\nlayout = \"clock pager tasks\"\n");
@@ -156,10 +168,11 @@
         assert_eq!(empty.taskbar.layout, DEFAULT_TASKBAR_LAYOUT);
     }
 
+    #[test]
     fn test_parse_prefs_pointer() {
         assert!(!parse_prefs("").pointer.warp);
         assert!(parse_prefs("[pointer]\nwarp = true\n").pointer.warp);
-        assert!(!parse_prefs("[pointer]\nwarp = bogus\n").pointer.warp);
+        assert!(!parse_prefs("[pointer]\nwarp = \"bogus\"\n").pointer.warp);
     }
 
     #[test]
