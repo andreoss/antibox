@@ -49,3 +49,29 @@
         assert_eq!(parse_layout("WINDOWLIST SysTray"), Some(vec![Widget::Windows, Widget::Tray]));
     }
 
+
+    #[test]
+    fn parse_layout_dedupes_aliases_preserving_first_order() {
+        assert_eq!(
+            parse_layout("clock pager clock tasks"),
+            Some(vec![Widget::Clock, Widget::Workspaces, Widget::Windows])
+        );
+        assert_eq!(
+            parse_layout("volume power audio"),
+            Some(vec![Widget::PowerAudio])
+        );
+    }
+
+    #[test]
+    fn set_taskbar_layout_drives_presence_and_omission() {
+        set_taskbar_layout("clock pager");
+        assert!(taskbar_wants(Widget::Clock), "listed widget is present");
+        assert!(taskbar_wants(Widget::Workspaces), "listed widget is present");
+        assert!(!taskbar_wants(Widget::Cpu), "unlisted widget is omitted");
+        assert!(!taskbar_wants(Widget::Windows), "unlisted widget is omitted");
+        assert_eq!(
+            taskbar_layout(),
+            Some(vec![Widget::Clock, Widget::Workspaces])
+        );
+        set_taskbar_layout(crate::wmconfig::DEFAULT_TASKBAR_LAYOUT);
+    }

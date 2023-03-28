@@ -147,6 +147,15 @@
     }
 
     #[test]
+    #[test]
+    fn test_parse_prefs_taskbar_layout() {
+        assert_eq!(parse_prefs("").taskbar.layout, DEFAULT_TASKBAR_LAYOUT);
+        let p = parse_prefs("[taskbar]\nlayout = \"clock pager tasks\"\n");
+        assert_eq!(p.taskbar.layout, "clock pager tasks");
+        let empty = parse_prefs("[taskbar]\nlayout = \"\"\n");
+        assert_eq!(empty.taskbar.layout, DEFAULT_TASKBAR_LAYOUT);
+    }
+
     fn test_parse_prefs_pointer() {
         assert!(!parse_prefs("").pointer.warp);
         assert!(parse_prefs("[pointer]\nwarp = true\n").pointer.warp);

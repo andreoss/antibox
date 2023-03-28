@@ -66,11 +66,26 @@ fn widget_token(name: &str) -> Option<Widget> {
 }
 
 fn parse_layout(spec: &str) -> Option<Vec<Widget>> {
-    let widgets: Vec<Widget> = spec
+    let mut widgets: Vec<Widget> = Vec::new();
+    for w in spec
         .split(&[' ', ',', '\t', '|'][..])
         .filter_map(widget_token)
-        .collect();
-    if !widgets.is_empty() { Some(widgets) } else { None }
+    {
+        if !widgets.contains(&w) {
+            widgets.push(w);
+        }
+    }
+    if !widgets.is_empty() {
+        Some(widgets)
+    } else {
+        None
+    }
+}
+
+pub fn set_taskbar_layout(spec: &str) {
+    if let Ok(mut g) = TASKBAR_LAYOUT.write() {
+        *g = parse_layout(spec);
+    }
 }
 
 pub const DEFAULT_TITLE_LEFT: &str = "sp";
