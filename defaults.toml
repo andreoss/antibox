@@ -1,0 +1,76 @@
+[font]
+name = "-misc-fixed-medium-r-semicondensed--13-*-*-*-*-*-iso10646-1"
+
+[workspace]
+count = 4
+layouts = "floating"
+
+[keyboard]
+layouts = ""
+
+[cpu]
+width = 40
+
+[mem]
+width = 40
+
+[net]
+width = 40
+device = "*"
+
+[clock]
+format = "%H:%M:%S"
+
+[pointer]
+warp = false
+
+[graph]
+series = "000080,000080,7F7FBF,808080"
+heat = "C82020"
+
+[winlist]
+position = "centre"
+
+[tabs]
+position = "top"
+
+[taskbar]
+layout = "pager tasks cpu mem net power keyboard tray clock"
+
+[ticker]
+enabled = true
+
+[keys]
+"Alt+Tab" = "FocusNext"
+"Shift+Alt+Tab" = "FocusPrev"
+"Alt+Escape" = "WindowPickerList"
+"Alt+/" = "Omni"
+"Alt+F4" = "Close"
+"Alt+F5" = "Restore"
+"Alt+F6" = "Move"
+"Alt+F7" = "Move"
+"Alt+F8" = "Resize"
+"Alt+F9" = "Minimize"
+"Alt+F10" = "Maximize"
+"Alt+F11" = "Shade"
+"Alt+F12" = "Hide"
+"Alt+Space" = "WindowActionMenu"
+"Alt+Return" = "Exec xterm"
+"Ctrl+Alt+Tab" = "FocusNext"
+"Ctrl+Alt+Left" = "PrevWorkspace"
+"Ctrl+Alt+Right" = "NextWorkspace"
+"Shift+Ctrl+Alt+Left" = "WorkspacePrevTakeWin"
+"Shift+Ctrl+Alt+Right" = "WorkspaceNextTakeWin"
+"Ctrl+Alt+Up" = "WorkspaceNextTaken"
+"Ctrl+Alt+Down" = "WorkspacePrevTaken"
+"Ctrl+Alt+D" = "ShowDesktop"
+"Ctrl+Alt+P" = "Pager"
+"Super+Left" = "SnapLeft"
+"Super+Right" = "SnapRight"
+"Super+Up" = "SnapUp"
+"Super+Down" = "SnapDown"
+"Super+D" = "ShowDesktop"
+"Ctrl+Alt+1" = "Workspace1"
+"Ctrl+Alt+2" = "Workspace2"
+"Ctrl+Alt+3" = "Workspace3"
+"Ctrl+Alt+4" = "Workspace4"

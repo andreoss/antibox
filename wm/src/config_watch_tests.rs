@@ -17,17 +17,17 @@
 
     #[test]
     fn parses_single_event_name() {
-        let buf = event("config.ini");
-        assert_eq!(event_names(&buf), vec!["config.ini".to_string()]);
+        let buf = event("config.toml");
+        assert_eq!(event_names(&buf), vec!["config.toml".to_string()]);
     }
 
     #[test]
     fn parses_multiple_events() {
         let mut buf = event("other.txt");
-        buf.extend_from_slice(&event("config.ini"));
+        buf.extend_from_slice(&event("config.toml"));
         assert_eq!(
             event_names(&buf),
-            vec!["other.txt".to_string(), "config.ini".to_string()]
+            vec!["other.txt".to_string(), "config.toml".to_string()]
         );
     }
 

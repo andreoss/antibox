@@ -4,7 +4,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 static CHANGED: AtomicBool = AtomicBool::new(false);
 
-pub const CONFIG_FILE: &str = "config.ini";
+pub const CONFIG_FILE: &str = "config.toml";
+pub const LEGACY_CONFIG_FILE: &str = "config.ini";
 
 pub fn take_changed() -> bool {
     CHANGED.swap(false, Ordering::Relaxed)
