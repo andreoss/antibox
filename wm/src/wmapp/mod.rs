@@ -410,6 +410,7 @@ impl App {
         apply_font_prefs(&b, &prefs);
         apply_graph_prefs(&prefs);
         crate::layout_preferences::apply();
+        crate::layout_preferences::set_taskbar_layout(&prefs.taskbar.layout);
         crate::tooltip::set_show_delay_ms(500);
         crate::tooltip::set_lifetime_ms(5000);
         crate::drag::set_multi_click_ms(400);

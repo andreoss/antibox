@@ -15,6 +15,7 @@ pub struct Prefs {
     pub winlist: WinlistPrefs,
     pub tabs: TabsPrefs,
     pub ticker: TickerPrefs,
+    pub taskbar: TaskbarPrefs,
     pub keys: Vec<(String, String)>,
 }
 
@@ -76,6 +77,13 @@ pub struct TickerPrefs {
     pub enabled: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TaskbarPrefs {
+    pub layout: String,
+}
+
+pub const DEFAULT_TASKBAR_LAYOUT: &str = "pager tasks cpu mem net power keyboard tray clock";
+
 impl Default for Prefs {
     fn default() -> Prefs {
         Prefs {
@@ -110,6 +118,9 @@ impl Default for Prefs {
                 position: "top".to_string(),
             },
             ticker: TickerPrefs { enabled: true },
+            taskbar: TaskbarPrefs {
+                layout: DEFAULT_TASKBAR_LAYOUT.to_string(),
+            },
             keys: Vec::new(),
         }
     }
@@ -267,6 +278,11 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                 "top" | "bottom" => p.tabs.position = value.to_string(),
                 _ => {}
             },
+            ("taskbar", "layout") => {
+                if !value.trim().is_empty() {
+                    p.taskbar.layout = value.to_string();
+                }
+            }
             ("ticker", "enabled") => {
                 if let Some(v) = parse_bool(value) {
                     p.ticker.enabled = v;

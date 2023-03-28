@@ -930,21 +930,10 @@ fn effective_slots(
         Some(widgets) => {
             let slots: Vec<PanelSlot> =
                 widgets.iter().map(|w| PanelSlot::from_widget(*w)).collect();
-            let (mut left, mut right) = match slots.iter().position(|s| *s == PanelSlot::Task) {
+            match slots.iter().position(|s| *s == PanelSlot::Task) {
                 Some(p) => (slots[..p].to_vec(), slots[p + 1..].to_vec()),
-                None => (slots.clone(), Vec::new()),
-            };
-            for s in DEFAULT_LEFT.iter().cloned() {
-                if !slots.contains(&s) {
-                    left.push(s);
-                }
+                None => (slots, Vec::new()),
             }
-            for s in DEFAULT_RIGHT.iter().cloned() {
-                if !slots.contains(&s) {
-                    right.push(s);
-                }
-            }
-            (left, right)
         }
     }
 }
