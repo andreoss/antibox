@@ -10,6 +10,7 @@ pub struct MockGraphics {
     bg_pixel: Arc<Mutex<u32>>,
     pub commands: Arc<Mutex<Vec<MockCommand>>>,
     current_font_size: Arc<Mutex<u16>>,
+    text_width_calls: Arc<Mutex<usize>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -42,7 +43,12 @@ impl MockGraphics {
             bg_pixel: Arc::new(Mutex::new(0)),
             commands: Arc::new(Mutex::new(Vec::new())),
             current_font_size: Arc::new(Mutex::new(12)),
+            text_width_calls: Arc::new(Mutex::new(0)),
         }
+    }
+
+    pub fn text_width_calls(&self) -> usize {
+        *self.text_width_calls.lock().unwrap()
     }
 
     pub fn commands(&self) -> Vec<MockCommand> {
@@ -231,6 +237,7 @@ impl GraphicsContext for MockGraphics {
     }
 
     fn text_width(&self, text: &str) -> Result<u32, Box<dyn Error>> {
+        *self.text_width_calls.lock().unwrap() += 1;
         let size = *self.current_font_size.lock().unwrap();
         Ok((text.len() as u32) * size as u32 * 55 / 100)
     }
