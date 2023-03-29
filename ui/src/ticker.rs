@@ -16,15 +16,30 @@ pub enum Surface {
     Title,
 }
 
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct Scrolled {
     pub panel: bool,
     pub title: bool,
+    pub panel_targets: Vec<u64>,
+    pub title_targets: Vec<u64>,
 }
 
 impl Scrolled {
-    pub const fn any(self) -> bool {
+    pub fn any(&self) -> bool {
         self.panel || self.title
+    }
+}
+
+fn push_unique(v: &mut Vec<u64>, target: u64) {
+    if !v.contains(&target) {
+        v.push(target);
+    }
+}
+
+fn note_target(surface: Surface, target: u64) {
+    match surface {
+        Surface::Panel => PANEL_TARGETS.with(|c| push_unique(&mut c.borrow_mut(), target)),
+        Surface::Title => TITLE_TARGETS.with(|c| push_unique(&mut c.borrow_mut(), target)),
     }
 }
 
@@ -48,6 +63,8 @@ pub fn advance() -> Scrolled {
     Scrolled {
         panel: SCROLLED_PANEL.swap(false, Ordering::Relaxed),
         title: SCROLLED_TITLE.swap(false, Ordering::Relaxed),
+        panel_targets: PANEL_TARGETS.with(|c| c.borrow_mut().drain(..).collect()),
+        title_targets: TITLE_TARGETS.with(|c| c.borrow_mut().drain(..).collect()),
     }
 }
 
@@ -58,6 +75,18 @@ pub fn rearm(s: Scrolled) {
     if s.title {
         SCROLLED_TITLE.store(true, Ordering::Relaxed);
     }
+    PANEL_TARGETS.with(|c| {
+        let mut v = c.borrow_mut();
+        for t in s.panel_targets {
+            push_unique(&mut v, t);
+        }
+    });
+    TITLE_TARGETS.with(|c| {
+        let mut v = c.borrow_mut();
+        for t in s.title_targets {
+            push_unique(&mut v, t);
+        }
+    });
 }
 
 pub fn active() -> bool {
@@ -87,6 +116,8 @@ const CACHE_LIMIT: usize = 512;
 
 thread_local! {
     static METRICS: RefCell<HashMap<u64, HashMap<String, Metrics>>> = RefCell::new(HashMap::new());
+    static PANEL_TARGETS: RefCell<Vec<u64>> = RefCell::new(Vec::new());
+    static TITLE_TARGETS: RefCell<Vec<u64>> = RefCell::new(Vec::new());
 }
 
 fn font_stamp(g: &dyn GraphicsContext) -> u64 {
@@ -173,6 +204,16 @@ pub fn fit_on<'a>(
     label: &'a str,
     avail: u16,
 ) -> Fit<'a> {
+    fit_on_at(surface, g, label, avail, u64::from(g.drawable()))
+}
+
+pub fn fit_on_at<'a>(
+    surface: Surface,
+    g: &dyn GraphicsContext,
+    label: &'a str,
+    avail: u16,
+    target: u64,
+) -> Fit<'a> {
     if g.text_width(label).unwrap_or(0) <= avail as u32 {
         return Fit::Plain(Cow::Borrowed(label));
     }
@@ -186,6 +227,7 @@ pub fn fit_on<'a>(
         Surface::Panel => SCROLLED_PANEL.store(true, Ordering::Relaxed),
         Surface::Title => SCROLLED_TITLE.store(true, Ordering::Relaxed),
     }
+    note_target(surface, target);
     let (text, shift) = scroll_at(g, label, phase(), avail);
     Fit::Scroll { text, shift }
 }

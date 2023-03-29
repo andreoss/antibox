@@ -597,10 +597,16 @@ impl App {
             antibox_ui::ticker::rearm(fired);
         } else {
             if fired.panel {
-                work.repaint_taskbar = true;
+                if fired.panel_targets.is_empty() {
+                    work.repaint_taskbar = true;
+                } else {
+                    for t in &fired.panel_targets {
+                        work.repaint_applets.push(*t as u32);
+                    }
+                }
             }
             if fired.title {
-                crate::handler::redraw_all_frames(&self.wm);
+                crate::handler::redraw_scrolled_frames(&self.wm, &fired.title_targets);
             }
         }
 

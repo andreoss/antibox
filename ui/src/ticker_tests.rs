@@ -146,3 +146,39 @@ fn test_scroll_output_matches_uncached_measurement() {
         assert_eq!(cached, expected);
     }
 }
+
+#[test]
+fn test_targets_are_recorded_per_surface() {
+    let g = MockGraphics::new(7);
+    let _ = g.set_font(&FontSpec::ui(10));
+    set_enabled(true);
+    let _ = advance();
+    let _ = fit_on_at(Surface::Panel, &g, "a very long overflowing label", 20, 11);
+    let _ = fit_on_at(Surface::Panel, &g, "a very long overflowing label", 20, 11);
+    let _ = fit_on_at(Surface::Title, &g, "another long overflowing label", 20, 22);
+    let s = advance();
+    assert!(s.panel && s.title);
+    assert_eq!(s.panel_targets, vec![11]);
+    assert_eq!(s.title_targets, vec![22]);
+    let s = advance();
+    assert!(!s.any());
+    assert!(s.panel_targets.is_empty());
+    assert!(s.title_targets.is_empty());
+    set_enabled(true);
+}
+
+#[test]
+fn test_rearm_restores_targets() {
+    let g = MockGraphics::new(7);
+    let _ = g.set_font(&FontSpec::ui(10));
+    set_enabled(true);
+    let _ = advance();
+    let _ = fit_on_at(Surface::Title, &g, "a very long overflowing label", 20, 33);
+    let fired = advance();
+    assert_eq!(fired.title_targets, vec![33]);
+    rearm(fired);
+    let again = advance();
+    assert_eq!(again.title_targets, vec![33]);
+    assert!(advance().title_targets.is_empty());
+    set_enabled(true);
+}
