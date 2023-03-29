@@ -71,7 +71,7 @@ impl TaskPane {
         b.progress = progress;
         b.align = crate::layout_preferences::taskbar_align();
         b.on_bar = true;
-        antibox_ui::widget::panel_button(g, &b);
+        antibox_ui::widget::panel_button(g, &b, self.window.id());
     }
 
     pub(super) fn repaint(&self) {

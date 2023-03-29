@@ -10,7 +10,6 @@ use crate::placement::{
     add_to_transient_chain, remove_from_transient_chain, restack_windows,
     update_workarea_from_struts,
 };
-use crate::render;
 use crate::wmstate::WinLayer;
 use antibox_core::backend::{BackendEvent, DisplayBackend, EventMask, MapState};
 use antibox_core::rect::Rect;
@@ -654,6 +653,33 @@ pub fn unmap<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, w:
         }
     }
     destroy(wm, w);
+}
+
+pub fn redraw_scrolled_frames<H: DisplayBackend + 'static + ?Sized>(
+    wm: &WindowManager<H>,
+    ids: &[u64],
+) {
+    if ids.is_empty() {
+        redraw_all_frames(wm);
+        return;
+    }
+    let b = match wm.backend() {
+        Some(b) => b,
+        None => return,
+    };
+    for raw in ids {
+        let id = ClientId(*raw);
+        if let Some(fw) = wm.frames.get(&id) {
+            let focused = wm.focused_window == Some(id);
+            crate::drag::paint_frame_decorations(
+                fw,
+                b,
+                focused,
+                &wm.theme_colours,
+                wm.config.gradients,
+            );
+        }
+    }
 }
 
 pub fn redraw_all_frames<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManager<H>) {

@@ -120,7 +120,7 @@ impl<'a> PanelButton<'a> {
     }
 }
 
-pub fn panel_button(g: &dyn GraphicsContext, b: &PanelButton<'_>) {
+pub fn panel_button(g: &dyn GraphicsContext, b: &PanelButton<'_>, target: u32) {
     let (x, y, w, h) = b.rect.as_px();
     let PanelButton {
         face,
@@ -173,7 +173,13 @@ pub fn panel_button(g: &dyn GraphicsContext, b: &PanelButton<'_>) {
         }
     };
     let avail = (x + w as i16 - tx - inset).max(0) as u16;
-    match crate::ticker::fit(g, label, avail) {
+    match crate::ticker::fit_on_at(
+        crate::ticker::Surface::Panel,
+        g,
+        label,
+        avail,
+        u64::from(target),
+    ) {
         crate::ticker::Fit::Plain(text) => {
             let tw = g.text_width(&text).unwrap_or(0) as i16;
             let slack = (avail as i16 - tw).max(0);

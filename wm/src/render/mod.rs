@@ -388,11 +388,12 @@ fn draw_title_text(
     let baseline = bar_top + bar_baseline;
 
     let text_avail = avail;
-    let (title, shift) = match antibox_ui::ticker::fit_on(
+    let (title, shift) = match antibox_ui::ticker::fit_on_at(
         antibox_ui::ticker::Surface::Title,
         g,
         fw.client().title(),
         text_avail,
+        fw.client().id.raw(),
     ) {
         antibox_ui::ticker::Fit::Plain(text) => (text.into_owned(), None),
         antibox_ui::ticker::Fit::Scroll { text, shift } => (text, Some(shift)),
