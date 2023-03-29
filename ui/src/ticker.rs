@@ -1,5 +1,7 @@
 use antibox_gfx::backend::GraphicsContext;
 use std::borrow::Cow;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static ENABLED: AtomicBool = AtomicBool::new(true);
@@ -75,29 +77,54 @@ pub enum Fit<'a> {
     Scroll { text: String, shift: u16 },
 }
 
-fn scroll_at(g: &dyn GraphicsContext, label: &str, phase: usize, avail: u16) -> (String, u16) {
-    let cycle: Vec<char> = label.chars().chain(GAP.chars()).collect();
-    let widths: Vec<u32> = {
-        let mut buf = String::new();
-        let mut prev = 0u32;
-        cycle
-            .iter()
-            .map(|&c| {
-                buf.push(c);
-                let cum = g.text_width(&buf).unwrap_or(0);
-                let w = cum.saturating_sub(prev);
-                prev = cum;
-                w
-            })
-            .collect()
-    };
-    let total: usize = widths.iter().map(|&w| w as usize).sum();
-    if total == 0 {
+struct Metrics {
+    chars: Vec<char>,
+    widths: Vec<u32>,
+    total: u32,
+}
+
+const CACHE_LIMIT: usize = 512;
+
+thread_local! {
+    static METRICS: RefCell<HashMap<u64, HashMap<String, Metrics>>> = RefCell::new(HashMap::new());
+}
+
+fn font_stamp(g: &dyn GraphicsContext) -> u64 {
+    let (ascent, descent, height) = g.font_metrics();
+    let dpi = antibox_gfx::scale::dpi().max(0) as u64;
+    (u64::from(ascent) << 48)
+        | (u64::from(descent) << 32)
+        | (u64::from(height) << 16)
+        | (dpi & 0xffff)
+}
+
+fn measure(g: &dyn GraphicsContext, label: &str) -> Metrics {
+    let mut chars = Vec::with_capacity(label.len() + GAP.len());
+    chars.extend(label.chars());
+    chars.extend(GAP.chars());
+    let mut buf = String::with_capacity(chars.len());
+    let mut prev = 0u32;
+    let mut widths = Vec::with_capacity(chars.len());
+    for &c in &chars {
+        buf.push(c);
+        let cum = g.text_width(&buf).unwrap_or(0);
+        widths.push(cum.saturating_sub(prev));
+        prev = cum;
+    }
+    Metrics {
+        chars,
+        widths,
+        total: prev,
+    }
+}
+
+fn window_at(m: &Metrics, phase: usize, avail: u16) -> (String, u16) {
+    if m.total == 0 {
         return (String::new(), 0);
     }
-    let mut rem = phase % total;
+    let mut rem = phase % m.total as usize;
     let mut first = 0usize;
-    for (i, &w) in widths.iter().enumerate() {
+    for (i, &w) in m.widths.iter().enumerate() {
         if rem < w as usize {
             first = i;
             break;
@@ -106,15 +133,34 @@ fn scroll_at(g: &dyn GraphicsContext, label: &str, phase: usize, avail: u16) -> 
     }
     let shift = rem as u16;
     let want = avail as usize + shift as usize;
-    let mut out = String::new();
+    let n = m.chars.len();
+    let mut out = String::with_capacity(n + 1);
     let mut covered = 0usize;
     let mut i = first;
     while covered < want {
-        out.push(cycle[i]);
-        covered += widths[i] as usize;
-        i = (i + 1) % cycle.len();
+        out.push(m.chars[i]);
+        covered += m.widths[i] as usize;
+        i += 1;
+        if i == n {
+            i = 0;
+        }
     }
     (out, shift)
+}
+
+fn scroll_at(g: &dyn GraphicsContext, label: &str, phase: usize, avail: u16) -> (String, u16) {
+    let stamp = font_stamp(g);
+    METRICS.with(|cell| {
+        let mut cache = cell.borrow_mut();
+        if cache.values().map(HashMap::len).sum::<usize>() > CACHE_LIMIT {
+            cache.clear();
+        }
+        let by_label = cache.entry(stamp).or_insert_with(HashMap::new);
+        if !by_label.contains_key(label) {
+            by_label.insert(label.to_string(), measure(g, label));
+        }
+        window_at(&by_label[label], phase, avail)
+    })
 }
 
 pub fn fit<'a>(g: &dyn GraphicsContext, label: &'a str, avail: u16) -> Fit<'a> {
