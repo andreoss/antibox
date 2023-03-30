@@ -126,6 +126,8 @@ impl Default for Prefs {
     }
 }
 
+pub const WINOPTIONS_FILE: &str = "winoptions";
+
 const DEFAULTS_TOML: &str = include_str!("../../defaults.toml");
 
 pub fn default_prefs() -> Prefs {
@@ -316,7 +318,14 @@ pub struct Config;
 
 impl Config {
     pub fn load_winoptions() -> WindowOptions {
-        WindowOptions::default()
+        let mut opts = WindowOptions::new();
+        for d in Self::search_dirs() {
+            if let Ok(s) = std::fs::read_to_string(d.join(WINOPTIONS_FILE)) {
+                apply_winoptions(&mut opts, &s);
+                break;
+            }
+        }
+        opts
     }
 
     pub fn search_dirs() -> Vec<PathBuf> {
@@ -347,6 +356,31 @@ impl Config {
             }
         }
         p
+    }
+}
+
+pub fn apply_winoptions(opts: &mut WindowOptions, text: &str) {
+    for line in text.lines() {
+        let line = match line.find('#') {
+            Some(i) => &line[..i],
+            None => line,
+        }
+        .trim();
+        if line.is_empty() {
+            continue;
+        }
+        let (lhs, value) = match line.find(':') {
+            Some(i) => (line[..i].trim(), line[i + 1..].trim()),
+            None => continue,
+        };
+        let (class_instance, opt) = match lhs.rfind('.') {
+            Some(i) => (lhs[..i].trim(), lhs[i + 1..].trim()),
+            None => continue,
+        };
+        if class_instance.is_empty() || opt.is_empty() {
+            continue;
+        }
+        opts.set_win_option(class_instance, opt, value);
     }
 }
 

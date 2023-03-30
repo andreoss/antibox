@@ -1,4 +1,40 @@
     use super::*;
+    use crate::option::WindowFlags;
+
+    #[test]
+    fn test_apply_winoptions_parses_lines() {
+        let mut o = WindowOptions::new();
+        apply_winoptions(
+            &mut o,
+            "# a comment\n\nfirefox.Firefox.workspace: 2\nxterm.XTerm.geometry: 100x200+10+20\n",
+        );
+        assert_eq!(o.len(), 2);
+        let (found, i) = o.find("firefox.Firefox");
+        assert!(found);
+        assert_eq!(o.get(i).unwrap().placement.workspace, Some(2));
+        let (found, i) = o.find("xterm.XTerm");
+        assert!(found);
+        let g = &o.get(i).unwrap().geom;
+        assert_eq!((g.gx, g.gy, g.gw, g.gh), (10, 20, 100, 200));
+    }
+
+    #[test]
+    fn test_apply_winoptions_flags_and_masks() {
+        let mut o = WindowOptions::new();
+        apply_winoptions(&mut o, "xterm.XTerm.startMaximized: 1\nxterm.XTerm.ignoreTaskBar: 0\n");
+        assert_eq!(o.len(), 1);
+        let (_, i) = o.find("xterm.XTerm");
+        let wo = o.get(i).unwrap();
+        assert!(wo.has_option(WindowFlags::MAXIMIZED_BOTH));
+        assert!(!wo.has_option(WindowFlags::IGNORE_TASKBAR));
+    }
+
+    #[test]
+    fn test_apply_winoptions_ignores_malformed() {
+        let mut o = WindowOptions::new();
+        apply_winoptions(&mut o, "nocolon\nnokey: 1\n: 2\n\n   \n");
+        assert!(o.is_empty());
+    }
 
     #[test]
     fn test_parse_workspace_names_icewm_comma_quoted() {
