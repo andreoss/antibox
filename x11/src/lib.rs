@@ -1,5 +1,6 @@
 #![allow(clippy::incompatible_msrv)]
 pub mod signal;
+pub mod tray_backend;
 
 pub mod xcb;
 
