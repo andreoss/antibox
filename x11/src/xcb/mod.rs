@@ -15,6 +15,7 @@ pub use self::event_loop::XcbEventLoop;
 pub use self::graphics::XcbGraphics;
 pub use self::window::XcbWindow;
 
+use crate::tray_backend::XcbTray;
 use antibox_core::backend::{DisplayBackend, EventLoopTrait, RenderBackend, TrayBackend};
 use std::sync::Arc;
 
@@ -33,8 +34,8 @@ pub fn build_backend(
     arcs::register(&conn);
     super::xcb::font::register_global_width_provider(&conn);
     let render: Arc<dyn RenderBackend> = conn.clone();
+    let tray: Arc<dyn TrayBackend> = Arc::new(XcbTray::new(conn.clone()));
     let backend: Arc<dyn DisplayBackend> = conn;
     let event_loop: Box<dyn EventLoopTrait> = Box::new(XcbEventLoop::new(Arc::clone(&backend)));
-    let tray: Option<Arc<dyn TrayBackend>> = None;
-    Ok((backend, render, event_loop, tray))
+    Ok((backend, render, event_loop, Some(tray)))
 }
