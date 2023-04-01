@@ -134,6 +134,7 @@ impl App {
         antibox_ui::ticker::set_enabled(prefs.ticker.enabled);
         crate::frame::set_tabs_on_bottom(prefs.tabs.position == "bottom");
         crate::layout_preferences::set_taskbar_layout(&prefs.taskbar.layout);
+        self.sync_taskbar_layout(&prefs);
 
         let (count, names) = wmconfig::workspaces_from(&prefs);
         let count_changed = count != self.wm.config.workspace_count;

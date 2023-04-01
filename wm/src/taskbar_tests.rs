@@ -18,5 +18,37 @@
     }
 
     mod taskbar_menu_tests {
-        
+
     }
+
+    use crate::layout_preferences::Widget;
+
+    #[test]
+    fn qa_probe_clock_moved_left_of_tasks() {
+        let (l, r) = effective_slots(Some(vec![
+            Widget::Clock,
+            Widget::Workspaces,
+            Widget::Windows,
+        ]));
+        assert!(l.contains(&PanelSlot::Clock), "left={:?} right={:?}", l, r);
+        assert!(!r.contains(&PanelSlot::Clock));
+    }
+
+    #[test]
+    fn qa_probe_clock_after_tasks_is_right() {
+        let (_l, r) = effective_slots(Some(vec![
+            Widget::Workspaces,
+            Widget::Windows,
+            Widget::Clock,
+        ]));
+        assert_eq!(r, vec![PanelSlot::Clock]);
+    }
+
+    #[test]
+    fn qa_probe_layout_without_tasks_all_left() {
+        let (l, r) = effective_slots(Some(vec![Widget::Workspaces, Widget::Clock]));
+        assert_eq!(l, vec![PanelSlot::Workspaces, PanelSlot::Clock]);
+        assert!(r.is_empty());
+    }
+
+

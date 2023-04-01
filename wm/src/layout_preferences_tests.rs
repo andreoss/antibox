@@ -63,6 +63,14 @@
     }
 
     #[test]
+    fn qa_probe_aliases_resolve_to_the_same_widget() {
+        assert_eq!(parse_layout("time"), parse_layout("clock"));
+        assert_eq!(parse_layout("time"), Some(vec![Widget::Clock]));
+        assert_eq!(parse_layout("windowlist"), parse_layout("tasks"));
+        assert_eq!(parse_layout("systray"), parse_layout("tray"));
+    }
+
+    #[test]
     fn set_taskbar_layout_drives_presence_and_omission() {
         set_taskbar_layout("clock pager");
         assert!(taskbar_wants(Widget::Clock), "listed widget is present");

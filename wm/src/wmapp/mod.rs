@@ -256,6 +256,10 @@ pub struct App {
     pub(crate) consecutive_panics: u32,
     #[cfg_attr(not(feature = "tray"), allow(dead_code))]
     pub(crate) tray_opcode_atom: u32,
+    #[cfg_attr(not(feature = "tray"), allow(dead_code))]
+    pub(crate) tray: Option<Arc<dyn TrayBackend>>,
+    #[cfg_attr(not(feature = "tray"), allow(dead_code))]
+    pub(crate) tray_composite: bool,
 
     pub(crate) super_tap_armed: bool,
     pub(crate) wm_sn_atom: u32,
@@ -529,6 +533,8 @@ impl App {
             running: true,
             consecutive_panics: 0,
             tray_opcode_atom,
+            tray: tray.cloned(),
+            tray_composite: composite_available,
             super_tap_armed: false,
             wm_sn_atom,
             wm_sn_owner,
@@ -698,6 +704,97 @@ impl App {
                 }
             }
         }
+    }
+
+    fn make_applet(
+        w: crate::layout_preferences::Widget,
+        conn: &Arc<dyn DisplayBackend>,
+        wid: u32,
+        atom_manager: &AtomManager,
+        tray: Option<&Arc<dyn TrayBackend>>,
+        composite_available: bool,
+        prefs: &wmconfig::Prefs,
+        wm: &WindowManager<dyn DisplayBackend>,
+    ) -> Option<Box<dyn Applet>> {
+        use crate::layout_preferences::Widget;
+        match w {
+            Widget::Workspaces => {
+                WorkspacesPane::new(conn, wid, &wm.workspace_names, wm.theme_colours)
+                    .ok()
+                    .map(|p| Box::new(p) as Box<dyn Applet>)
+            }
+            Widget::Windows => TaskPane::new(conn, wid, wm.theme_colours)
+                .ok()
+                .map(|p| Box::new(p) as Box<dyn Applet>),
+            #[cfg(feature = "tray")]
+            Widget::Tray => TrayApplet::new(conn, wid, atom_manager, tray.cloned(), composite_available)
+                .ok()
+                .map(|mut t| {
+                    t.set_colours();
+                    Box::new(t) as Box<dyn Applet>
+                }),
+            #[cfg(not(feature = "tray"))]
+            Widget::Tray => None,
+            Widget::Clock => {
+                let themed = antibox_ui::theme::clock_format();
+                let fmt = if themed.is_empty() {
+                    prefs.clock.format.clone()
+                } else {
+                    themed.to_string()
+                };
+                ClockApplet::new(conn, wid, Some(fmt)).ok().map(|mut c| {
+                    c.set_colours(&wm.theme_colours);
+                    Box::new(c) as Box<dyn Applet>
+                })
+            }
+            Widget::Cpu => crate::cpu_status_applet::CpuStatusApplet::new(conn, wid, prefs.cpu.width)
+                .ok()
+                .map(|c| Box::new(c) as Box<dyn Applet>),
+            Widget::Mem => crate::mem_status_applet::MemStatusApplet::new(conn, wid, prefs.mem.width)
+                .ok()
+                .map(|m| Box::new(m) as Box<dyn Applet>),
+            Widget::Net => {
+                crate::net_status_applet::set_net_device(&prefs.net.device);
+                crate::net_status_applet::NetStatusApplet::new(conn, wid, prefs.net.width)
+                    .ok()
+                    .map(|n| Box::new(n) as Box<dyn Applet>)
+            }
+            Widget::PowerAudio => crate::power_audio_applet::PowerAudioApplet::new(conn, wid)
+                .ok()
+                .map(|p| Box::new(p) as Box<dyn Applet>),
+            Widget::Keyboard => crate::keyboard_applet::KeyboardApplet::new(
+                conn,
+                wid,
+                wmconfig::split_layout_list(&prefs.keyboard.layouts),
+                &wm.theme_colours,
+            )
+            .ok()
+            .map(|k| Box::new(k) as Box<dyn Applet>),
+        }
+    }
+
+    fn sync_taskbar_layout(&mut self, prefs: &wmconfig::Prefs) {
+        let mut tb = match self.taskbar.take() {
+            Some(tb) => tb,
+            None => return,
+        };
+        let wid = tb.window.id();
+        let conn = Arc::clone(&self.backend);
+        {
+            let App {
+                atom_manager,
+                wm,
+                tray,
+                tray_composite,
+                ..
+            } = &*self;
+            let composite = *tray_composite;
+            let mut make = |w: crate::layout_preferences::Widget| {
+                Self::make_applet(w, &conn, wid, atom_manager, tray.as_ref(), composite, prefs, wm)
+            };
+            tb.sync_applets(&mut make);
+        }
+        self.taskbar = Some(tb);
     }
 
     fn create_taskbar(
