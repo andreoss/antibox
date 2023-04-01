@@ -938,6 +938,28 @@ fn effective_slots(
     }
 }
 
+impl TaskBar {
+    pub fn sync_applets<F>(&mut self, mut make: F)
+    where
+        F: FnMut(crate::layout_preferences::Widget) -> Option<Box<dyn Applet>>,
+    {
+        for w in crate::layout_preferences::Widget::ALL.iter().cloned() {
+            let slot = PanelSlot::from_widget(w);
+            let at = self.applets.iter().position(|a| slot.matches(a.as_ref()));
+            let wanted = crate::layout_preferences::taskbar_wants(w);
+            match (at, wanted) {
+                (Some(i), false) => self.remove_applet(i),
+                (None, true) => {
+                    if let Some(a) = make(w) {
+                        self.add_applet(a);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
 impl AppletContainer for TaskBar {
     fn relayout(&mut self) {
         let bar_w = self.width as i16;
