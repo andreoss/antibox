@@ -229,6 +229,61 @@ impl XcbConnection {
     }
 }
 
+impl XcbConnection {
+    fn extension_probe(&self, name: &str) -> bool {
+        DisplayBackend::query_extension(self, name).unwrap_or(false)
+    }
+
+    pub(crate) fn composite_probe(&self) -> bool {
+        if !self.extension_probe("Composite") {
+            return false;
+        }
+        let cookie = unsafe { xcb_composite_query_version(self.conn, 0, 4) };
+        let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        let r = unsafe { xcb_composite_query_version_reply(self.conn, cookie, &mut e) };
+        if r.is_null() {
+            return false;
+        }
+        unsafe { libc::free(r as *mut libc::c_void) };
+        true
+    }
+
+    pub(crate) fn damage_probe(&self) -> bool {
+        if !self.extension_probe("DAMAGE") {
+            return false;
+        }
+        let cookie = unsafe { xcb_damage_query_version(self.conn, 1, 1) };
+        let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        let r = unsafe { xcb_damage_query_version_reply(self.conn, cookie, &mut e) };
+        if r.is_null() {
+            return false;
+        }
+        unsafe { libc::free(r as *mut libc::c_void) };
+        true
+    }
+
+    pub(crate) fn composite_redirect_window(&self, w: u32) {
+        unsafe { xcb_composite_redirect_window(self.conn, w, 0) };
+    }
+
+    pub(crate) fn composite_unredirect_window(&self, w: u32) {
+        unsafe { xcb_composite_unredirect_window(self.conn, w, 0) };
+    }
+
+    pub(crate) fn damage_create(&self, drawable: u32) -> Option<u32> {
+        let id = unsafe { xcb_generate_id(self.conn) };
+        if id == 0 {
+            return None;
+        }
+        unsafe { xcb_damage_create(self.conn, id, drawable, 2) };
+        Some(id)
+    }
+
+    pub(crate) fn damage_destroy(&self, id: u32) {
+        unsafe { xcb_damage_destroy(self.conn, id) };
+    }
+}
+
 impl Drop for XcbConnection {
     fn drop(&mut self) {
         unsafe { xcb_disconnect(self.conn) };
@@ -571,6 +626,10 @@ impl DisplayBackend for XcbConnection {
         let present = unsafe { (*r).present != 0 };
         unsafe { libc::free(r as *mut libc::c_void) };
         Ok(present)
+    }
+
+    fn composite_supported(&self) -> bool {
+        self.composite_probe()
     }
 
     fn get_keyboard_mapping(&self, first_keycode: u8, count: u8) -> Result<KeyboardMapping, Box<dyn std::error::Error>> {

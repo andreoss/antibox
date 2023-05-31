@@ -1411,3 +1411,72 @@ extern "C" {
         glyphcmds: *const u8,
     ) -> c_uint;
 }
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct xcb_composite_query_version_reply_t {
+    pub response_type: u8,
+    pub pad0: u8,
+    pub sequence: u16,
+    pub length: u32,
+    pub major_version: u32,
+    pub minor_version: u32,
+    pub pad1: [u8; 16],
+}
+
+#[link(name = "xcb-composite")]
+extern "C" {
+    pub fn xcb_composite_query_version(
+        c: *mut xcb_connection_t,
+        client_major_version: u32,
+        client_minor_version: u32,
+    ) -> c_uint;
+    pub fn xcb_composite_query_version_reply(
+        c: *mut xcb_connection_t,
+        cookie: c_uint,
+        e: *mut *mut xcb_generic_event_t,
+    ) -> *mut xcb_composite_query_version_reply_t;
+    pub fn xcb_composite_redirect_window(
+        c: *mut xcb_connection_t,
+        window: xcb_window_t,
+        update: u8,
+    ) -> c_uint;
+    pub fn xcb_composite_unredirect_window(
+        c: *mut xcb_connection_t,
+        window: xcb_window_t,
+        update: u8,
+    ) -> c_uint;
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct xcb_damage_query_version_reply_t {
+    pub response_type: u8,
+    pub pad0: u8,
+    pub sequence: u16,
+    pub length: u32,
+    pub major_version: u32,
+    pub minor_version: u32,
+    pub pad1: [u8; 16],
+}
+
+#[link(name = "xcb-damage")]
+extern "C" {
+    pub fn xcb_damage_query_version(
+        c: *mut xcb_connection_t,
+        client_major_version: u32,
+        client_minor_version: u32,
+    ) -> c_uint;
+    pub fn xcb_damage_query_version_reply(
+        c: *mut xcb_connection_t,
+        cookie: c_uint,
+        e: *mut *mut xcb_generic_event_t,
+    ) -> *mut xcb_damage_query_version_reply_t;
+    pub fn xcb_damage_create(
+        c: *mut xcb_connection_t,
+        damage: u32,
+        drawable: xcb_drawable_t,
+        level: u8,
+    ) -> c_uint;
+    pub fn xcb_damage_destroy(c: *mut xcb_connection_t, damage: u32) -> c_uint;
+}
