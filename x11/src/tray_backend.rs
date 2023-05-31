@@ -8,11 +8,19 @@ const NO_EVENT_MASK: u32 = 0;
 
 pub struct XcbTray {
     conn: Arc<XcbConnection>,
+    composite: bool,
+    damage: bool,
 }
 
 impl XcbTray {
     pub fn new(conn: Arc<XcbConnection>) -> XcbTray {
-        XcbTray { conn }
+        let composite = conn.composite_probe();
+        let damage = conn.damage_probe();
+        XcbTray {
+            conn,
+            composite,
+            damage,
+        }
     }
 }
 
@@ -28,15 +36,31 @@ fn word(data: &[u8], index: usize) -> Option<u32> {
 }
 
 impl TrayBackend for XcbTray {
-    fn composite_redirect(&self, _client: u32) {}
-
-    fn composite_unredirect(&self, _client: u32) {}
-
-    fn create_damage(&self, _client: u32) -> Option<u32> {
-        None
+    fn composite_redirect(&self, client: u32) {
+        if self.composite {
+            self.conn.composite_redirect_window(client);
+        }
     }
 
-    fn destroy_damage(&self, _damage: u32) {}
+    fn composite_unredirect(&self, client: u32) {
+        if self.composite {
+            self.conn.composite_unredirect_window(client);
+        }
+    }
+
+    fn create_damage(&self, client: u32) -> Option<u32> {
+        if self.damage {
+            self.conn.damage_create(client)
+        } else {
+            None
+        }
+    }
+
+    fn destroy_damage(&self, damage: u32) {
+        if self.damage {
+            self.conn.damage_destroy(damage);
+        }
+    }
 
     fn get_xembed_info(&self, client: u32, xembed_info_atom: u32) -> Option<(u32, bool)> {
         if xembed_info_atom == 0 {
@@ -89,5 +113,16 @@ impl TrayBackend for XcbTray {
 
     fn flush(&self) {
         let _ = DisplayBackend::flush(&*self.conn);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tray_backend_is_send_and_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<XcbTray>();
     }
 }
