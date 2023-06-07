@@ -17,6 +17,7 @@ pub use self::window::XcbWindow;
 
 use crate::tray_backend::XcbTray;
 use antibox_core::backend::{DisplayBackend, EventLoopTrait, RenderBackend, TrayBackend};
+use antibox_core::error::Result;
 use std::sync::Arc;
 
 pub fn build_backend(
@@ -27,8 +28,7 @@ pub fn build_backend(
         Arc<dyn RenderBackend>,
         Box<dyn EventLoopTrait>,
         Option<Arc<dyn TrayBackend>>,
-    ),
-    Box<dyn std::error::Error>,
+    )
 > {
     let conn = XcbConnection::open_arc(display)?;
     arcs::register(&conn);

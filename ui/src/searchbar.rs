@@ -1,3 +1,4 @@
+ use antibox_gfx::error::Result;
 use crate::inputline::{base_keysym, InputLine};
 use antibox_gfx::backend::*;
 use antibox_gfx::keysyms::{KEY_Escape, KEY_KP_Enter, KEY_Return};
@@ -30,7 +31,7 @@ impl SearchBar {
         y: i16,
         w: u16,
         h: u16,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self> {
         let mask = EventMask::EXPOSURE | EventMask::BUTTON_PRESS;
         let window = conn.create_window(
             parent,

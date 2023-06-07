@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 use crate::applet::Applet;
 use antibox_core::backend::*;
 use antibox_core::point::Point;
@@ -143,7 +144,7 @@ impl KeyboardApplet {
         parent: u32,
         layouts: Vec<String>,
         colours: &crate::render::ThemeColors,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self> {
         let (layouts, xkb_groups) = if layouts.is_empty() {
             (xkb_layouts(conn), true)
         } else {

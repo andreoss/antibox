@@ -1,6 +1,7 @@
 #![deny(unsafe_code)]
 pub mod backend;
 pub mod colour;
+pub mod error;
 pub mod keysyms;
 pub mod mock;
 pub mod point;

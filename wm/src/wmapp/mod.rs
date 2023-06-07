@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 use crate::applet::Applet;
 use crate::applet::AppletContainer;
 use crate::clock_applet::ClockApplet;
@@ -295,7 +296,7 @@ fn claim_wm_selection(
     b: &dyn DisplayBackend,
     wm_sn: u32,
     old_owner: u32,
-) -> Result<Box<dyn WindowHandle>, Box<dyn std::error::Error>> {
+) -> Result<Box<dyn WindowHandle>> {
     let win = b.create_window(
         b.root().as_parent(),
         antibox_core::rect::Rect::new(-1, -1, 1, 1),
@@ -383,7 +384,7 @@ impl App {
         event_loop: Box<dyn EventLoopTrait>,
         tray: Option<&Arc<dyn TrayBackend>>,
         options: LaunchOptions<'_>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self> {
         let LaunchOptions { display } = options;
         let b = backend;
         let mut event_loop = event_loop;
@@ -541,7 +542,7 @@ impl App {
         })
     }
 
-    pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn run(&mut self) -> Result<()> {
         crate::panic_guard::install_hook();
         crate::panic_guard::report_previous();
         let mut tickers = AppletTickers::new();
@@ -559,7 +560,7 @@ impl App {
         &mut self,
         tickers: &mut AppletTickers,
         timing: &mut LoopTiming,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<()> {
         const MAX_IDLE: Duration = Duration::from_secs(1);
 
         let mut work = LoopWork::default();

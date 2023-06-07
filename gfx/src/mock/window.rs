@@ -1,5 +1,6 @@
 use crate::backend::{EventMask, StackMode, WindowHandle};
 use crate::point::Point;
+use crate::error::Result;
 use std::error::Error;
 use std::fmt;
 use std::sync::{Arc, Mutex};
@@ -83,19 +84,19 @@ impl WindowHandle for MockWindow {
         self.id
     }
 
-    fn map(&self) -> Result<(), Box<dyn Error>> {
+    fn map(&self) -> Result<()> {
         *self.mapped.lock().unwrap() = true;
         self.log(Lifecycle::Map);
         Ok(())
     }
 
-    fn unmap(&self) -> Result<(), Box<dyn Error>> {
+    fn unmap(&self) -> Result<()> {
         *self.mapped.lock().unwrap() = false;
         self.log(Lifecycle::Unmap);
         Ok(())
     }
 
-    fn destroy(&self) -> Result<(), Box<dyn Error>> {
+    fn destroy(&self) -> Result<()> {
         self.log(Lifecycle::Destroy);
         Ok(())
     }
@@ -106,7 +107,7 @@ impl WindowHandle for MockWindow {
         y: Option<i32>,
         w: Option<u16>,
         h: Option<u16>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         let mut geo = self.geometry.lock().unwrap();
         geo.0 = x.unwrap_or(geo.0 as i32) as i16;
         geo.1 = y.unwrap_or(geo.1 as i32) as i16;
@@ -119,27 +120,27 @@ impl WindowHandle for MockWindow {
         Ok(())
     }
 
-    fn raise(&self) -> Result<(), Box<dyn Error>> {
+    fn raise(&self) -> Result<()> {
         Ok(())
     }
 
-    fn lower(&self) -> Result<(), Box<dyn Error>> {
+    fn lower(&self) -> Result<()> {
         Ok(())
     }
 
-    fn reparent(&self, _parent: u32, _point: Point) -> Result<(), Box<dyn Error>> {
+    fn reparent(&self, _parent: u32, _point: Point) -> Result<()> {
         Ok(())
     }
 
-    fn set_title(&self, _title: &str) -> Result<(), Box<dyn Error>> {
+    fn set_title(&self, _title: &str) -> Result<()> {
         Ok(())
     }
 
-    fn set_class(&self, _instance: &str, _class: &str) -> Result<(), Box<dyn Error>> {
+    fn set_class(&self, _instance: &str, _class: &str) -> Result<()> {
         Ok(())
     }
 
-    fn select_input(&self, _event_mask: EventMask) -> Result<(), Box<dyn Error>> {
+    fn select_input(&self, _event_mask: EventMask) -> Result<()> {
         Ok(())
     }
 
@@ -148,34 +149,34 @@ impl WindowHandle for MockWindow {
         atom: u32,
         _offset: u32,
         _length: u32,
-    ) -> Result<Option<Vec<u8>>, Box<dyn Error>> {
+    ) -> Result<Option<Vec<u8>>> {
         Ok(self.props.lock().unwrap().get(&atom).cloned())
     }
 
-    fn get_geometry(&self) -> Result<(u16, u16), Box<dyn Error>> {
+    fn get_geometry(&self) -> Result<(u16, u16)> {
         let geo = self.geometry.lock().unwrap();
         Ok((geo.2, geo.3))
     }
 
-    fn move_window(&self, point: Point) -> Result<(), Box<dyn Error>> {
+    fn move_window(&self, point: Point) -> Result<()> {
         let mut geo = self.geometry.lock().unwrap();
         geo.0 = point.x as i16;
         geo.1 = point.y as i16;
         Ok(())
     }
 
-    fn resize(&self, w: u16, h: u16) -> Result<(), Box<dyn Error>> {
+    fn resize(&self, w: u16, h: u16) -> Result<()> {
         let mut geo = self.geometry.lock().unwrap();
         geo.2 = w;
         geo.3 = h;
         Ok(())
     }
 
-    fn restack(&self, _sibling: Option<u32>, _mode: StackMode) -> Result<(), Box<dyn Error>> {
+    fn restack(&self, _sibling: Option<u32>, _mode: StackMode) -> Result<()> {
         Ok(())
     }
 
-    fn translate_coords(&self, point: Point) -> Result<Point, Box<dyn Error>> {
+    fn translate_coords(&self, point: Point) -> Result<Point> {
         Ok(Point::new(point.x, point.y))
     }
 }

@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 use std::sync::Arc;
 
 use antibox_core::backend::{DisplayBackend, EventLoopTrait, RenderBackend, TrayBackend};
@@ -12,9 +13,9 @@ pub type Backend = (
 pub fn run_cli<F>(
     _prog_name: &'static str,
     build_backend: F,
-) -> Result<(), Box<dyn std::error::Error>>
+) -> Result<()>
 where
-    F: FnOnce(Option<&str>) -> Result<Backend, Box<dyn std::error::Error>>,
+    F: FnOnce(Option<&str>) -> Result<Backend>,
 {
     parse_config();
     let (backend, render, event_loop, tray) = build_backend(None)?;

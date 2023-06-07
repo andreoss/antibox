@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 use crate::action::*;
 use antibox_core::backend::{DisplayBackend, GrabMode, KeyboardMapping};
 use std::sync::Arc;
@@ -49,7 +50,7 @@ impl KeyBindings {
         &mut self,
         backend: &Arc<H>,
         entries: &[crate::keys_parser::KeyEntry],
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<()> {
         let min_kc = backend.setup_min_keycode();
         let max_kc = backend.setup_max_keycode();
         let count = max_kc - min_kc + 1;
@@ -108,7 +109,7 @@ impl KeyBindings {
     pub fn regrab_all<H: DisplayBackend + 'static + ?Sized>(
         &self,
         backend: &Arc<H>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<()> {
         let root = backend.root().read_id();
         for b in &self.bindings {
             for &locks in &b.lock_combs {

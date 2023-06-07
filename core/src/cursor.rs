@@ -1,3 +1,4 @@
+ use antibox_gfx::error::Result;
 use crate::backend::DisplayBackend;
 use std::path::Path;
 
@@ -96,7 +97,7 @@ impl XpmCursor {
         let file = File::open(path);
         if let Ok(file) = file {
             let reader = BufReader::new(file);
-            for line in reader.lines().filter_map(Result::ok) {
+            for line in reader.lines().filter_map(std::result::Result::ok) {
                 let line = line.trim();
                 if line.starts_with("/*")
                     || line.starts_with("//")
@@ -263,7 +264,7 @@ impl Cursor {
         XpmCursor::load(Path::new(path))
     }
 
-    pub fn load(&self, backend: &dyn DisplayBackend) -> Result<u32, Box<dyn std::error::Error>> {
+    pub fn load(&self, backend: &dyn DisplayBackend) -> Result<u32> {
         if self.path().is_some() {
             if let Ok(c) = self.load_xpm_to_cursor(backend) {
                 return Ok(c);
@@ -286,7 +287,7 @@ impl Cursor {
     fn load_xpm_to_cursor(
         &self,
         backend: &dyn DisplayBackend,
-    ) -> Result<u32, Box<dyn std::error::Error>> {
+    ) -> Result<u32> {
         let xpm = self.load_xpm().ok_or("Cursor: failed to load XPM")?;
         backend.create_cursor_from_rgba(
             &xpm.pixels,

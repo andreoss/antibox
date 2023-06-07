@@ -1,6 +1,6 @@
 use crate::backend::{FontSpec, GraphicsContext, PixmapData};
 use crate::rect::Rect;
-use std::error::Error;
+use crate::error::Result;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Default)]
@@ -167,7 +167,7 @@ pub fn assert_colour_at(commands: &[MockCommand], x: i16, y: i16, colour: crate:
 }
 
 impl GraphicsContext for MockGraphics {
-    fn set_foreground(&self, pixel: u32) -> Result<(), Box<dyn Error>> {
+    fn set_foreground(&self, pixel: u32) -> Result<()> {
         *self.fg_pixel.lock().unwrap() = pixel;
         self.commands
             .lock()
@@ -176,7 +176,7 @@ impl GraphicsContext for MockGraphics {
         Ok(())
     }
 
-    fn set_background(&self, pixel: u32) -> Result<(), Box<dyn Error>> {
+    fn set_background(&self, pixel: u32) -> Result<()> {
         *self.bg_pixel.lock().unwrap() = pixel;
         self.commands
             .lock()
@@ -185,7 +185,7 @@ impl GraphicsContext for MockGraphics {
         Ok(())
     }
 
-    fn fill_rect(&self, x: i16, y: i16, w: u16, h: u16) -> Result<(), Box<dyn Error>> {
+    fn fill_rect(&self, x: i16, y: i16, w: u16, h: u16) -> Result<()> {
         self.commands
             .lock()
             .unwrap()
@@ -193,7 +193,7 @@ impl GraphicsContext for MockGraphics {
         Ok(())
     }
 
-    fn draw_rect(&self, x: i16, y: i16, w: u16, h: u16) -> Result<(), Box<dyn Error>> {
+    fn draw_rect(&self, x: i16, y: i16, w: u16, h: u16) -> Result<()> {
         self.commands
             .lock()
             .unwrap()
@@ -201,7 +201,7 @@ impl GraphicsContext for MockGraphics {
         Ok(())
     }
 
-    fn draw_text(&self, x: i16, y: i16, text: &str) -> Result<(), Box<dyn Error>> {
+    fn draw_text(&self, x: i16, y: i16, text: &str) -> Result<()> {
         self.commands
             .lock()
             .unwrap()
@@ -209,7 +209,7 @@ impl GraphicsContext for MockGraphics {
         Ok(())
     }
 
-    fn draw_line(&self, x1: i16, y1: i16, x2: i16, y2: i16) -> Result<(), Box<dyn Error>> {
+    fn draw_line(&self, x1: i16, y1: i16, x2: i16, y2: i16) -> Result<()> {
         self.commands
             .lock()
             .unwrap()
@@ -217,7 +217,7 @@ impl GraphicsContext for MockGraphics {
         Ok(())
     }
 
-    fn clear_rect(&self, rect: &Rect) -> Result<(), Box<dyn Error>> {
+    fn clear_rect(&self, rect: &Rect) -> Result<()> {
         self.commands.lock().unwrap().push(MockCommand::ClearRect(
             rect.x as i16,
             rect.y as i16,
@@ -227,7 +227,7 @@ impl GraphicsContext for MockGraphics {
         Ok(())
     }
 
-    fn set_font(&self, font: &FontSpec) -> Result<(), Box<dyn Error>> {
+    fn set_font(&self, font: &FontSpec) -> Result<()> {
         *self.current_font_size.lock().unwrap() = font.size;
         self.commands
             .lock()
@@ -236,7 +236,7 @@ impl GraphicsContext for MockGraphics {
         Ok(())
     }
 
-    fn text_width(&self, text: &str) -> Result<u32, Box<dyn Error>> {
+    fn text_width(&self, text: &str) -> Result<u32> {
         *self.text_width_calls.lock().unwrap() += 1;
         let size = *self.current_font_size.lock().unwrap();
         Ok((text.len() as u32) * size as u32 * 55 / 100)
@@ -253,7 +253,7 @@ impl GraphicsContext for MockGraphics {
         self.drawable
     }
 
-    fn draw_string(&self, x: i16, y: i16, text: &str) -> Result<(), Box<dyn Error>> {
+    fn draw_string(&self, x: i16, y: i16, text: &str) -> Result<()> {
         self.commands
             .lock()
             .unwrap()
@@ -261,7 +261,7 @@ impl GraphicsContext for MockGraphics {
         Ok(())
     }
 
-    fn fill_polygon(&self, points: &[(i16, i16)]) -> Result<(), Box<dyn Error>> {
+    fn fill_polygon(&self, points: &[(i16, i16)]) -> Result<()> {
         self.commands
             .lock()
             .unwrap()
@@ -276,7 +276,7 @@ impl GraphicsContext for MockGraphics {
         w: u16,
         h: u16,
         data: &[u8],
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         self.commands
             .lock()
             .unwrap()
@@ -292,7 +292,7 @@ impl GraphicsContext for MockGraphics {
         h: u16,
         dx: i16,
         dy: i16,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         self.commands
             .lock()
             .unwrap()
@@ -307,7 +307,7 @@ impl GraphicsContext for MockGraphics {
         w: u16,
         h: u16,
         sunken: bool,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         self.commands
             .lock()
             .unwrap()
@@ -315,7 +315,7 @@ impl GraphicsContext for MockGraphics {
         Ok(())
     }
 
-    fn draw_pixmap(&self, x: i16, y: i16, _data: &PixmapData) -> Result<(), Box<dyn Error>> {
+    fn draw_pixmap(&self, x: i16, y: i16, _data: &PixmapData) -> Result<()> {
         self.commands
             .lock()
             .unwrap()
@@ -323,7 +323,7 @@ impl GraphicsContext for MockGraphics {
         Ok(())
     }
 
-    fn draw_point(&self, x: i16, y: i16) -> Result<(), Box<dyn Error>> {
+    fn draw_point(&self, x: i16, y: i16) -> Result<()> {
         self.commands
             .lock()
             .unwrap()
@@ -339,7 +339,7 @@ impl GraphicsContext for MockGraphics {
         h: u16,
         angle1: i16,
         angle2: i16,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         self.commands
             .lock()
             .unwrap()
@@ -355,7 +355,7 @@ impl GraphicsContext for MockGraphics {
         h: u16,
         angle1: i16,
         angle2: i16,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         self.commands
             .lock()
             .unwrap()
@@ -369,7 +369,7 @@ impl GraphicsContext for MockGraphics {
         src_size: crate::point::Dimension,
         dest: crate::point::Point,
         src: crate::point::Point,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         let (src_w, src_h) = src_size.as_px();
         let (dest_x, dest_y) = (dest.x as i16, dest.y as i16);
         let (src_x, src_y) = (src.x as i16, src.y as i16);

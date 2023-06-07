@@ -1,3 +1,4 @@
+ use antibox_gfx::error::Result;
 use crate::backend::DisplayBackend;
 
 #[derive(Debug, Default)]
@@ -18,7 +19,7 @@ impl AtomManager {
         &mut self,
         conn: &C,
         name: &str,
-    ) -> Result<u32, Box<dyn std::error::Error>> {
+    ) -> Result<u32> {
         if let Some(&atom) = self.atoms.get(name) {
             return Ok(atom);
         }
@@ -42,7 +43,7 @@ impl AtomManager {
     pub fn intern_all<C: DisplayBackend + ?Sized>(
         &mut self,
         conn: &C,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<()> {
         for name in ALL_ATOM_NAMES {
             self.intern(conn, name)?;
         }

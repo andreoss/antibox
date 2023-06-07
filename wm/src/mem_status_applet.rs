@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 use crate::status_graph::impl_status_applet;
 use antibox_core::backend::*;
 use antibox_core::rect::Rect;
@@ -40,7 +41,7 @@ impl MemStatusApplet {
         conn: &Arc<dyn DisplayBackend>,
         parent: u32,
         width: u16,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self> {
         let w = antibox_core::scale::scaled(width as i32) as u16;
         let h = antibox_core::scale::scaled(20) as u16;
         let window = conn.create_window(

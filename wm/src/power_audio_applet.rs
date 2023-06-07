@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 use crate::applet::Applet;
 use crate::audio::{detect, AudioSystem};
 use crate::audio_view::AudioView;
@@ -24,7 +25,7 @@ impl PowerAudioApplet {
     pub fn new(
         conn: &Arc<dyn DisplayBackend>,
         parent: u32,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self> {
         let h = crate::status_graph::pref_h() as u16;
         let battery = BatteryView::new(true);
         let audio_system = detect();

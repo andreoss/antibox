@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 use crate::action::*;
 use crate::applet::{Applet, AppletContainer};
 use crate::clock_applet::ClockApplet;
@@ -209,7 +210,7 @@ impl TaskBar {
         conn: &Arc<dyn DisplayBackend>,
         position: TaskBarPosition,
         strut_atom: u32,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self> {
         let screen_w = conn.screen_width();
         let screen_h = conn.screen_height();
         let bar_height = Self::bar_height();
@@ -258,7 +259,7 @@ impl TaskBar {
         Self::bar_height_for(crate::layout_preferences::taskbar_double_height())
     }
 
-    pub fn show(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn show(&self) -> Result<()> {
         self.window.map()
     }
 
@@ -300,7 +301,7 @@ impl TaskBar {
         }
     }
 
-    pub fn paint(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn paint(&self) -> Result<()> {
         let mut cache = self.gfx_cache.borrow_mut();
         let tb_id = self.window.id();
         cache.retain(|&id, _| id == tb_id || self.applets.iter().any(|a| a.window().id() == id));
@@ -391,7 +392,7 @@ impl TaskBar {
         }
     }
 
-    pub fn paint_window(&self, window: u32) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn paint_window(&self, window: u32) -> Result<()> {
         let mut cache = self.gfx_cache.borrow_mut();
         if window == self.window.id() {
             self.paint_background(&mut cache);

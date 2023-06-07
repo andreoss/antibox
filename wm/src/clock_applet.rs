@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 use antibox_core::libc;
 use crate::applet::Applet;
 use antibox_core::backend::*;
@@ -23,7 +24,7 @@ impl ClockApplet {
         conn: &Arc<dyn DisplayBackend>,
         parent: u32,
         format: Option<String>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self> {
         let w = antibox_ui::metrics::text_w(DEFAULT_FORMAT.chars().count())
             + antibox_ui::metrics::pad() * 4;
         let h = antibox_ui::metrics::panel_height();

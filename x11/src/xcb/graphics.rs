@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 
 use super::bindings::*;
 use super::connection::XcbConnection;
@@ -83,7 +84,7 @@ impl XcbGraphics {
         x: i16,
         y: i16,
         text: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<()> {
         f.ensure_uploaded(&self.conn, text);
         let gs = f.glyphset();
         let dst_fmt = self.conn.render_format_for(self.depth);
@@ -156,33 +157,33 @@ impl Drop for XcbGraphics {
 }
 
 impl GraphicsContext for XcbGraphics {
-    fn set_foreground(&self, pixel: Colour) -> Result<(), Box<dyn std::error::Error>> {
+    fn set_foreground(&self, pixel: Colour) -> Result<()> {
         self.fg.store(pixel, std::sync::atomic::Ordering::Relaxed);
         let v = [pixel];
         self.change_gc(XCB_GC_FOREGROUND, &v);
         Ok(())
     }
 
-    fn set_background(&self, pixel: Colour) -> Result<(), Box<dyn std::error::Error>> {
+    fn set_background(&self, pixel: Colour) -> Result<()> {
         self.bg.store(pixel, std::sync::atomic::Ordering::Relaxed);
         let v = [pixel];
         self.change_gc(XCB_GC_BACKGROUND, &v);
         Ok(())
     }
 
-    fn fill_rect(&self, x: i16, y: i16, w: u16, h: u16) -> Result<(), Box<dyn std::error::Error>> {
+    fn fill_rect(&self, x: i16, y: i16, w: u16, h: u16) -> Result<()> {
         let r = xcb_rectangle_t { x, y, width: w, height: h };
         unsafe { xcb_poly_fill_rectangle(self.conn.raw(), self.drawable, self.gc, 1, &r) };
         Ok(())
     }
 
-    fn draw_rect(&self, x: i16, y: i16, w: u16, h: u16) -> Result<(), Box<dyn std::error::Error>> {
+    fn draw_rect(&self, x: i16, y: i16, w: u16, h: u16) -> Result<()> {
         let r = xcb_rectangle_t { x, y, width: w, height: h };
         unsafe { xcb_poly_rectangle(self.conn.raw(), self.drawable, self.gc, 1, &r) };
         Ok(())
     }
 
-    fn draw_text(&self, x: i16, y: i16, text: &str) -> Result<(), Box<dyn std::error::Error>> {
+    fn draw_text(&self, x: i16, y: i16, text: &str) -> Result<()> {
         if let Some(f) = self.ft_font() {
             let (a, d, _) = f.metrics();
             let w = f.text_width(text) as u16;
@@ -223,24 +224,24 @@ impl GraphicsContext for XcbGraphics {
         Ok(())
     }
 
-    fn draw_text_transparent(&self, x: i16, y: i16, text: &str) -> Result<(), Box<dyn std::error::Error>> {
+    fn draw_text_transparent(&self, x: i16, y: i16, text: &str) -> Result<()> {
         if let Some(f) = self.ft_font() {
             return self.composite_ft(&f, x, y, text);
         }
         self.draw_text(x, y, text)
     }
 
-    fn draw_text_rotated_ccw(&self, x: i16, y: i16, text: &str) -> Result<(), Box<dyn std::error::Error>> {
+    fn draw_text_rotated_ccw(&self, x: i16, y: i16, text: &str) -> Result<()> {
         self.draw_text(x, y, text)
     }
 
-    fn draw_line(&self, x1: i16, y1: i16, x2: i16, y2: i16) -> Result<(), Box<dyn std::error::Error>> {
+    fn draw_line(&self, x1: i16, y1: i16, x2: i16, y2: i16) -> Result<()> {
         let pts = [xcb_point_t { x: x1, y: y1 }, xcb_point_t { x: x2, y: y2 }];
         unsafe { xcb_poly_line(self.conn.raw(), 0, self.drawable, self.gc, 2, pts.as_ptr()) };
         Ok(())
     }
 
-    fn clear_rect(&self, rect: &Rect) -> Result<(), Box<dyn std::error::Error>> {
+    fn clear_rect(&self, rect: &Rect) -> Result<()> {
         let old = self.fg.load(std::sync::atomic::Ordering::Relaxed);
         let _ = self.set_foreground(self.bg.load(std::sync::atomic::Ordering::Relaxed));
         self.fill_rect(rect.x as i16, rect.y as i16, rect.w as u16, rect.h as u16)?;
@@ -248,7 +249,7 @@ impl GraphicsContext for XcbGraphics {
         Ok(())
     }
 
-    fn set_font(&self, font: &FontSpec) -> Result<(), Box<dyn std::error::Error>> {
+    fn set_font(&self, font: &FontSpec) -> Result<()> {
         let px = (font.size as f32 * 96.0 / 72.0).round() as u16;
         let cf = super::font::resolve_font(&self.conn, &font.family, px);
         if let Some(f) = cf {
@@ -261,7 +262,7 @@ impl GraphicsContext for XcbGraphics {
         Ok(())
     }
 
-    fn text_width(&self, text: &str) -> Result<u32, Box<dyn std::error::Error>> {
+    fn text_width(&self, text: &str) -> Result<u32> {
         Ok(self.font.lock().unwrap().as_ref().map_or(0, |f| f.text_width(text)))
     }
 
@@ -273,16 +274,16 @@ impl GraphicsContext for XcbGraphics {
         self.drawable
     }
 
-    fn draw_string(&self, x: i16, y: i16, text: &str) -> Result<(), Box<dyn std::error::Error>> {
+    fn draw_string(&self, x: i16, y: i16, text: &str) -> Result<()> {
         self.draw_text(x, y, text)
     }
 
-    fn draw_3d_rect(&self, x: i16, y: i16, w: u16, h: u16, sunken: bool) -> Result<(), Box<dyn std::error::Error>> {
+    fn draw_3d_rect(&self, x: i16, y: i16, w: u16, h: u16, sunken: bool) -> Result<()> {
         let _ = (x, y, w, h, sunken);
         Ok(())
     }
 
-    fn draw_pixmap(&self, x: i16, y: i16, data: &PixmapData) -> Result<(), Box<dyn std::error::Error>> {
+    fn draw_pixmap(&self, x: i16, y: i16, data: &PixmapData) -> Result<()> {
         let w = data.width as usize;
         let h = data.height as usize;
         if w == 0 || h == 0 || data.data.len() < w * h * 4 {
@@ -316,19 +317,19 @@ impl GraphicsContext for XcbGraphics {
         Ok(())
     }
 
-    fn draw_point(&self, x: i16, y: i16) -> Result<(), Box<dyn std::error::Error>> {
+    fn draw_point(&self, x: i16, y: i16) -> Result<()> {
         let p = xcb_point_t { x, y };
         unsafe { xcb_poly_point(self.conn.raw(), 0, self.drawable, self.gc, 1, &p) };
         Ok(())
     }
 
-    fn fill_polygon(&self, points: &[(i16, i16)]) -> Result<(), Box<dyn std::error::Error>> {
+    fn fill_polygon(&self, points: &[(i16, i16)]) -> Result<()> {
         let pts: Vec<xcb_point_t> = points.iter().map(|&(x, y)| xcb_point_t { x, y }).collect();
         unsafe { xcb_fill_poly(self.conn.raw(), self.drawable, self.gc, 0, 0, pts.len() as u32, pts.as_ptr()) };
         Ok(())
     }
 
-    fn draw_image(&self, x: i16, y: i16, w: u16, h: u16, data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+    fn draw_image(&self, x: i16, y: i16, w: u16, h: u16, data: &[u8]) -> Result<()> {
         unsafe {
             xcb_put_image(
                 self.conn.raw(), XCB_IMAGE_FORMAT_Z_PIXMAP, self.drawable, self.gc,
@@ -338,12 +339,12 @@ impl GraphicsContext for XcbGraphics {
         Ok(())
     }
 
-    fn copy_area(&self, x: i16, y: i16, w: u16, h: u16, dx: i16, dy: i16) -> Result<(), Box<dyn std::error::Error>> {
+    fn copy_area(&self, x: i16, y: i16, w: u16, h: u16, dx: i16, dy: i16) -> Result<()> {
         unsafe { xcb_copy_area(self.conn.raw(), self.drawable, self.drawable, self.gc, x, y, dx, dy, w, h) };
         Ok(())
     }
 
-    fn copy_from(&self, src: u32, src_area: Rect, dst: Point) -> Result<(), Box<dyn std::error::Error>> {
+    fn copy_from(&self, src: u32, src_area: Rect, dst: Point) -> Result<()> {
         unsafe {
             xcb_copy_area(
                 self.conn.raw(), src, self.drawable, self.gc,
@@ -355,19 +356,19 @@ impl GraphicsContext for XcbGraphics {
         Ok(())
     }
 
-    fn composite_pixmap(&self, _src_pixmap: u32, _src_size: antibox_core::point::Dimension, _dest: antibox_core::point::Point, _src: antibox_core::point::Point) -> Result<(), Box<dyn std::error::Error>> {
+    fn composite_pixmap(&self, _src_pixmap: u32, _src_size: antibox_core::point::Dimension, _dest: antibox_core::point::Point, _src: antibox_core::point::Point) -> Result<()> {
         Ok(())
     }
 
-    fn draw_arc(&self, x: i16, y: i16, w: u16, h: u16, angle1: i16, angle2: i16) -> Result<(), Box<dyn std::error::Error>> {
+    fn draw_arc(&self, x: i16, y: i16, w: u16, h: u16, angle1: i16, angle2: i16) -> Result<()> {
         let _ = (x, y, w, h, angle1, angle2);
         Ok(())
     }
-    fn fill_arc(&self, x: i16, y: i16, w: u16, h: u16, angle1: i16, angle2: i16) -> Result<(), Box<dyn std::error::Error>> {
+    fn fill_arc(&self, x: i16, y: i16, w: u16, h: u16, angle1: i16, angle2: i16) -> Result<()> {
         let _ = (x, y, w, h, angle1, angle2);
         Ok(())
     }
-    fn push_clip(&self, rect: &Rect) -> Result<(), Box<dyn std::error::Error>> {
+    fn push_clip(&self, rect: &Rect) -> Result<()> {
         {
             let mut stack = match self.clip.lock() {
                 Ok(s) => s,
@@ -382,7 +383,7 @@ impl GraphicsContext for XcbGraphics {
         self.apply_clip();
         Ok(())
     }
-    fn pop_clip(&self) -> Result<(), Box<dyn std::error::Error>> {
+    fn pop_clip(&self) -> Result<()> {
         {
             let mut stack = match self.clip.lock() {
                 Ok(s) => s,

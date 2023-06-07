@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 
 use antibox_core::libc;
 use super::bindings::*;
@@ -23,15 +24,15 @@ impl WindowHandle for XcbWindow {
         self.id
     }
 
-    fn map(&self) -> Result<(), Box<dyn std::error::Error>> {
+    fn map(&self) -> Result<()> {
         self.conn.map_window(self.id)
     }
 
-    fn unmap(&self) -> Result<(), Box<dyn std::error::Error>> {
+    fn unmap(&self) -> Result<()> {
         self.conn.unmap_window(self.id)
     }
 
-    fn destroy(&self) -> Result<(), Box<dyn std::error::Error>> {
+    fn destroy(&self) -> Result<()> {
         self.conn.destroy_window(self.id)
     }
 
@@ -41,7 +42,7 @@ impl WindowHandle for XcbWindow {
         y: Option<i32>,
         w: Option<u16>,
         h: Option<u16>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<()> {
         let mut vals: Vec<u32> = Vec::with_capacity(4);
         let mut mask = 0u16;
         if let Some(x) = x {
@@ -64,7 +65,7 @@ impl WindowHandle for XcbWindow {
         Ok(())
     }
 
-    fn raise(&self) -> Result<(), Box<dyn std::error::Error>> {
+    fn raise(&self) -> Result<()> {
         let vals = [XCB_STACK_MODE_ABOVE];
         unsafe {
             xcb_configure_window(
@@ -77,7 +78,7 @@ impl WindowHandle for XcbWindow {
         Ok(())
     }
 
-    fn lower(&self) -> Result<(), Box<dyn std::error::Error>> {
+    fn lower(&self) -> Result<()> {
         let vals = [XCB_STACK_MODE_BELOW];
         unsafe {
             xcb_configure_window(
@@ -90,17 +91,17 @@ impl WindowHandle for XcbWindow {
         Ok(())
     }
 
-    fn reparent(&self, parent: u32, point: Point) -> Result<(), Box<dyn std::error::Error>> {
+    fn reparent(&self, parent: u32, point: Point) -> Result<()> {
         self.conn.reparent_window(self.id, parent, point)
     }
 
-    fn set_title(&self, title: &str) -> Result<(), Box<dyn std::error::Error>> {
+    fn set_title(&self, title: &str) -> Result<()> {
         let wm_name = self.conn.intern_atom("_NET_WM_NAME")?;
         let utf8 = self.conn.intern_atom("UTF8_STRING")?;
         self.conn.change_property8(PropMode::Replace, self.id, wm_name, utf8, title.as_bytes())
     }
 
-    fn set_class(&self, instance: &str, class: &str) -> Result<(), Box<dyn std::error::Error>> {
+    fn set_class(&self, instance: &str, class: &str) -> Result<()> {
         let wm_class = self.conn.intern_atom("WM_CLASS")?;
         let string = self.conn.intern_atom("STRING")?;
         let mut data = Vec::with_capacity(instance.len() + class.len() + 1);
@@ -111,7 +112,7 @@ impl WindowHandle for XcbWindow {
         self.conn.change_property8(PropMode::Replace, self.id, wm_class, string, &data)
     }
 
-    fn select_input(&self, event_mask: EventMask) -> Result<(), Box<dyn std::error::Error>> {
+    fn select_input(&self, event_mask: EventMask) -> Result<()> {
         let vals = [event_mask.bits() as u32];
         unsafe {
             xcb_change_window_attributes(self.conn.raw(), self.id, XCB_CW_EVENT_MASK, vals.as_ptr())
@@ -124,11 +125,11 @@ impl WindowHandle for XcbWindow {
         atom: u32,
         offset: u32,
         length: u32,
-    ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error>> {
+    ) -> Result<Option<Vec<u8>>> {
         self.conn.get_property(self.id, atom, 0, offset, length)
     }
 
-    fn get_geometry(&self) -> Result<(u16, u16), Box<dyn std::error::Error>> {
+    fn get_geometry(&self) -> Result<(u16, u16)> {
         let cookie = unsafe { xcb_get_geometry(self.conn.raw(), self.id) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
         let r = unsafe { xcb_get_geometry_reply(self.conn.raw(), cookie, &mut e) };
@@ -141,7 +142,7 @@ impl WindowHandle for XcbWindow {
         Ok((w, h))
     }
 
-    fn get_geometry_rect(&self) -> Result<Rect, Box<dyn std::error::Error>> {
+    fn get_geometry_rect(&self) -> Result<Rect> {
         let cookie = unsafe { xcb_get_geometry(self.conn.raw(), self.id) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
         let r = unsafe { xcb_get_geometry_reply(self.conn.raw(), cookie, &mut e) };
@@ -160,19 +161,19 @@ impl WindowHandle for XcbWindow {
         Ok(rect)
     }
 
-    fn move_window(&self, point: Point) -> Result<(), Box<dyn std::error::Error>> {
+    fn move_window(&self, point: Point) -> Result<()> {
         let vals = [point.x as u32, point.y as u32];
         unsafe { xcb_configure_window(self.conn.raw(), self.id, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, vals.as_ptr()) };
         Ok(())
     }
 
-    fn resize(&self, w: u16, h: u16) -> Result<(), Box<dyn std::error::Error>> {
+    fn resize(&self, w: u16, h: u16) -> Result<()> {
         let vals = [w as u32, h as u32];
         unsafe { xcb_configure_window(self.conn.raw(), self.id, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, vals.as_ptr()) };
         Ok(())
     }
 
-    fn restack(&self, sibling: Option<u32>, mode: StackMode) -> Result<(), Box<dyn std::error::Error>> {
+    fn restack(&self, sibling: Option<u32>, mode: StackMode) -> Result<()> {
         let mode = match mode {
             StackMode::Above => XCB_STACK_MODE_ABOVE,
             StackMode::Below => XCB_STACK_MODE_BELOW,
@@ -192,7 +193,7 @@ impl WindowHandle for XcbWindow {
         Ok(())
     }
 
-    fn translate_coords(&self, point: Point) -> Result<Point, Box<dyn std::error::Error>> {
+    fn translate_coords(&self, point: Point) -> Result<Point> {
         let root = self.conn.root().read_id();
         let cookie = unsafe { xcb_translate_coordinates(self.conn.raw(), self.id, root, point.x as i16, point.y as i16) };
         let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
