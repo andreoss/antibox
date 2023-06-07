@@ -1,6 +1,6 @@
+ use antibox_gfx::error::Result;
 use crate::backend::BackendEvent;
 use crate::backend::TimerCallback;
-use std::error::Error;
 use std::os::unix::io::RawFd;
 use std::sync::Arc;
 use std::time::Duration;
@@ -17,7 +17,7 @@ pub trait EventLoopTrait {
     fn wait_for_one_event(
         &mut self,
         timeout: Duration,
-    ) -> Result<Option<BackendEvent>, Box<dyn Error>>;
+    ) -> Result<Option<BackendEvent>>;
     fn fire_timers(&mut self);
-    fn process_pending(&mut self) -> Result<Vec<BackendEvent>, Box<dyn Error>>;
+    fn process_pending(&mut self) -> Result<Vec<BackendEvent>>;
 }

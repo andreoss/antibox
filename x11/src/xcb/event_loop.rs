@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 
 use antibox_core::libc;
 use antibox_core::backend::{BackendEvent, DisplayBackend, EventLoopTrait, TimerCallback};
@@ -107,7 +108,7 @@ impl EventLoopTrait for XcbEventLoop {
     fn wait_for_one_event(
         &mut self,
         timeout: Duration,
-    ) -> Result<Option<BackendEvent>, Box<dyn std::error::Error>> {
+    ) -> Result<Option<BackendEvent>> {
         let _ = self.backend.flush();
         let fd = self.backend.fd();
         let mut pollfds = vec![libc::pollfd {
@@ -168,7 +169,7 @@ impl EventLoopTrait for XcbEventLoop {
         }
     }
 
-    fn process_pending(&mut self) -> Result<Vec<BackendEvent>, Box<dyn std::error::Error>> {
+    fn process_pending(&mut self) -> Result<Vec<BackendEvent>> {
         let mut out = Vec::new();
         while let Some(e) = self.backend.poll_for_event()? {
             out.push(e);

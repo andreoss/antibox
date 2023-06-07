@@ -1,3 +1,4 @@
+ use antibox_gfx::error::Result;
 use crate::backend::{
     BackendEvent, ButtonGrabSpec, EventHandler, GrabMode, KeyboardMapping, ModifierMapping,
     MonitorInfo, PointerState, QueryTreeResult, RenderBackend, WindowAttributes,
@@ -8,20 +9,20 @@ use std::error::Error;
 use std::os::unix::io::RawFd;
 
 pub trait DisplayBackend: RenderBackend {
-    fn open(name: Option<&str>) -> Result<Self, Box<dyn Error>>
+    fn open(name: Option<&str>) -> Result<Self>
     where
         Self: Sized;
 
     fn fd(&self) -> RawFd;
-    fn flush(&self) -> Result<(), Box<dyn Error>>;
+    fn flush(&self) -> Result<()>;
     fn check_for_error(&self) -> Option<Box<dyn Error>> {
         None
     }
-    fn poll_for_event(&self) -> Result<Option<BackendEvent>, Box<dyn Error>>;
+    fn poll_for_event(&self) -> Result<Option<BackendEvent>>;
     fn last_event_time(&self) -> u32 {
         0
     }
-    fn process_events(&mut self, handler: &mut dyn EventHandler) -> Result<(), Box<dyn Error>> {
+    fn process_events(&mut self, handler: &mut dyn EventHandler) -> Result<()> {
         while let Some(event) = self.poll_for_event()? {
             handler.handle_event(&event);
         }
@@ -61,10 +62,10 @@ pub trait DisplayBackend: RenderBackend {
     fn setup_min_keycode(&self) -> u8;
     fn setup_max_keycode(&self) -> u8;
 
-    fn get_atom_name(&self, atom: u32) -> Result<String, Box<dyn Error>>;
-    fn query_extension(&self, name: &str) -> Result<bool, Box<dyn Error>>;
+    fn get_atom_name(&self, atom: u32) -> Result<String>;
+    fn query_extension(&self, name: &str) -> Result<bool>;
 
-    fn change_save_set(&self, window: u32, insert: bool) -> Result<(), Box<dyn Error>> {
+    fn change_save_set(&self, window: u32, insert: bool) -> Result<()> {
         let _ = (window, insert);
         Ok(())
     }
@@ -73,9 +74,9 @@ pub trait DisplayBackend: RenderBackend {
         &self,
         first_keycode: u8,
         count: u8,
-    ) -> Result<KeyboardMapping, Box<dyn Error>>;
+    ) -> Result<KeyboardMapping>;
 
-    fn get_modifier_mapping(&self) -> Result<ModifierMapping, Box<dyn Error>>;
+    fn get_modifier_mapping(&self) -> Result<ModifierMapping>;
     fn grab_key(
         &self,
         owner_events: bool,
@@ -84,8 +85,8 @@ pub trait DisplayBackend: RenderBackend {
         keycode: u8,
         pointer_mode: GrabMode,
         keyboard_mode: GrabMode,
-    ) -> Result<(), Box<dyn Error>>;
-    fn ungrab_key(&self, keycode: u8, modifiers: u16, window: u32) -> Result<(), Box<dyn Error>>;
+    ) -> Result<()>;
+    fn ungrab_key(&self, keycode: u8, modifiers: u16, window: u32) -> Result<()>;
     fn grab_keyboard(
         &self,
         owner_events: bool,
@@ -93,20 +94,20 @@ pub trait DisplayBackend: RenderBackend {
         time: u32,
         pointer_mode: GrabMode,
         keyboard_mode: GrabMode,
-    ) -> Result<(), Box<dyn Error>>;
-    fn ungrab_keyboard(&self, time: u32) -> Result<(), Box<dyn Error>>;
+    ) -> Result<()>;
+    fn ungrab_keyboard(&self, time: u32) -> Result<()>;
 
-    fn query_pointer(&self, window: u32) -> Result<PointerState, Box<dyn Error>>;
+    fn query_pointer(&self, window: u32) -> Result<PointerState>;
 
-    fn grab_button(&self, grab: ButtonGrabSpec) -> Result<(), Box<dyn Error>> {
+    fn grab_button(&self, grab: ButtonGrabSpec) -> Result<()> {
         let _ = grab;
         Ok(())
     }
-    fn ungrab_button(&self, button: u8, modifiers: u16, window: u32) -> Result<(), Box<dyn Error>> {
+    fn ungrab_button(&self, button: u8, modifiers: u16, window: u32) -> Result<()> {
         let _ = (button, modifiers, window);
         Ok(())
     }
-    fn allow_events(&self, mode: u8, time: u32) -> Result<(), Box<dyn Error>> {
+    fn allow_events(&self, mode: u8, time: u32) -> Result<()> {
         let _ = (mode, time);
         Ok(())
     }
@@ -116,22 +117,22 @@ pub trait DisplayBackend: RenderBackend {
         dst_window: u32,
         src_area: Rect,
         dst: Point,
-    ) -> Result<(), Box<dyn Error>>;
+    ) -> Result<()>;
 
-    fn set_input_focus(&self, revert_to: u8, window: u32, time: u32) -> Result<(), Box<dyn Error>>;
+    fn set_input_focus(&self, revert_to: u8, window: u32, time: u32) -> Result<()>;
 
-    fn map_window(&self, window: u32) -> Result<(), Box<dyn Error>>;
-    fn unmap_window(&self, window: u32) -> Result<(), Box<dyn Error>>;
-    fn destroy_window(&self, window: u32) -> Result<(), Box<dyn Error>>;
-    fn kill_client(&self, resource: u32) -> Result<(), Box<dyn Error>>;
-    fn configure_window(&self, window: u32, value_list: &[u32]) -> Result<(), Box<dyn Error>>;
+    fn map_window(&self, window: u32) -> Result<()>;
+    fn unmap_window(&self, window: u32) -> Result<()>;
+    fn destroy_window(&self, window: u32) -> Result<()>;
+    fn kill_client(&self, resource: u32) -> Result<()>;
+    fn configure_window(&self, window: u32, value_list: &[u32]) -> Result<()>;
 
     fn send_configure_notify(
         &self,
         window: u32,
         rect: Rect,
         border: u32,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         let _ = (window, rect, border);
         Ok(())
     }
@@ -139,39 +140,39 @@ pub trait DisplayBackend: RenderBackend {
         &self,
         window: u32,
         value_list: &[u32],
-    ) -> Result<(), Box<dyn Error>>;
+    ) -> Result<()>;
 
-    fn reparent_window(&self, child: u32, parent: u32, pos: Point) -> Result<(), Box<dyn Error>>;
+    fn reparent_window(&self, child: u32, parent: u32, pos: Point) -> Result<()>;
 
-    fn clear_area(&self, exposures: bool, window: u32, area: Rect) -> Result<(), Box<dyn Error>>;
+    fn clear_area(&self, exposures: bool, window: u32, area: Rect) -> Result<()>;
 
     fn set_selection_owner(
         &self,
         owner: u32,
         selection: u32,
         time: u32,
-    ) -> Result<(), Box<dyn Error>>;
-    fn get_selection_owner(&self, selection: u32) -> Result<u32, Box<dyn Error>>;
+    ) -> Result<()>;
+    fn get_selection_owner(&self, selection: u32) -> Result<u32>;
 
-    fn generate_id(&self) -> Result<u32, Box<dyn Error>>;
+    fn generate_id(&self) -> Result<u32>;
 
-    fn query_tree(&self, window: u32) -> Result<QueryTreeResult, Box<dyn Error>>;
+    fn query_tree(&self, window: u32) -> Result<QueryTreeResult>;
 
-    fn get_window_attributes(&self, window: u32) -> Result<WindowAttributes, Box<dyn Error>>;
+    fn get_window_attributes(&self, window: u32) -> Result<WindowAttributes>;
 
-    fn query_monitors(&self) -> Result<Vec<MonitorInfo>, Box<dyn Error>>;
+    fn query_monitors(&self) -> Result<Vec<MonitorInfo>>;
 
     fn list_core_font_families(&self) -> Vec<String> {
         Vec::new()
     }
 
-    fn restack_windows(&self, windows: &[u32]) -> Result<(), Box<dyn Error>>;
+    fn restack_windows(&self, windows: &[u32]) -> Result<()>;
 
-    fn create_render_picture(&self, _pixmap: u32, _depth: u8) -> Result<u32, Box<dyn Error>> {
+    fn create_render_picture(&self, _pixmap: u32, _depth: u8) -> Result<u32> {
         Err("create_render_picture not implemented".into())
     }
 
-    fn free_render_picture(&self, _picture: u32) -> Result<(), Box<dyn Error>> {
+    fn free_render_picture(&self, _picture: u32) -> Result<()> {
         Ok(())
     }
 
@@ -184,11 +185,11 @@ pub trait DisplayBackend: RenderBackend {
         _window: u32,
         _opacity: f32,
         _opacity_atom: u32,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         Ok(())
     }
 
-    fn grab_root_window(&self) -> Result<(u16, u16, Vec<u8>), Box<dyn Error>> {
+    fn grab_root_window(&self) -> Result<(u16, u16, Vec<u8>)> {
         Err("grab_root_window not implemented".into())
     }
 
@@ -199,23 +200,23 @@ pub trait DisplayBackend: RenderBackend {
         _target: u32,
         _property: u32,
         _time: u32,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         Ok(())
     }
 
-    fn set_win_gravity(&self, _window: u32, _gravity: u32) -> Result<(), Box<dyn Error>> {
+    fn set_win_gravity(&self, _window: u32, _gravity: u32) -> Result<()> {
         Ok(())
     }
 
-    fn define_cursor(&self, _window: u32, _cursor: u32) -> Result<(), Box<dyn Error>> {
+    fn define_cursor(&self, _window: u32, _cursor: u32) -> Result<()> {
         Ok(())
     }
 
-    fn undefine_cursor(&self, _window: u32) -> Result<(), Box<dyn Error>> {
+    fn undefine_cursor(&self, _window: u32) -> Result<()> {
         Ok(())
     }
 
-    fn free_cursor(&self, _cursor: u32) -> Result<(), Box<dyn Error>> {
+    fn free_cursor(&self, _cursor: u32) -> Result<()> {
         Ok(())
     }
 
@@ -226,11 +227,11 @@ pub trait DisplayBackend: RenderBackend {
         _fore: [u16; 3],
         _back: [u16; 3],
         _hotspot: Point,
-    ) -> Result<u32, Box<dyn Error>> {
+    ) -> Result<u32> {
         Err("create_cursor_from_pixmap not implemented".into())
     }
 
-    fn create_font_cursor(&self, _glyph: u32) -> Result<u32, Box<dyn Error>> {
+    fn create_font_cursor(&self, _glyph: u32) -> Result<u32> {
         Err("create_font_cursor not implemented".into())
     }
 
@@ -241,11 +242,11 @@ pub trait DisplayBackend: RenderBackend {
         _hotspot: Point,
         _foreground: [u8; 3],
         _background: [u8; 3],
-    ) -> Result<u32, Box<dyn Error>> {
+    ) -> Result<u32> {
         Err("create_cursor_from_rgba not implemented".into())
     }
 
-    fn create_named_cursor(&self, _name: &str) -> Result<u32, Box<dyn Error>> {
+    fn create_named_cursor(&self, _name: &str) -> Result<u32> {
         Err("create_named_cursor not implemented".into())
     }
 }

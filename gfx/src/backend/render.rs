@@ -4,7 +4,7 @@ use super::types::{
 use crate::point::{Dimension, Point};
 use crate::rect::Rect;
 use std::cell::RefCell;
-use std::error::Error;
+use crate::error::Result;
 use std::sync::Arc;
 
 type TextWidthFn = Arc<dyn Fn(&FontSpec, &str) -> u32 + Send + Sync>;
@@ -25,11 +25,11 @@ pub fn global_text_width(spec: &FontSpec, text: &str) -> Option<u32> {
 pub trait WindowHandle: std::any::Any + Send + Sync {
     fn id(&self) -> u32;
 
-    fn map(&self) -> Result<(), Box<dyn Error>>;
+    fn map(&self) -> Result<()>;
 
-    fn unmap(&self) -> Result<(), Box<dyn Error>>;
+    fn unmap(&self) -> Result<()>;
 
-    fn destroy(&self) -> Result<(), Box<dyn Error>>;
+    fn destroy(&self) -> Result<()>;
 
     fn configure(
         &self,
@@ -37,21 +37,21 @@ pub trait WindowHandle: std::any::Any + Send + Sync {
         y: Option<i32>,
         w: Option<u16>,
         h: Option<u16>,
-    ) -> Result<(), Box<dyn Error>>;
+    ) -> Result<()>;
 
-    fn raise(&self) -> Result<(), Box<dyn Error>>;
+    fn raise(&self) -> Result<()>;
 
-    fn lower(&self) -> Result<(), Box<dyn Error>>;
+    fn lower(&self) -> Result<()>;
 
-    fn reparent(&self, parent: u32, point: Point) -> Result<(), Box<dyn Error>>;
+    fn reparent(&self, parent: u32, point: Point) -> Result<()>;
 
-    fn set_title(&self, title: &str) -> Result<(), Box<dyn Error>>;
+    fn set_title(&self, title: &str) -> Result<()>;
 
-    fn set_class(&self, instance: &str, class: &str) -> Result<(), Box<dyn Error>>;
+    fn set_class(&self, instance: &str, class: &str) -> Result<()>;
 
-    fn select_input(&self, event_mask: EventMask) -> Result<(), Box<dyn Error>>;
+    fn select_input(&self, event_mask: EventMask) -> Result<()>;
 
-    fn select_input_checked(&self, event_mask: EventMask) -> Result<(), Box<dyn Error>> {
+    fn select_input_checked(&self, event_mask: EventMask) -> Result<()> {
         self.select_input(event_mask)
     }
 
@@ -60,24 +60,24 @@ pub trait WindowHandle: std::any::Any + Send + Sync {
         atom: u32,
         offset: u32,
         length: u32,
-    ) -> Result<Option<Vec<u8>>, Box<dyn Error>>;
+    ) -> Result<Option<Vec<u8>>>;
 
-    fn get_geometry(&self) -> Result<(u16, u16), Box<dyn Error>>;
+    fn get_geometry(&self) -> Result<(u16, u16)>;
 
-    fn get_geometry_rect(&self) -> Result<Rect, Box<dyn Error>> {
+    fn get_geometry_rect(&self) -> Result<Rect> {
         let (w, h) = self.get_geometry()?;
         Ok(Rect::new(0, 0, w as i32, h as i32))
     }
 
-    fn move_window(&self, point: Point) -> Result<(), Box<dyn Error>>;
+    fn move_window(&self, point: Point) -> Result<()>;
 
-    fn resize(&self, w: u16, h: u16) -> Result<(), Box<dyn Error>>;
+    fn resize(&self, w: u16, h: u16) -> Result<()>;
 
-    fn restack(&self, sibling: Option<u32>, mode: StackMode) -> Result<(), Box<dyn Error>>;
+    fn restack(&self, sibling: Option<u32>, mode: StackMode) -> Result<()>;
 
-    fn translate_coords(&self, point: Point) -> Result<Point, Box<dyn Error>>;
+    fn translate_coords(&self, point: Point) -> Result<Point>;
 
-    fn select_shape_input(&self) -> Result<(), Box<dyn Error>> {
+    fn select_shape_input(&self) -> Result<()> {
         let _ = self;
         Ok(())
     }
@@ -86,49 +86,49 @@ pub trait WindowHandle: std::any::Any + Send + Sync {
         &self,
         _rects: &[(i16, i16, u16, u16)],
         _op: ShapeOp,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         Ok(())
     }
 
-    fn combine_shape(&self, _src: u32, _op: ShapeOp) -> Result<(), Box<dyn Error>> {
+    fn combine_shape(&self, _src: u32, _op: ShapeOp) -> Result<()> {
         Ok(())
     }
 
-    fn query_shaped(&self) -> Result<bool, Box<dyn Error>> {
+    fn query_shaped(&self) -> Result<bool> {
         Ok(false)
     }
 }
 
 pub trait GraphicsContext: std::any::Any + Send + Sync {
-    fn set_foreground(&self, pixel: crate::colour::Colour) -> Result<(), Box<dyn Error>>;
+    fn set_foreground(&self, pixel: crate::colour::Colour) -> Result<()>;
 
-    fn set_background(&self, pixel: crate::colour::Colour) -> Result<(), Box<dyn Error>>;
+    fn set_background(&self, pixel: crate::colour::Colour) -> Result<()>;
 
-    fn fill_rect(&self, x: i16, y: i16, w: u16, h: u16) -> Result<(), Box<dyn Error>>;
+    fn fill_rect(&self, x: i16, y: i16, w: u16, h: u16) -> Result<()>;
 
-    fn draw_rect(&self, x: i16, y: i16, w: u16, h: u16) -> Result<(), Box<dyn Error>>;
+    fn draw_rect(&self, x: i16, y: i16, w: u16, h: u16) -> Result<()>;
 
-    fn draw_text(&self, x: i16, y: i16, text: &str) -> Result<(), Box<dyn Error>>;
+    fn draw_text(&self, x: i16, y: i16, text: &str) -> Result<()>;
 
-    fn draw_text_transparent(&self, x: i16, y: i16, text: &str) -> Result<(), Box<dyn Error>> {
+    fn draw_text_transparent(&self, x: i16, y: i16, text: &str) -> Result<()> {
         self.draw_text(x, y, text)
     }
 
-    fn draw_text_rotated_ccw(&self, x: i16, y: i16, text: &str) -> Result<(), Box<dyn Error>> {
+    fn draw_text_rotated_ccw(&self, x: i16, y: i16, text: &str) -> Result<()> {
         self.draw_text(x, y, text)
     }
 
-    fn draw_line(&self, x1: i16, y1: i16, x2: i16, y2: i16) -> Result<(), Box<dyn Error>>;
+    fn draw_line(&self, x1: i16, y1: i16, x2: i16, y2: i16) -> Result<()>;
 
-    fn clear_rect(&self, rect: &Rect) -> Result<(), Box<dyn Error>>;
+    fn clear_rect(&self, rect: &Rect) -> Result<()>;
 
-    fn set_font(&self, font: &FontSpec) -> Result<(), Box<dyn Error>>;
+    fn set_font(&self, font: &FontSpec) -> Result<()>;
 
     fn drawable(&self) -> u32;
 
-    fn draw_string(&self, x: i16, y: i16, text: &str) -> Result<(), Box<dyn Error>>;
+    fn draw_string(&self, x: i16, y: i16, text: &str) -> Result<()>;
 
-    fn text_width(&self, _text: &str) -> Result<u32, Box<dyn Error>> {
+    fn text_width(&self, _text: &str) -> Result<u32> {
         Ok(0)
     }
 
@@ -136,7 +136,7 @@ pub trait GraphicsContext: std::any::Any + Send + Sync {
         (0, 0, 0)
     }
 
-    fn fill_polygon(&self, _points: &[(i16, i16)]) -> Result<(), Box<dyn Error>> {
+    fn fill_polygon(&self, _points: &[(i16, i16)]) -> Result<()> {
         let _ = self;
         Ok(())
     }
@@ -148,7 +148,7 @@ pub trait GraphicsContext: std::any::Any + Send + Sync {
         _w: u16,
         _h: u16,
         _data: &[u8],
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         let _ = self;
         Ok(())
     }
@@ -161,12 +161,12 @@ pub trait GraphicsContext: std::any::Any + Send + Sync {
         _h: u16,
         _dx: i16,
         _dy: i16,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         let _ = self;
         Ok(())
     }
 
-    fn copy_from(&self, _src: u32, _src_area: Rect, _dst: Point) -> Result<(), Box<dyn Error>> {
+    fn copy_from(&self, _src: u32, _src_area: Rect, _dst: Point) -> Result<()> {
         let _ = self;
         Ok(())
     }
@@ -178,11 +178,11 @@ pub trait GraphicsContext: std::any::Any + Send + Sync {
         w: u16,
         h: u16,
         sunken: bool,
-    ) -> Result<(), Box<dyn Error>>;
+    ) -> Result<()>;
 
-    fn draw_pixmap(&self, x: i16, y: i16, data: &PixmapData) -> Result<(), Box<dyn Error>>;
+    fn draw_pixmap(&self, x: i16, y: i16, data: &PixmapData) -> Result<()>;
 
-    fn draw_point(&self, x: i16, y: i16) -> Result<(), Box<dyn Error>> {
+    fn draw_point(&self, x: i16, y: i16) -> Result<()> {
         self.fill_rect(x, y, 1, 1)
     }
 
@@ -194,7 +194,7 @@ pub trait GraphicsContext: std::any::Any + Send + Sync {
         h: u16,
         angle1: i16,
         angle2: i16,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         let _ = (x, y, w, h, angle1, angle2);
         Ok(())
     }
@@ -207,17 +207,17 @@ pub trait GraphicsContext: std::any::Any + Send + Sync {
         h: u16,
         angle1: i16,
         angle2: i16,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         let _ = (x, y, w, h, angle1, angle2);
         Ok(())
     }
 
-    fn push_clip(&self, rect: &Rect) -> Result<(), Box<dyn Error>> {
+    fn push_clip(&self, rect: &Rect) -> Result<()> {
         let _ = rect;
         Ok(())
     }
 
-    fn pop_clip(&self) -> Result<(), Box<dyn Error>> {
+    fn pop_clip(&self) -> Result<()> {
         Ok(())
     }
 
@@ -229,7 +229,7 @@ pub trait GraphicsContext: std::any::Any + Send + Sync {
         h: u16,
         top: u32,
         bottom: u32,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         for (off, bh, colour) in gradient_v_bands(h, top, bottom) {
             self.set_foreground(colour)?;
             self.fill_rect(x, y + off as i16, w, bh)?;
@@ -245,7 +245,7 @@ pub trait GraphicsContext: std::any::Any + Send + Sync {
         h: u16,
         left: u32,
         right: u32,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         for (off, bw, colour) in gradient_h_bands(w, left, right) {
             self.set_foreground(colour)?;
             self.fill_rect(x + off as i16, y, bw, h)?;
@@ -259,7 +259,7 @@ pub trait GraphicsContext: std::any::Any + Send + Sync {
         _src_size: Dimension,
         _dest: Point,
         _src: Point,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         Ok(())
     }
 }
@@ -358,7 +358,7 @@ impl PixmapData {
 pub trait RenderBackend: std::any::Any + Send + Sync {
     fn root(&self) -> RootWindow;
 
-    fn select_root_input_checked(&self, _mask: EventMask) -> Result<(), Box<dyn Error>> {
+    fn select_root_input_checked(&self, _mask: EventMask) -> Result<()> {
         Ok(())
     }
 
@@ -375,13 +375,13 @@ pub trait RenderBackend: std::any::Any + Send + Sync {
         class: WmWindowClass,
         override_redirect: bool,
         event_mask: EventMask,
-    ) -> Result<Box<dyn WindowHandle>, Box<dyn Error>>;
+    ) -> Result<Box<dyn WindowHandle>>;
 
-    fn wrap_window(&self, xid: u32) -> Result<Box<dyn WindowHandle>, Box<dyn Error>>;
+    fn wrap_window(&self, xid: u32) -> Result<Box<dyn WindowHandle>>;
 
-    fn create_graphics(&self, drawable: u32) -> Result<Box<dyn GraphicsContext>, Box<dyn Error>>;
+    fn create_graphics(&self, drawable: u32) -> Result<Box<dyn GraphicsContext>>;
 
-    fn intern_atom(&self, name: &str) -> Result<u32, Box<dyn Error>>;
+    fn intern_atom(&self, name: &str) -> Result<u32>;
 
     fn change_property8(
         &self,
@@ -390,7 +390,7 @@ pub trait RenderBackend: std::any::Any + Send + Sync {
         atom: u32,
         type_atom: u32,
         data: &[u8],
-    ) -> Result<(), Box<dyn Error>>;
+    ) -> Result<()>;
 
     fn change_property32(
         &self,
@@ -399,7 +399,7 @@ pub trait RenderBackend: std::any::Any + Send + Sync {
         atom: u32,
         type_atom: u32,
         data: &[u32],
-    ) -> Result<(), Box<dyn Error>>;
+    ) -> Result<()>;
 
     fn get_property(
         &self,
@@ -408,13 +408,13 @@ pub trait RenderBackend: std::any::Any + Send + Sync {
         type_atom: u32,
         offset: u32,
         length: u32,
-    ) -> Result<Option<Vec<u8>>, Box<dyn Error>>;
+    ) -> Result<Option<Vec<u8>>>;
 
-    fn delete_property(&self, window: u32, atom: u32) -> Result<(), Box<dyn Error>>;
+    fn delete_property(&self, window: u32, atom: u32) -> Result<()>;
 
-    fn grab_pointer(&self, grab: PointerGrab) -> Result<(), Box<dyn Error>>;
+    fn grab_pointer(&self, grab: PointerGrab) -> Result<()>;
 
-    fn ungrab_pointer(&self, time: u32) -> Result<(), Box<dyn Error>>;
+    fn ungrab_pointer(&self, time: u32) -> Result<()>;
 
     fn send_event(
         &self,
@@ -423,13 +423,13 @@ pub trait RenderBackend: std::any::Any + Send + Sync {
         event_mask: u32,
         message_type: u32,
         data: &[u32; 5],
-    ) -> Result<(), Box<dyn Error>>;
+    ) -> Result<()>;
 
-    fn create_pixmap(&self, _w: u16, _h: u16, _depth: u8) -> Result<u32, Box<dyn Error>> {
+    fn create_pixmap(&self, _w: u16, _h: u16, _depth: u8) -> Result<u32> {
         Err("create_pixmap not implemented".into())
     }
 
-    fn free_pixmap(&self, _pixmap: u32) -> Result<(), Box<dyn Error>> {
+    fn free_pixmap(&self, _pixmap: u32) -> Result<()> {
         Ok(())
     }
 
@@ -440,7 +440,7 @@ pub trait RenderBackend: std::any::Any + Send + Sync {
         _target: u32,
         _property: u32,
         _time: u32,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         Ok(())
     }
 }

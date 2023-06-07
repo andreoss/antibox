@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 use crate::client::ClientWindow;
 use crate::cursors::idx as cursor_idx;
 use crate::id::{ClientId, FrameId};
@@ -188,7 +189,7 @@ impl FrameWindow {
         client_rect: Rect,
         decorated: bool,
         frame_bg: u32,
-    ) -> Result<(Box<dyn WindowHandle>, Rect), Box<dyn std::error::Error>> {
+    ) -> Result<(Box<dyn WindowHandle>, Rect)> {
         Self::create_frame_inset(backend, client_id, client_rect, decorated, frame_bg, [0; 4])
     }
 
@@ -199,7 +200,7 @@ impl FrameWindow {
         decorated: bool,
         frame_bg: u32,
         inset: [i32; 4],
-    ) -> Result<(Box<dyn WindowHandle>, Rect), Box<dyn std::error::Error>> {
+    ) -> Result<(Box<dyn WindowHandle>, Rect)> {
         let [dl, dt, dr, db] = client_insets_free(decorated);
         let [il, ir, it, ib] = inset;
         let fw = (client_rect.w + dl + dr - il - ir).max(1);

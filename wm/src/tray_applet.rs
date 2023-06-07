@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 use crate::applet::Applet;
 use crate::tooltip::ToolTip;
 use antibox_core::backend::*;
@@ -48,7 +49,7 @@ impl TrayApplet {
         atom_manager: &AtomManager,
         tray: Option<Arc<dyn TrayBackend>>,
         composite_available: bool,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self> {
         let window = conn.create_window(
             parent,
             Rect::new(0, 0, 24, 24),

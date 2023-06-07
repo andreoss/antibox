@@ -1,14 +1,14 @@
 use super::{
     display::MockDisplay,
     graphics::MockGraphics,
-    window::{Lifecycle, MockError, MockWindow},
+    window::{Lifecycle, MockWindow},
 };
 use crate::backend::{
     EventMask, GraphicsContext, PointerGrab, PropMode, RenderBackend, RootWindow, WindowHandle,
     WmWindowClass,
 };
 use crate::rect::Rect;
-use std::error::Error;
+use crate::error::Result;
 
 impl RenderBackend for MockDisplay {
     fn root(&self) -> RootWindow {
@@ -34,7 +34,7 @@ impl RenderBackend for MockDisplay {
         _class: WmWindowClass,
         _override_redirect: bool,
         _event_mask: EventMask,
-    ) -> Result<Box<dyn WindowHandle>, Box<dyn Error>> {
+    ) -> Result<Box<dyn WindowHandle>> {
         let mut next_id = self.next_id.lock().unwrap();
         let id = *next_id;
         *next_id += 1;
@@ -44,9 +44,9 @@ impl RenderBackend for MockDisplay {
         Ok(Box::new(window))
     }
 
-    fn wrap_window(&self, xid: u32) -> Result<Box<dyn WindowHandle>, Box<dyn Error>> {
+    fn wrap_window(&self, xid: u32) -> Result<Box<dyn WindowHandle>> {
         if self.broken.lock().unwrap().contains(&xid) {
-            return Err(Box::new(MockError::from(format!("broken window {}", xid))));
+            return Err(crate::error::Error::message(format!("broken window {}", xid)));
         }
         let mut windows = self.windows.lock().unwrap();
         let entry = windows
@@ -55,11 +55,11 @@ impl RenderBackend for MockDisplay {
         Ok(Box::new(entry.clone()))
     }
 
-    fn create_graphics(&self, drawable: u32) -> Result<Box<dyn GraphicsContext>, Box<dyn Error>> {
+    fn create_graphics(&self, drawable: u32) -> Result<Box<dyn GraphicsContext>> {
         Ok(Box::new(MockGraphics::new(drawable)))
     }
 
-    fn intern_atom(&self, name: &str) -> Result<u32, Box<dyn Error>> {
+    fn intern_atom(&self, name: &str) -> Result<u32> {
         let mut atoms = self.atoms.lock().unwrap();
         if let Some(&id) = atoms.get(name) {
             return Ok(id);
@@ -76,7 +76,7 @@ impl RenderBackend for MockDisplay {
         atom: u32,
         _type_atom: u32,
         data: &[u8],
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         if let Some(w) = self.windows.lock().unwrap().get(&window) {
             w.change_property(atom, data.to_vec());
         }
@@ -90,7 +90,7 @@ impl RenderBackend for MockDisplay {
         atom: u32,
         _type_atom: u32,
         data: &[u32],
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         if let Some(w) = self.windows.lock().unwrap().get(&window) {
             let mut bytes: Vec<u8> = Vec::with_capacity(data.len() * 4);
             for &v in data {
@@ -111,23 +111,23 @@ impl RenderBackend for MockDisplay {
         _type_atom: u32,
         _offset: u32,
         _length: u32,
-    ) -> Result<Option<Vec<u8>>, Box<dyn Error>> {
+    ) -> Result<Option<Vec<u8>>> {
         let windows = self.windows.lock().unwrap();
         Ok(windows.get(&window).and_then(|w| w.get_property_data(atom)))
     }
 
-    fn delete_property(&self, window: u32, atom: u32) -> Result<(), Box<dyn Error>> {
+    fn delete_property(&self, window: u32, atom: u32) -> Result<()> {
         if let Some(w) = self.windows.lock().unwrap().get(&window) {
             w.delete_property(atom);
         }
         Ok(())
     }
 
-    fn grab_pointer(&self, _grab: PointerGrab) -> Result<(), Box<dyn Error>> {
+    fn grab_pointer(&self, _grab: PointerGrab) -> Result<()> {
         Ok(())
     }
 
-    fn ungrab_pointer(&self, _time: u32) -> Result<(), Box<dyn Error>> {
+    fn ungrab_pointer(&self, _time: u32) -> Result<()> {
         Ok(())
     }
 
@@ -138,11 +138,11 @@ impl RenderBackend for MockDisplay {
         _event_mask: u32,
         _message_type: u32,
         _data: &[u32; 5],
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         Ok(())
     }
 
-    fn create_pixmap(&self, w: u16, h: u16, _depth: u8) -> Result<u32, Box<dyn Error>> {
+    fn create_pixmap(&self, w: u16, h: u16, _depth: u8) -> Result<u32> {
         let mut next = self.next_id.lock().unwrap();
         let id = *next;
         *next += 1;
@@ -152,7 +152,7 @@ impl RenderBackend for MockDisplay {
         Ok(id)
     }
 
-    fn free_pixmap(&self, pixmap: u32) -> Result<(), Box<dyn Error>> {
+    fn free_pixmap(&self, pixmap: u32) -> Result<()> {
         self.windows.lock().unwrap().remove(&pixmap);
         Ok(())
     }
@@ -164,7 +164,7 @@ impl RenderBackend for MockDisplay {
         _target: u32,
         _property: u32,
         _time: u32,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         Ok(())
     }
 }

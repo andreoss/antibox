@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 mod menu;
 pub use self::menu::{
     draw_menu_border, draw_menu_frame, draw_menu_row_rule, draw_menu_separator, draw_text_mnemonic,
@@ -115,7 +116,7 @@ pub fn draw_button_bevel(
     h: u16,
     face: antibox_core::colour::Colour,
     sunken: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     if w < 2 || h < 2 {
         return Ok(());
     }
@@ -174,7 +175,7 @@ pub fn draw_frame(
     focused: bool,
     colours: &ThemeColors,
     gradients_enabled: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     if !fw.decorated() {
         return Ok(());
     }
@@ -252,7 +253,7 @@ fn draw_title_bar(
     dims: TitleBarDims,
     colours: &ThemeColors,
     gradients_enabled: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let TitleBarDims { fw_w, bw, .. } = dims;
     let bar_h = title_bar_height() as u16;
     let (bx, by, bar_w, grad_h) = if (crate::frame::title_top_inset() > 0
@@ -348,7 +349,7 @@ fn draw_title_text(
     colours: &ThemeColors,
     text_x: i16,
     text_right: i16,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let colour = if focused {
         colours.active_text
     } else {
@@ -440,7 +441,7 @@ fn draw_frame_left_title(
     g: &dyn GraphicsContext,
     focused: bool,
     colours: &ThemeColors,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let fw_w = fw.frame_rect().w as u16;
     let fw_h = fw.frame_rect().h as u16;
     let bw = fw.effective_border();
@@ -501,7 +502,7 @@ fn draw_frame_bottom_title(
     g: &dyn GraphicsContext,
     focused: bool,
     colours: &ThemeColors,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let fw_w = fw.frame_rect().w as u16;
     let fw_h = fw.frame_rect().h as u16;
     let bw = fw.effective_border();
@@ -567,7 +568,7 @@ fn draw_buttons(
     g: &dyn GraphicsContext,
     focused: bool,
     colours: &ThemeColors,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let pressed = fw.pressed_button();
     let (bg, glyph_fg) = (colours.button_bg, colours.button_fg);
 
@@ -615,7 +616,7 @@ fn draw_button_glyph(
     y: i16,
     w: u16,
     h: u16,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     if antibox_ui::theme::title_glyph_bitmap(g, key, x, y, w, h) {
         return Ok(());
     }
@@ -727,7 +728,7 @@ fn draw_border(
     w: u16,
     h: u16,
     colours: &ThemeColors,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let border = if focused {
         colours.border_active
     } else {

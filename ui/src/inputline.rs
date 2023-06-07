@@ -1,3 +1,4 @@
+ use antibox_gfx::error::Result;
 use crate::editcore::{EditCore, EditOutcome};
 use antibox_gfx::backend::*;
 use antibox_gfx::rect::Rect;
@@ -24,7 +25,7 @@ impl InputLine {
         y: i16,
         w: u16,
         h: u16,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self> {
         let mask = EventMask::EXPOSURE
             | EventMask::KEY_PRESS
             | EventMask::KEY_RELEASE

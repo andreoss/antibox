@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 use antibox_core::backend::{DisplayBackend, PropMode, Strut};
 
 const ATOM_ATOM: u32 = 4;
@@ -124,7 +125,7 @@ pub fn init_ewmh<H: DisplayBackend + 'static + ?Sized>(
     backend: &H,
     atoms: &antibox_core::backend::AtomManager,
     workspace_count: u32,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let root = backend.root().read_id();
     let wm_win = backend
         .create_window(

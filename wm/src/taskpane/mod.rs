@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 mod data;
 mod drag;
 mod render;
@@ -30,7 +31,7 @@ impl TaskPane {
         conn: &Arc<dyn DisplayBackend>,
         parent: u32,
         colours: ThemeColors,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self> {
         let window = conn.create_window(
             parent,
             Rect::new(0, 0, 200, 28),

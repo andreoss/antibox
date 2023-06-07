@@ -1,3 +1,4 @@
+ use antibox_core::error::Result;
 use crate::action::WorkspaceOp;
 use crate::applet::Applet;
 use crate::render::ThemeColors;
@@ -85,7 +86,7 @@ impl WorkspacesPane {
         parent: u32,
         names: &[String],
         theme_colours: ThemeColors,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self> {
         let window = conn.create_window(
             parent,
             Rect::new(0, 0, 1, 28),
