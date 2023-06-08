@@ -714,6 +714,7 @@ impl App {
         atom_manager: &AtomManager,
         tray: Option<&Arc<dyn TrayBackend>>,
         composite_available: bool,
+        time_format: &str,
         prefs: &wmconfig::Prefs,
         wm: &WindowManager<dyn DisplayBackend>,
     ) -> Option<Box<dyn Applet>> {
@@ -739,7 +740,7 @@ impl App {
             Widget::Clock => {
                 let themed = antibox_ui::theme::clock_format();
                 let fmt = if themed.is_empty() {
-                    prefs.clock.format.clone()
+                    time_format.to_string()
                 } else {
                     themed.to_string()
                 };
@@ -791,7 +792,17 @@ impl App {
             } = &*self;
             let composite = *tray_composite;
             let mut make = |w: crate::layout_preferences::Widget| {
-                Self::make_applet(w, &conn, wid, atom_manager, tray.as_ref(), composite, prefs, wm)
+                Self::make_applet(
+                    w,
+                    &conn,
+                    wid,
+                    atom_manager,
+                    tray.as_ref(),
+                    composite,
+                    &prefs.clock.format,
+                    prefs,
+                    wm,
+                )
             };
             tb.sync_applets(&mut make);
         }
@@ -822,76 +833,24 @@ impl App {
         tb.apply_theme_colours(&tc, wm.config.gradients);
         let wid = tb.window.id();
         wm.above_windows = vec![wid];
-        use crate::layout_preferences::{taskbar_wants, Widget};
-        let mut core: Vec<Box<dyn Applet>> = Vec::new();
-        if taskbar_wants(Widget::Workspaces) {
-            if let Ok(p) = WorkspacesPane::new(conn, wid, &wm.workspace_names, wm.theme_colours) {
-                core.push(Box::new(p));
-            }
-        }
-        if taskbar_wants(Widget::Windows) {
-            if let Ok(p) = TaskPane::new(conn, wid, wm.theme_colours) {
-                core.push(Box::new(p));
-            }
-        }
-        #[cfg(feature = "tray")]
-        {
-            if taskbar_wants(Widget::Tray) {
-                if let Ok(mut t) =
-                    TrayApplet::new(conn, wid, atom_manager, tray.cloned(), composite_available)
-                {
-                    t.set_colours();
-                    core.push(Box::new(t));
-                }
-            }
-        }
-        if taskbar_wants(Widget::Clock) {
-            let clock_fmt = {
-                let themed = antibox_ui::theme::clock_format();
-                if themed.is_empty() {
-                    time_format.clone()
-                } else {
-                    themed.to_string()
-                }
-            };
-            if let Ok(mut c) = ClockApplet::new(conn, wid, Some(clock_fmt)) {
-                c.set_colours(&wm.theme_colours);
-                core.push(Box::new(c));
-            }
-        }
         let prefs = wmconfig::Config::load_prefs();
-        if taskbar_wants(Widget::Cpu) {
-            if let Ok(c) = crate::cpu_status_applet::CpuStatusApplet::new(conn, wid, prefs.cpu.width)
-            {
-                core.push(Box::new(c));
+        let mut core: Vec<Box<dyn Applet>> = Vec::new();
+        for w in crate::layout_preferences::Widget::ALL.iter().cloned() {
+            if !crate::layout_preferences::taskbar_wants(w) {
+                continue;
             }
-        }
-        if taskbar_wants(Widget::Mem) {
-            if let Ok(m) = crate::mem_status_applet::MemStatusApplet::new(conn, wid, prefs.mem.width)
-            {
-                core.push(Box::new(m));
-            }
-        }
-        if taskbar_wants(Widget::Net) {
-            crate::net_status_applet::set_net_device(&prefs.net.device);
-            if let Ok(n) = crate::net_status_applet::NetStatusApplet::new(conn, wid, prefs.net.width)
-            {
-                core.push(Box::new(n));
-            }
-        }
-        if taskbar_wants(Widget::PowerAudio) {
-            if let Ok(pa) = crate::power_audio_applet::PowerAudioApplet::new(conn, wid) {
-                core.push(Box::new(pa));
-            }
-        }
-        if taskbar_wants(Widget::Keyboard) {
-            if let Ok(kb) = crate::keyboard_applet::KeyboardApplet::new(
+            if let Some(a) = Self::make_applet(
+                w,
                 conn,
                 wid,
-                wmconfig::split_layout_list(&prefs.keyboard.layouts),
-                &wm.theme_colours,
+                atom_manager,
+                tray,
+                composite_available,
+                &time_format,
+                &prefs,
+                wm,
             ) {
-                core.push(Box::new(kb));
+                core.push(a);
             }
         }
         for a in core {
