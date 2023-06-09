@@ -1,3 +1,4 @@
+#![allow(unsafe_code)]
 use antibox_core::libc;
 use std::os::unix::io::RawFd;
 use std::sync::atomic::{AtomicBool, Ordering};

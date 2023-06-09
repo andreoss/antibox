@@ -1,3 +1,4 @@
+#![allow(unsafe_code)]
  use antibox_core::error::Result;
 use antibox_core::libc;
 use crate::applet::Applet;

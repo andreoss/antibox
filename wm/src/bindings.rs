@@ -1,3 +1,4 @@
+#![allow(unsafe_code)]
  use antibox_core::error::Result;
 use crate::action::*;
 use antibox_core::backend::{DisplayBackend, GrabMode, KeyboardMapping};

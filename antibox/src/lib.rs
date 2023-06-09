@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
  use antibox_core::error::Result;
 use std::sync::Arc;
 

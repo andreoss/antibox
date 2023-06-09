@@ -1,3 +1,4 @@
+#![allow(unsafe_code)]
 use antibox_core::libc;
 
 pub fn read_proc(path: &str) -> Option<String> {

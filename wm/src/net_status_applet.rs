@@ -1,3 +1,4 @@
+#![allow(unsafe_code)]
  use antibox_core::error::Result;
 use crate::status_graph::impl_status_applet;
 use antibox_core::backend::*;

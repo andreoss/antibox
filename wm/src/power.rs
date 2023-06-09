@@ -1,3 +1,4 @@
+#![allow(unsafe_code)]
 pub const MAX_BATTERIES: usize = 3;
 
 #[derive(Debug, Clone, PartialEq)]
