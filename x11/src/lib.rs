@@ -1,4 +1,5 @@
 #![allow(clippy::incompatible_msrv)]
+#![deny(unsafe_op_in_unsafe_fn)]
 pub mod signal;
 pub mod tray_backend;
 

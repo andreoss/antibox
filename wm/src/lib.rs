@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+#![deny(unsafe_op_in_unsafe_fn)]
 #[macro_use]
 pub mod tooltip;
 

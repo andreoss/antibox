@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 pub mod backend;
 pub mod canvas;
 
