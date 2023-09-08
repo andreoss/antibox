@@ -1,11 +1,55 @@
+pub mod dsl;
+pub mod exec;
+pub mod load;
+
 mod draw;
 mod nt;
 
 mod colour;
 
 pub use self::draw::*;
+use self::dsl::ThemeDef;
 use self::nt::*;
 use antibox_gfx::colour::Colour;
+use antibox_gfx::sync::atomic::LazyRwLock;
+
+static LOADED: LazyRwLock<Option<ThemeDef>> = LazyRwLock::new();
+
+pub const NT_THEME: &str = include_str!("../../../share/themes/nt.toml");
+
+pub fn install(def: ThemeDef) {
+    if let Ok(mut g) = LOADED.write() {
+        *g = Some(def);
+    }
+}
+
+pub fn current() -> Option<ThemeDef> {
+    if let Ok(g) = LOADED.read() {
+        if let Some(d) = g.clone() {
+            return Some(d);
+        }
+    }
+    match load::from_toml(NT_THEME) {
+        Ok(def) => {
+            install(def.clone());
+            Some(def)
+        }
+        Err(_) => None,
+    }
+}
+
+pub fn draw_element(g: &dyn antibox_gfx::backend::GraphicsContext, name: &str, x: i16, y: i16, w: u16, h: u16) -> bool {
+    let def = match current() {
+        Some(d) => d,
+        None => return false,
+    };
+    let ops = match def.element(name) {
+        Some(o) => o,
+        None => return false,
+    };
+    let s = antibox_gfx::scale::scaled(1).max(1) as i16;
+    exec::draw_ops(g, &def, ops, x, y, w as i16, h as i16, s)
+}
 
 pub use self::colour::contrast;
 pub(crate) use self::colour::mix_rgb;
