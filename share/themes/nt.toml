@@ -18,6 +18,13 @@ sel_line = "000080"
 title_active = "000080"
 title_text = "FFFFFF"
 title_inactive = "808080"
+menu_sel_bg = "000000"
+menu_sel_fg = "000000"
+taskbar_face = "000000"
+tray_face = "000000"
+list_bg = "000000"
+menu_bg = "000000"
+arrow_colour = "000000"
 
 [metrics]
 corner_radius = 0

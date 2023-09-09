@@ -84,6 +84,35 @@
     }
 
     #[test]
+    fn migrated_accessors_keep_the_original_values() {
+        use crate::theme as t;
+        assert_eq!(t::face(), 0xC0C0C0);
+        assert_eq!(t::field(), 0xFFFFFF);
+        assert_eq!(t::shadow(), 0x808080);
+        assert_eq!(t::dark(), 0x000000);
+        assert_eq!(t::sel_bg(), 0x000080);
+        assert_eq!(t::title_active(), 0x000080);
+        assert_eq!(t::title_inactive(), 0x808080);
+        assert_eq!(t::tooltip_bg(), 0xFFFFE1);
+        assert_eq!(t::disabled(), 0x808080);
+        assert_eq!(t::pad_base(), 4);
+        assert_eq!(t::gap_base(), 2);
+        assert_eq!(t::item_gap_base(), 2);
+        assert_eq!(t::title_height_base(), 18);
+        assert_eq!(t::border_base(), 4);
+        assert_eq!(t::button_base(), 16);
+        assert_eq!(t::sunken_depth(), 2);
+        assert_eq!(t::title_buttons(), "xmi");
+        assert_eq!(t::taskbar_justify_default(), "left");
+        assert_eq!(t::title_layout(), ("sp".to_string(), "xmir".to_string()));
+        assert_eq!(t::menu_sel_bg(), 0x000080);
+        assert_eq!(t::tray_face(), 0xC0C0C0);
+        assert_eq!(t::list_bg(), 0xFFFFFF);
+        assert_eq!(t::taskbar_item_chars(), 24);
+        assert_eq!(t::corner_radius_px(), 0);
+    }
+
+    #[test]
     fn draw_element_paints_known_elements() {
         let g = antibox_gfx::mock::MockGraphics::new(1);
         assert!(crate::theme::draw_element(&g, "panel", 0, 0, 20, 20));

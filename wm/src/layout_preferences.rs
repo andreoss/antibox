@@ -220,7 +220,7 @@ pub fn set_taskbar_align(name: &str) {
 fn taskbar_code_resolved() -> u8 {
     let v = TASKBAR_ALIGN.load(Ordering::Relaxed);
     if v == TASKBAR_ALIGN_THEME {
-        taskbar_code(antibox_ui::theme::taskbar_justify_default()).unwrap_or(0)
+        taskbar_code(&antibox_ui::theme::taskbar_justify_default()).unwrap_or(0)
     } else {
         v
     }

@@ -3,13 +3,11 @@ pub mod exec;
 pub mod load;
 
 mod draw;
-mod nt;
 
 mod colour;
 
 pub use self::draw::*;
 use self::dsl::ThemeDef;
-use self::nt::*;
 use antibox_gfx::colour::Colour;
 use antibox_gfx::sync::atomic::LazyRwLock;
 
@@ -51,122 +49,177 @@ pub fn draw_element(g: &dyn antibox_gfx::backend::GraphicsContext, name: &str, x
     exec::draw_ops(g, &def, ops, x, y, w as i16, h as i16, s)
 }
 
+fn colour_or(name: &str, fallback: u32) -> u32 {
+    match current() {
+        Some(d) => d.colour(name).unwrap_or(fallback),
+        None => fallback,
+    }
+}
+
+trait FromI64: Sized {
+    fn from_i64(v: i64) -> Option<Self>;
+}
+
+impl FromI64 for u16 {
+    fn from_i64(v: i64) -> Option<u16> {
+        u16::try_from(v).ok()
+    }
+}
+
+impl FromI64 for i16 {
+    fn from_i64(v: i64) -> Option<i16> {
+        i16::try_from(v).ok()
+    }
+}
+
+impl FromI64 for u8 {
+    fn from_i64(v: i64) -> Option<u8> {
+        u8::try_from(v).ok()
+    }
+}
+
+impl FromI64 for i32 {
+    fn from_i64(v: i64) -> Option<i32> {
+        i32::try_from(v).ok()
+    }
+}
+
+impl FromI64 for u32 {
+    fn from_i64(v: i64) -> Option<u32> {
+        u32::try_from(v).ok()
+    }
+}
+
+fn metric_or<T: FromI64>(name: &str, fallback: T) -> T {
+    match current() {
+        Some(d) => d.metric(name).and_then(T::from_i64).unwrap_or(fallback),
+        None => fallback,
+    }
+}
+
+fn string_or(name: &str, fallback: &str) -> String {
+    match current() {
+        Some(d) => d.string(name).unwrap_or(fallback).to_string(),
+        None => fallback.to_string(),
+    }
+}
+
 pub use self::colour::contrast;
 pub(crate) use self::colour::mix_rgb;
 pub(crate) use self::colour::scale_rgb;
 pub(crate) use self::colour::tint_rgb;
 
-pub const fn face() -> Colour {
-    FACE
+pub fn face() -> Colour {
+    colour_or("face", 0xC0C0C0)
 }
-pub const fn field() -> Colour {
-    FIELD
+pub fn field() -> Colour {
+    colour_or("field", 0xFFFFFF)
 }
 pub fn list_bg() -> Colour {
-    if LIST_BG != 0 {
-        LIST_BG
+    if colour_or("list_bg", 0x0) != 0 {
+        colour_or("list_bg", 0x0)
     } else {
-        FIELD
+        colour_or("field", 0xFFFFFF)
     }
 }
 pub fn menu_bg() -> Colour {
-    if MENU_BG != 0 {
-        MENU_BG
+    if colour_or("menu_bg", 0x0) != 0 {
+        colour_or("menu_bg", 0x0)
     } else {
-        FACE
+        colour_or("face", 0xC0C0C0)
     }
 }
 pub fn arrow_colour() -> Colour {
-    if ARROW_COLOUR != 0 {
-        ARROW_COLOUR
+    if colour_or("arrow_colour", 0x0) != 0 {
+        colour_or("arrow_colour", 0x0)
     } else {
-        TEXT
+        colour_or("text", 0x000000)
     }
 }
 
 pub fn text() -> Colour {
-    contrast(TEXT, FACE)
+    contrast(colour_or("text", 0x000000), colour_or("face", 0xC0C0C0))
 }
-pub const fn disabled() -> Colour {
-    DISABLED
+pub fn disabled() -> Colour {
+    colour_or("disabled", 0x808080)
 }
-pub const fn sel_bg() -> Colour {
-    SEL_BG
+pub fn sel_bg() -> Colour {
+    colour_or("sel_bg", 0x000080)
 }
 pub fn sel_fg() -> Colour {
-    contrast(SEL_FG, SEL_BG)
+    contrast(colour_or("sel_fg", 0xFFFFFF), colour_or("sel_bg", 0x000080))
 }
-pub const fn light() -> Colour {
-    LIGHT
+pub fn light() -> Colour {
+    colour_or("light", 0xFFFFFF)
 }
-pub const fn face_light() -> Colour {
-    FACE_LIGHT
+pub fn face_light() -> Colour {
+    colour_or("face_light", 0xC0C0C0)
 }
-pub const fn button_face() -> Colour {
-    BUTTON_FACE
+pub fn button_face() -> Colour {
+    colour_or("button_face", 0xC0C0C0)
 }
-pub const fn shadow() -> Colour {
-    SHADOW
+pub fn shadow() -> Colour {
+    colour_or("shadow", 0x808080)
 }
-pub const fn dark() -> Colour {
-    DARK
+pub fn dark() -> Colour {
+    colour_or("dark", 0x000000)
 }
-pub const fn tooltip_bg() -> Colour {
-    TOOLTIP_BG
+pub fn tooltip_bg() -> Colour {
+    colour_or("tooltip_bg", 0xFFFFE1)
 }
 pub fn tooltip_fg() -> Colour {
-    contrast(TOOLTIP_FG, TOOLTIP_BG)
+    contrast(colour_or("tooltip_fg", 0x000000), colour_or("tooltip_bg", 0xFFFFE1))
 }
-pub const fn sel_line() -> Colour {
-    SEL_LINE
+pub fn sel_line() -> Colour {
+    colour_or("sel_line", 0x000080)
 }
-pub const fn title_active() -> Colour {
-    TITLE_ACTIVE
+pub fn title_active() -> Colour {
+    colour_or("title_active", 0x000080)
 }
-pub const fn title_inactive() -> Colour {
-    TITLE_INACTIVE
-}
-
-pub const fn title_inset_base() -> u16 {
-    TITLE_INSET
+pub fn title_inactive() -> Colour {
+    colour_or("title_inactive", 0x808080)
 }
 
-pub const fn title_overlap_base() -> u16 {
-    TITLE_OVERLAP
+pub fn title_inset_base() -> u16 {
+    metric_or("title_inset", 0)
 }
 
-pub const fn close_gap_base() -> u16 {
-    CLOSE_GAP
+pub fn title_overlap_base() -> u16 {
+    metric_or("title_overlap", 0)
 }
 
-pub const fn title_end_pad_base() -> u16 {
-    TITLE_END_PAD
+pub fn close_gap_base() -> u16 {
+    metric_or("close_gap", 0)
 }
 
-pub const fn chrome_font() -> &'static str {
-    CHROME_FONT
+pub fn title_end_pad_base() -> u16 {
+    metric_or("title_end_pad", 0)
 }
 
-pub const fn ui_font_name() -> &'static str {
-    UI_FONT_NAME
+pub fn chrome_font() -> String {
+    string_or("chrome_font", "")
 }
 
-pub const fn clock_format() -> &'static str {
-    CLOCK_FORMAT
+pub fn ui_font_name() -> String {
+    string_or("ui_font_name", "")
+}
+
+pub fn clock_format() -> String {
+    string_or("clock_format", "")
 }
 
 pub fn tray_face() -> Colour {
-    if TRAY_FACE != 0 {
-        TRAY_FACE
-    } else if TASKBAR_FACE != 0 {
-        TASKBAR_FACE
+    if colour_or("tray_face", 0x0) != 0 {
+        colour_or("tray_face", 0x0)
+    } else if colour_or("taskbar_face", 0x0) != 0 {
+        colour_or("taskbar_face", 0x0)
     } else {
-        FACE
+        colour_or("face", 0xC0C0C0)
     }
 }
 
-pub const fn title_buttons() -> &'static str {
-    TITLE_BUTTONS
+pub fn title_buttons() -> String {
+    string_or("title_buttons", "xmi")
 }
 
 const NT_GLYPHS: &[(&str, &[u16])] = &[
@@ -200,48 +253,48 @@ pub fn title_glyph(key: &str) -> Option<&'static [u16]> {
     NT_GLYPHS.iter().find(|(k, _)| *k == key).map(|(_, v)| *v)
 }
 
-pub const fn pad_base() -> u16 {
-    PAD
+pub fn pad_base() -> u16 {
+    metric_or("pad", 4)
 }
 
-pub const fn gap_base() -> u16 {
-    GAP
+pub fn gap_base() -> u16 {
+    metric_or("gap", 2)
 }
 
-pub const fn item_gap_base() -> i16 {
-    ITEM_GAP
+pub fn item_gap_base() -> i16 {
+    metric_or("item_gap", 2)
 }
 
-pub const fn title_height_base() -> u16 {
-    TITLE_HEIGHT
+pub fn title_height_base() -> u16 {
+    metric_or("title_height", 18)
 }
 
-pub const fn border_base() -> u16 {
-    BORDER
+pub fn border_base() -> u16 {
+    metric_or("border", 4)
 }
 
-pub const fn border_bottom_base() -> u16 {
-    BORDER_BOTTOM
+pub fn border_bottom_base() -> u16 {
+    metric_or("border_bottom", 4)
 }
 
-pub const fn button_base() -> u16 {
-    BUTTON_BASE
+pub fn button_base() -> u16 {
+    metric_or("button_base", 16)
 }
 
 pub fn title_button_inset_base() -> u16 {
-    if TITLE_BUTTON_INSET != 0 {
-        TITLE_BUTTON_INSET
+    if metric_or("title_button_inset", 0) != 0 {
+        metric_or("title_button_inset", 0)
     } else {
-        BUTTON_INSET
+        metric_or("button_inset", 4)
     }
 }
 
-pub const fn title_justify_default() -> u8 {
-    TITLE_JUSTIFY
+pub fn title_justify_default() -> u8 {
+    metric_or("title_justify", 0)
 }
 
-pub const fn taskbar_justify_default() -> &'static str {
-    TASKBAR_JUSTIFY
+pub fn taskbar_justify_default() -> String {
+    string_or("taskbar_justify", "left")
 }
 
 fn normalize_side(s: &str) -> Option<&'static str> {
@@ -282,7 +335,7 @@ pub fn title_side_name() -> &'static str {
         4 => return "right",
         _ => {}
     }
-    normalize_side(TITLE_SIDE).unwrap_or("top")
+    normalize_side(&string_or("title_side", "top")).unwrap_or("top")
 }
 
 pub fn title_on_left() -> bool {
@@ -306,42 +359,45 @@ pub fn title_offset_side() -> bool {
 }
 
 pub fn taskbar_item_chars() -> u16 {
-    match TASKBAR_ITEM_CHARS {
+    match metric_or("taskbar_item_chars", 0) {
         0 => 24,
         v => v,
     }
 }
 
 pub fn taskbar_item_pct() -> u16 {
-    TASKBAR_ITEM_PCT
+    metric_or("taskbar_item_pct", 0)
 }
 
 pub fn menu_sel_bg() -> Colour {
-    if MENU_SEL_BG != 0 {
-        MENU_SEL_BG
+    if colour_or("menu_sel_bg", 0x0) != 0 {
+        colour_or("menu_sel_bg", 0x0)
     } else {
-        TITLE_ACTIVE
+        colour_or("title_active", 0x000080)
     }
 }
 
 pub fn menu_sel_fg() -> Colour {
-    if MENU_SEL_BG != 0 {
-        contrast(MENU_SEL_FG, MENU_SEL_BG)
+    if colour_or("menu_sel_bg", 0x0) != 0 {
+        contrast(colour_or("menu_sel_fg", 0x0), colour_or("menu_sel_bg", 0x0))
     } else {
-        contrast(TITLE_TEXT, TITLE_ACTIVE)
+        contrast(colour_or("title_text", 0xFFFFFF), colour_or("title_active", 0x000080))
     }
 }
 
-pub fn title_layout() -> (&'static str, &'static str) {
-    (TITLE_LAYOUT_LEFT, TITLE_LAYOUT_RIGHT)
+pub fn title_layout() -> (String, String) {
+    (
+        string_or("title_layout_left", "sp"),
+        string_or("title_layout_right", "xmir"),
+    )
 }
 
 pub fn sunken_depth() -> u16 {
-    SUNKEN_DEPTH.clamp(1, 2)
+    metric_or("sunken_depth", 2).clamp(1, 2)
 }
 
 pub fn corner_radius_px() -> u16 {
-    let r = CORNER_RADIUS;
+    let r = metric_or("corner_radius", 0);
     if r == 0 {
         0
     } else {
@@ -350,7 +406,7 @@ pub fn corner_radius_px() -> u16 {
 }
 
 pub fn frame_radius_px() -> u16 {
-    let r = FRAME_RADIUS;
+    let r = metric_or("frame_radius", 0);
     if r == 0 {
         corner_radius_px()
     } else {
@@ -359,7 +415,7 @@ pub fn frame_radius_px() -> u16 {
 }
 
 pub fn button_radius_px() -> u16 {
-    let r = BUTTON_RADIUS;
+    let r = metric_or("button_radius", 0);
     if r == 0 {
         corner_radius_px()
     } else {

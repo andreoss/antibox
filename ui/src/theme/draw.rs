@@ -1,4 +1,3 @@
-use super::nt::*;
 use super::*;
 use antibox_gfx::backend::GraphicsContext;
 use antibox_gfx::point::Dimension;
@@ -109,7 +108,7 @@ pub fn round_button_corners(
     fill_corner_arcs(g, x, y, w, h, surround, r);
 
     if button_radius_px() as i16 > radius_px(w, h) + antibox_gfx::scale::scaled(2) as i16 {
-        let ring = BUTTON_RING;
+        let ring = metric_or("button_ring", 0);
         let _ = g.set_foreground(if ring != 0 { ring } else { dark() });
         rounded_stroke(g, x, y, w, h, r);
     }
@@ -319,9 +318,9 @@ pub fn button_surface(g: &dyn GraphicsContext, r: Rect, style: Fill) {
     let fill = style.colour;
     let sunken = style.sunken;
     if pressed_dither(sunken) {
-        let _ = g.set_foreground(FACE);
+        let _ = g.set_foreground(face());
         let _ = g.fill_rect(x, y, w, h);
-        let _ = g.set_foreground(LIGHT);
+        let _ = g.set_foreground(light());
         for ry in 0..h as i16 {
             let mut rx = (x + y + ry) & 1;
             while rx < w as i16 {
