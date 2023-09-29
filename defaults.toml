@@ -35,6 +35,7 @@ position = "centre"
 position = "top"
 
 [taskbar]
+menu_on_super_tap = true
 layout = "pager tasks cpu mem net power keyboard tray clock"
 
 [ticker]

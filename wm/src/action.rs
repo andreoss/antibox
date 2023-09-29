@@ -95,6 +95,7 @@ pub enum TabOp {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MenuOp {
+    RootMenu,
     WindowPickerList,
     WindowActionMenu,
     Pager,
@@ -217,6 +218,7 @@ fn menu_name(op: &MenuOp) -> &'static str {
     match op {
         MenuOp::WindowPickerList => "Window List",
         MenuOp::WindowActionMenu => "Window Menu",
+        MenuOp::RootMenu => "RootMenu",
         MenuOp::Pager => "Pager",
         MenuOp::Omni => "Omni",
     }

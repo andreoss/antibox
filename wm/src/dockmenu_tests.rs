@@ -4,7 +4,7 @@
     fn test_new() {
         let m = DockMenu::new();
         assert!(!m.visible);
-        assert!(m.items.is_empty());
+        assert!(m.is_empty());
     }
     #[test]
     fn test_show_empty() {

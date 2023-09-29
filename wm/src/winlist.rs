@@ -1,69 +1,40 @@
+pub(crate) use crate::listview::{bar_h, pad, row_h, sb_w};
+use crate::listview::{ListNav, ListView};
 use crate::manager::WindowManager;
+use crate::menu_tree::MenuNode;
 use antibox_core::backend::*;
 use antibox_core::point::Point;
-use antibox_core::rect::Rect;
 use antibox_core::scale::scaled;
 use std::sync::Arc;
 
-use antibox_ui::searchbar::{SearchBar, SearchEvent};
 use antibox_ui::theme;
 
-pub(crate) fn row_h() -> i16 {
-    antibox_ui::metrics::menu_item_height() as i16
-}
-
-pub(crate) fn row_icon_px() -> u16 {
-    antibox_ui::metrics::icon().min(row_h() as i32 - 2).max(8) as u16
-}
-const TOP_PAD: i16 = 3;
-
-pub(crate) fn bar_h() -> i16 {
-    (antibox_ui::metrics::field_height() + antibox_ui::metrics::gap()) as i16
-}
-
-pub(crate) fn pad() -> i16 {
-    antibox_ui::metrics::pad() as i16
-}
-
-pub(crate) fn sb_w() -> i16 {
-    scaled(16) as i16
-}
-
-enum Row {
-    Header(u32),
-    Win(usize),
-}
-
-impl crate::menu::MenuItem for Row {
-    fn is_separator(&self) -> bool {
-        matches!(self, Row::Header(_))
-    }
-}
-
-pub struct WinListMenu {
-    pub window: Option<Box<dyn WindowHandle>>,
-    client_id: u32,
-    pub items: Vec<WinListItem>,
-    rows: Vec<Row>,
-    pub visible: bool,
-    pub switcher: bool,
-    x: i32,
-    y: i32,
-    w: u16,
-    h: u16,
-    offset: i16,
-    selected: Option<usize>,
-    scroll_drag: bool,
-    bar: Option<SearchBar>,
-    filter: String,
-    active_ws: u32,
-}
+pub(crate) use crate::listview::row_icon_px;
 
 pub struct WinListItem {
     pub title: String,
     pub client_id: u32,
     pub workspace: u32,
     pub icon: Option<PixmapData>,
+}
+
+impl Clone for WinListItem {
+    fn clone(&self) -> Self {
+        WinListItem {
+            title: self.title.clone(),
+            client_id: self.client_id,
+            workspace: self.workspace,
+            icon: self.icon.clone(),
+        }
+    }
+}
+
+pub struct WinListMenu {
+    pub view: ListView<WinListItem>,
+    client_id: u32,
+    pub visible: bool,
+    pub switcher: bool,
+    active_ws: u32,
 }
 
 impl Default for WinListMenu {
@@ -75,88 +46,26 @@ impl Default for WinListMenu {
 impl WinListMenu {
     pub fn new() -> WinListMenu {
         WinListMenu {
-            window: None,
+            view: ListView::new(),
             client_id: 0,
-            items: Vec::new(),
-            rows: Vec::new(),
             visible: false,
             switcher: false,
-            x: 0,
-            y: 0,
-            w: 0,
-            h: 0,
-            offset: 0,
-            selected: None,
-            scroll_drag: false,
-            bar: None,
-            filter: String::new(),
             active_ws: 0,
         }
-    }
-
-    fn list_top(&self) -> i16 {
-        if self.bar.is_some() {
-            pad() * 2 + bar_h()
-        } else {
-            TOP_PAD
-        }
-    }
-
-    fn total_rows(&self) -> i16 {
-        self.rows.len() as i16
-    }
-    fn vis_rows(&self) -> i16 {
-        ((self.h as i16 - self.list_top() - TOP_PAD) / row_h()).max(1)
-    }
-    fn needs_sb(&self) -> bool {
-        self.total_rows() > self.vis_rows()
-    }
-    fn list_w(&self) -> i16 {
-        (self.w as i16 - if self.needs_sb() { sb_w() } else { 0 }).max(1)
-    }
-    fn max_offset(&self) -> i16 {
-        (self.total_rows() - self.vis_rows()).max(0)
-    }
-    fn clamp_offset(&mut self) {
-        self.offset = self.offset.clamp(0, self.max_offset());
-    }
-    fn sb_x(&self) -> i16 {
-        self.list_w()
-    }
-    fn sb_top(&self) -> i16 {
-        self.list_top()
-    }
-    fn trough_h(&self) -> i16 {
-        (self.h as i16 - self.sb_top() - 2 * sb_w()).max(1)
-    }
-    fn thumb(&self) -> (i16, i16) {
-        let total = self.total_rows().max(1);
-        let th = ((self.trough_h() as i32 * self.vis_rows() as i32 / total as i32) as i16).max(12);
-        let mo = self.max_offset();
-        let ty = self.sb_top()
-            + sb_w()
-            + if mo > 0 {
-                (self.trough_h() - th) * self.offset / mo
-            } else {
-                0
-            };
-        (ty, th)
-    }
-
-    pub fn owns_window(&self, window: u32) -> bool {
-        self.visible
-            && ((self.client_id != 0 && self.client_id == window)
-                || self.bar.as_ref().map_or(false, |b| b.owns_window(window)))
     }
 
     pub const fn client_id(&self) -> u32 {
         self.client_id
     }
 
-    fn placement(&self, conn: &Arc<dyn DisplayBackend>) -> (i32, i32) {
+    pub fn owns_window(&self, window: u32) -> bool {
+        self.visible && (self.view.owns_window(window) || self.client_id == window)
+    }
+
+    fn placement(&self, conn: &dyn DisplayBackend) -> (i32, i32) {
         let sw = conn.screen_width() as i32;
         let sh = conn.screen_height() as i32;
-        let (w, h) = (self.w as i32, self.h as i32);
+        let (w, h) = (self.view.w as i32, self.view.h as i32);
         let prefs = crate::wmconfig::Config::load_prefs();
         if prefs.winlist.position == "pointer" {
             if let Ok(p) = conn.query_pointer(conn.root().read_id()) {
@@ -168,9 +77,8 @@ impl WinListMenu {
         (((sw - w) / 2).max(0), ((sh - h) / 2).max(0))
     }
 
-    fn rebuild(&mut self, wm: &WindowManager<dyn DisplayBackend>) {
+    fn build_tree(&mut self, wm: &WindowManager<dyn DisplayBackend>) -> Vec<MenuNode<WinListItem>> {
         self.active_ws = wm.active_workspace();
-        let needle = self.filter.to_lowercase();
         let mut entries: Vec<WinListItem> = wm
             .frames
             .iter()
@@ -187,35 +95,35 @@ impl WinListMenu {
                     theme::field(),
                 )),
             })
-            .filter(|e| needle.is_empty() || e.title.to_lowercase().contains(&needle))
             .collect();
         entries.sort_by(|a, b| a.workspace.cmp(&b.workspace).then(a.title.cmp(&b.title)));
-        let mut rows = Vec::new();
+
+        let mut nodes: Vec<MenuNode<WinListItem>> = Vec::new();
         let mut cur = u32::MAX;
-        for (i, e) in entries.iter().enumerate() {
+        for e in entries {
             if e.workspace != cur {
                 cur = e.workspace;
-                rows.push(Row::Header(cur));
+                let label = if cur == self.active_ws {
+                    format!("Workspace {} *", cur + 1)
+                } else {
+                    format!("Workspace {}", cur + 1)
+                };
+                nodes.push(MenuNode::group_expanded(label, Vec::new()));
             }
-            rows.push(Row::Win(i));
+            if let Some(MenuNode::Group { children, .. }) = nodes.last_mut() {
+                children.push(MenuNode::leaf(e.title.clone(), e.clone()).with_icon(e.icon.clone()));
+            }
         }
-        let keep = self
-            .selected
-            .and_then(|s| self.rows.get(s))
-            .and_then(|r| match r {
-                Row::Win(i) => self.items.get(*i).map(|it| it.client_id),
-                _ => None,
-            });
-        self.items = entries;
-        self.rows = rows;
-        self.selected = keep
-            .and_then(|id| {
-                self.rows
-                    .iter()
-                    .position(|r| matches!(r, Row::Win(i) if self.items[*i].client_id == id))
-            })
-            .or_else(|| self.next_win_row(None, 1));
-        self.clamp_offset();
+        nodes
+    }
+
+    fn rebuild(&mut self, wm: &WindowManager<dyn DisplayBackend>) {
+        let keep = self.selected_client_id();
+        let nodes = self.build_tree(wm);
+        self.view.set_tree(nodes);
+        self.view.selected = keep
+            .and_then(|id| self.row_of_client(id))
+            .or_else(|| self.view.next_leaf(None, 1));
     }
 
     pub fn refresh(
@@ -227,6 +135,7 @@ impl WinListMenu {
             return;
         }
         self.rebuild(wm);
+        self.view.sync_geometry(conn.as_ref());
         self.paint(conn);
     }
 
@@ -251,101 +160,148 @@ impl WinListMenu {
         forward: bool,
     ) {
         self.client_id = 0;
-        self.filter.clear();
-        self.rebuild(wm);
-        if self.items.is_empty() {
+        let nodes = self.build_tree(wm);
+        let rows = crate::menu_tree::flatten_nodes(&nodes).len();
+        if rows == 0 {
             return;
         }
-        if switcher {
-            self.w = scaled(280) as u16;
-            let rows_h = self.rows.len() as i32 * row_h() as i32;
-            let h = pad() as i32 * 3 + bar_h() as i32 + rows_h;
+        let w = scaled(280) as u16;
+        let want = pad() as i32 * 3 + bar_h() as i32 + rows as i32 * row_h() as i32;
+        let h = if switcher {
             let max_h = (conn.screen_height() as i32 * 3 / 4).max(scaled(120));
-            self.h = h.clamp(scaled(120), max_h) as u16;
-        } else if self.w == 0 {
-            self.w = scaled(280) as u16;
-            self.h = scaled(340) as u16;
-        }
-        let (x, y) = self.placement(conn);
-        self.x = x;
-        self.y = y;
-        self.offset = 0;
-        self.selected = if switcher {
-            self.selection_from_focus(wm, forward)
+            want.clamp(scaled(120), max_h) as u16
         } else {
-            self.next_win_row(None, 1)
+            want.clamp(scaled(120), scaled(340)) as u16
         };
-
-        let win = match conn.create_window(
-            conn.root().as_parent(),
-            Rect::new(self.x, self.y, self.w as i32, self.h as i32),
-            WmWindowClass::InputOutput,
-            false,
-            EventMask::EXPOSURE
-                | EventMask::BUTTON_PRESS
-                | EventMask::BUTTON_RELEASE
-                | EventMask::POINTER_MOTION
-                | EventMask::KEY_PRESS
-                | EventMask::STRUCTURE_NOTIFY,
-        ) {
-            Ok(win) => win,
-            Err(_) => return,
-        };
-        let id = win.id();
-        let _ = conn.change_property8(PropMode::Replace, id, 39, 31, b"Window List");
-        let _ = conn.change_property8(PropMode::Replace, id, 67, 31, b"antibox-winlist\0Antibox\0");
-        if let (Some(state), Some(skip)) = (
-            wm.atoms.get("_NET_WM_STATE"),
-            wm.atoms.get("_NET_WM_STATE_SKIP_TASKBAR"),
-        ) {
-            let _ = conn.change_property32(PropMode::Replace, id, state, 4, &[skip]);
+        self.view.set_size(w, h);
+        let (x, y) = self.placement(conn.as_ref());
+        let atoms_state = wm.atoms.get("_NET_WM_STATE");
+        let atoms_skip = wm.atoms.get("_NET_WM_STATE_SKIP_TASKBAR");
+        let atoms_mwm = wm.atoms.get("_MOTIF_WM_HINTS");
+        self.view.show_with(
+            conn.as_ref(),
+            nodes,
+            crate::listview::Place::Anchor(Point::new(x, y + h as i32)),
+            w,
+            h as i32,
+            switcher,
+            |c, id| {
+                let _ = c.change_property8(PropMode::Replace, id, 39, 31, b"Window List");
+                let _ = c.change_property8(
+                    PropMode::Replace,
+                    id,
+                    67,
+                    31,
+                    b"antibox-winlist\0Antibox\0",
+                );
+                if let (Some(state), Some(skip)) = (atoms_state, atoms_skip) {
+                    let _ = c.change_property32(PropMode::Replace, id, state, 4, &[skip]);
+                }
+                if let Some(mwm) = atoms_mwm {
+                    use antibox_core::backend::hints::{mwm_func, mwm_hints_flags};
+                    let _ = c.change_property32(
+                        PropMode::Replace,
+                        id,
+                        mwm,
+                        mwm,
+                        &[
+                            mwm_hints_flags::FUNCTIONS,
+                            mwm_func::ALL | mwm_func::MAXIMIZE | mwm_func::MINIMIZE,
+                            0,
+                            0,
+                            0,
+                        ],
+                    );
+                }
+                if switcher {
+                    let _ = c.grab_keyboard(
+                        false,
+                        c.root().read_id(),
+                        0,
+                        GrabMode::Async,
+                        GrabMode::Async,
+                    );
+                }
+                let _ = id;
+            },
+        );
+        if let Some(rb) = wm.render_backend.clone() {
+            self.view.enable_filter(&rb);
         }
-        if let Some(mwm) = wm.atoms.get("_MOTIF_WM_HINTS") {
-            use antibox_core::backend::hints::{mwm_func, mwm_hints_flags};
-            let _ = conn.change_property32(
-                PropMode::Replace,
-                id,
-                mwm,
-                mwm,
-                &[
-                    mwm_hints_flags::FUNCTIONS,
-                    mwm_func::ALL | mwm_func::MAXIMIZE,
-                    0,
-                    0,
-                    0,
-                ],
-            );
-        }
-        if switcher {
-            let _ = conn.grab_keyboard(
-                false,
-                conn.root().read_id(),
-                0,
-                GrabMode::Async,
-                GrabMode::Async,
-            );
-        }
-        let rconn: Arc<dyn RenderBackend> = wm.render_backend.clone().expect("render backend");
-        let bw = (self.w as i16 - pad() * 2).max(1) as u16;
-        if let Ok(mut bar) = SearchBar::new(&rconn, id, pad(), pad(), bw, bar_h() as u16) {
-            bar.set_focus(true);
-            bar.show();
-            self.bar = Some(bar);
-        }
+        self.view.pos_set(Point::new(x, y));
         self.switcher = switcher;
-        self.window = Some(win);
-        self.client_id = id;
-        self.visible = true;
+        self.client_id = self.view.window_id();
+        self.visible = self.view.visible;
         if switcher {
-            self.paint(conn);
+            self.view.selected = self.selection_from_focus(wm, forward);
+        } else {
+            self.view.selected = self.view.next_leaf(None, 1);
+        }
+        self.paint(conn);
+    }
+
+    pub fn cycle(&mut self, conn: &Arc<dyn DisplayBackend>, forward: bool) {
+        let dir = if forward { 1 } else { -1 };
+        self.view.selected = self
+            .view
+            .next_leaf(self.view.selected, dir)
+            .or_else(|| self.view.next_leaf(None, dir));
+        self.view.scroll_to_selected();
+        self.paint(conn);
+    }
+
+    pub fn activate_selected(
+        &mut self,
+        conn: &Arc<dyn DisplayBackend>,
+        wm: &mut WindowManager<dyn DisplayBackend>,
+    ) {
+        if let Some(s) = self.view.selected {
+            self.activate(conn, wm, s);
+        }
+    }
+
+    pub fn selected_client_id(&self) -> Option<u32> {
+        let s = self.view.selected?;
+        let row = self.view.items.get(s)?;
+        row.payload().map(|p| p.client_id)
+    }
+
+    pub fn hide(&mut self, conn: &Arc<dyn DisplayBackend>) {
+        let was_switcher = self.switcher;
+        self.view.hide(conn.as_ref());
+        self.reset();
+        if was_switcher {
+            let _ = conn.ungrab_keyboard(0);
             let _ = conn.flush();
         }
     }
 
+    pub fn on_destroyed(&mut self, window: u32) {
+        if window == self.client_id {
+            self.reset();
+        }
+    }
+
+    fn reset(&mut self) {
+        self.visible = false;
+        self.switcher = false;
+        self.client_id = 0;
+        self.view = ListView::new();
+    }
+
+    pub fn on_configure(&mut self, conn: &Arc<dyn DisplayBackend>, w: u16, h: u16) {
+        if w == 0 || h == 0 || (w == self.view.w && h == self.view.h) {
+            return;
+        }
+        self.view.set_size(w, h);
+        self.paint(conn);
+    }
+
     fn row_of_client(&self, xid: u32) -> Option<usize> {
-        self.rows.iter().position(|r| {
-            matches!(r, Row::Win(i) if self.items.get(*i).map_or(false, |it| it.client_id == xid))
-        })
+        self.view
+            .items
+            .iter()
+            .position(|r| r.payload().map_or(false, |p| p.client_id == xid))
     }
 
     fn selection_from_focus(
@@ -366,152 +322,40 @@ impl WinListMenu {
         }
         let start = fid.and_then(|id| self.row_of_client(id));
         let dir = if forward { 1 } else { -1 };
-        self.next_win_row(start, dir)
-            .or_else(|| self.next_win_row(None, dir))
-    }
-
-    pub fn cycle(&mut self, conn: &Arc<dyn DisplayBackend>, forward: bool) {
-        let dir = if forward { 1 } else { -1 };
-        self.selected = self
-            .next_win_row(self.selected, dir)
-            .or_else(|| self.next_win_row(None, dir));
-        self.scroll_to_selected();
-        self.paint(conn);
-    }
-
-    pub fn activate_selected(
-        &self,
-        conn: &Arc<dyn DisplayBackend>,
-        wm: &mut WindowManager<dyn DisplayBackend>,
-    ) {
-        if let Some(s) = self.selected {
-            self.activate(conn, wm, s);
-        }
-    }
-
-    pub fn selected_client_id(&self) -> Option<u32> {
-        let s = self.selected?;
-        match self.rows.get(s)? {
-            Row::Win(i) => self.items.get(*i).map(|it| it.client_id),
-            Row::Header(_) => None,
-        }
-    }
-
-    pub fn hide(&mut self, conn: &Arc<dyn DisplayBackend>) {
-        let was_switcher = self.switcher;
-        if let Some(ref win) = self.window {
-            let _ = win.destroy();
-            let _ = conn.flush();
-        }
-        self.reset();
-        if was_switcher {
-            let _ = conn.ungrab_keyboard(0);
-            let _ = conn.flush();
-        }
-    }
-
-    pub fn on_destroyed(&mut self, window: u32) {
-        if window == self.client_id {
-            self.reset();
-        }
-    }
-
-    fn reset(&mut self) {
-        self.visible = false;
-        self.switcher = false;
-        self.window = None;
-        self.client_id = 0;
-        self.items.clear();
-        self.rows.clear();
-        self.selected = None;
-        self.scroll_drag = false;
-        self.bar = None;
-        self.filter.clear();
-    }
-
-    pub fn on_configure(&mut self, conn: &Arc<dyn DisplayBackend>, w: u16, h: u16) {
-        if w == 0 || h == 0 || (w == self.w && h == self.h) {
-            return;
-        }
-        self.w = w;
-        self.h = h;
-        if let Some(bar) = self.bar.as_mut() {
-            let bw = (w as i16 - pad() * 2).max(1) as u16;
-            bar.set_rect(pad(), pad(), bw, bar_h() as u16);
-        }
-        self.clamp_offset();
-        self.paint(conn);
-    }
-
-    fn next_win_row(&self, from: Option<usize>, dir: i32) -> Option<usize> {
-        crate::menu::next_selectable(&self.rows, from, dir)
-    }
-
-    fn scroll_to_selected(&mut self) {
-        if let Some(s) = self.selected {
-            let s = s as i16;
-            if s < self.offset {
-                self.offset = s;
-            } else if s >= self.offset + self.vis_rows() {
-                self.offset = s - self.vis_rows() + 1;
-            }
-            self.clamp_offset();
-        }
+        self.view
+            .next_leaf(start, dir)
+            .or_else(|| self.view.next_leaf(None, dir))
     }
 
     fn activate(
-        &self,
+        &mut self,
         conn: &Arc<dyn DisplayBackend>,
         wm: &mut WindowManager<dyn DisplayBackend>,
         row: usize,
     ) {
-        match self.rows.get(row) {
-            Some(Row::Win(i)) => {
-                if let Some(item) = self.items.get(*i) {
-                    let id = item.client_id;
-                    if let Some(cid) = wm.cid_for_xid(id) {
-                        crate::focus::activate_window(wm, cid);
-                    }
-                    let _ = conn.flush();
-                }
+        let payload = match self.view.items.get(row) {
+            Some(r) if r.is_group() => {
+                self.view.toggle_row(conn.as_ref(), row);
+                let _ = conn.flush();
+                return;
             }
-            Some(Row::Header(ws)) => {
-                let ws = *ws;
-                if ws != !0 {
-                    wm.activate_workspace(ws);
-                    let _ = conn.flush();
-                }
+            Some(r) => r.payload().cloned(),
+            None => return,
+        };
+        if let Some(p) = payload {
+            if let Some(cid) = wm.cid_for_xid(p.client_id) {
+                crate::focus::activate_window(wm, cid);
             }
-            None => {}
         }
-    }
-
-    fn row_at(&self, py: i16) -> Option<usize> {
-        let rel = py - self.list_top();
-        if rel < 0 {
-            return None;
-        }
-        let vr = rel / row_h();
-        if vr >= self.vis_rows() {
-            return None;
-        }
-        let row = (self.offset + vr) as usize;
-        if row < self.rows.len() {
-            Some(row)
-        } else {
-            None
-        }
+        let _ = conn.flush();
     }
 
     pub fn window_at(&mut self, p: Point) -> Option<u32> {
-        let row = self.row_at(p.y as i16)?;
-        if let Some(Row::Win(i)) = self.rows.get(row) {
-            let id = self.items.get(*i)?.client_id;
-            self.selected = Some(row);
-            Some(id)
-        } else {
-            None
-        }
+        let row = self.view.row_at(p)?;
+        let r = self.view.items.get(row)?;
+        let id = r.payload()?.client_id;
+        self.view.selected = Some(row);
+        Some(id)
     }
 
     pub fn handle_click(
@@ -521,81 +365,47 @@ impl WinListMenu {
         button: u8,
         p: Point,
     ) -> bool {
-        let (px, py) = (p.x as i16, p.y as i16);
-
         if button == 4 || button == 5 {
-            self.offset += if button == 4 { -3 } else { 3 };
-            self.clamp_offset();
+            self.view.scroll_by(if button == 4 { -3 } else { 3 });
             self.paint(conn);
             return false;
         }
-
-        if self.needs_sb() && px >= self.sb_x() && px < self.sb_x() + sb_w() {
-            let bwid = sb_w();
-            if py < self.sb_top() + bwid {
-                self.offset -= 1;
-            } else if py >= self.h as i16 - bwid {
-                self.offset += 1;
-            } else {
-                let (ty, tht) = self.thumb();
-                if py < ty {
-                    self.offset -= self.vis_rows();
-                } else if py >= ty + tht {
-                    self.offset += self.vis_rows();
-                } else {
-                    self.scroll_drag = true;
-                }
+        if self.view.needs_sb()
+            && p.x - self.view.pos().x >= self.view.sb_x() as i32
+            && p.x - self.view.pos().x < self.view.sb_x() as i32 + sb_w() as i32
+        {
+            if self.view.sb_hit(p) {
+                self.paint(conn);
             }
-            self.clamp_offset();
-            self.paint(conn);
             return false;
         }
-
-        if let Some(row) = self.row_at(py) {
-            if matches!(self.rows.get(row), Some(Row::Win(_))) {
-                self.selected = Some(row);
+        let row = match self.view.row_at(p) {
+            Some(r) => r,
+            None => return false,
+        };
+        if let Some(r) = self.view.items.get(row) {
+            if r.payload().is_some() {
+                self.view.selected = Some(row);
             }
-            self.activate(conn, wm, row);
-            self.paint(conn);
-            return matches!(self.rows.get(row), Some(Row::Win(_)) | Some(Row::Header(_)));
         }
-        false
+        let activated = self
+            .view
+            .items
+            .get(row)
+            .map_or(false, |r| r.payload().is_some());
+        self.activate(conn, wm, row);
+        self.paint(conn);
+        activated
     }
 
     pub fn handle_motion(&mut self, conn: &Arc<dyn DisplayBackend>, p: Point) {
-        if !self.scroll_drag {
-            return;
+        if self.view.scroll_drag {
+            self.view.handle_motion(conn.as_ref(), p);
         }
-        let bwid = sb_w();
-        let (_, tht) = self.thumb();
-        let span = (self.trough_h() - tht).max(1);
-        let rel = (p.y as i16 - self.sb_top() - bwid - tht / 2).clamp(0, span);
-        let mo = self.max_offset();
-        self.offset = if span > 0 { rel * mo / span } else { 0 };
-        self.clamp_offset();
-        self.paint(conn);
     }
 
     pub fn end_drag(&mut self) {
-        self.scroll_drag = false;
-    }
-
-    fn sync_filter(
-        &mut self,
-        conn: &Arc<dyn DisplayBackend>,
-        wm: &mut WindowManager<dyn DisplayBackend>,
-    ) {
-        let t = self
-            .bar
-            .as_ref()
-            .map(|b| b.text().to_string())
-            .unwrap_or_default();
-        if t != self.filter {
-            self.filter = t;
-            self.offset = 0;
-            self.rebuild(wm);
-        }
-        self.paint(conn);
+        self.view.end_drag();
     }
 
     pub fn handle_bar_button(
@@ -606,18 +416,12 @@ impl WinListMenu {
         p: Point,
         button: u8,
     ) -> bool {
-        let bar = match self.bar.as_mut() {
-            Some(bar) => bar,
-            None => return false,
-        };
-        if !bar.owns_window(window) {
+        if !self.view.handle_bar_button(conn.as_ref(), window, p, button) {
             return false;
         }
-        let ev = bar.handle_button(window, p.x, p.y, button);
-        bar.repaint();
-        if ev == SearchEvent::Changed {
-            self.sync_filter(conn, wm);
-        }
+        self.rebuild(wm);
+        self.view.sync_geometry(conn.as_ref());
+        self.paint(conn);
         true
     }
 
@@ -630,30 +434,16 @@ impl WinListMenu {
         mapping: &KeyboardMapping,
         ks: u32,
     ) -> bool {
-        let ev = match self.bar.as_mut() {
-            Some(bar) => {
-                let ev = bar.handle_key(keycode, state, mapping);
-                if ev != SearchEvent::None {
-                    bar.repaint();
-                }
-                ev
-            }
-            None => SearchEvent::None,
-        };
-        match ev {
-            SearchEvent::Changed => {
-                self.sync_filter(conn, wm);
+        match self.view.bar_key(keycode, state, mapping) {
+            1 => {
+                self.rebuild(wm);
+                self.view.sync_geometry(conn.as_ref());
+                self.paint(conn);
                 false
             }
-            SearchEvent::Submitted => {
-                if let Some(s) = self.selected {
-                    self.activate(conn, wm, s);
-                    self.paint(conn);
-                }
-                false
-            }
-            SearchEvent::Cancelled => true,
-            SearchEvent::None => self.handle_key(conn, wm, ks),
+            2 => self.handle_key(conn, wm, 0xFF0D),
+            3 => true,
+            _ => self.handle_key(conn, wm, ks),
         }
     }
 
@@ -663,178 +453,22 @@ impl WinListMenu {
         wm: &mut WindowManager<dyn DisplayBackend>,
         ks: u32,
     ) -> bool {
-        match ks {
-            0xFF52 | 0xFF54 => {
-                let dir = if ks == 0xFF52 { -1 } else { 1 };
-                self.selected = self.next_win_row(self.selected, dir);
-                self.scroll_to_selected();
-                self.paint(conn);
-            }
-            0xFF50 | 0xFF57 => {
-                let dir = if ks == 0xFF50 { 1 } else { -1 };
-                self.selected = self.next_win_row(None, dir);
-                self.scroll_to_selected();
-                self.paint(conn);
-            }
-            0xFF55 | 0xFF56 => {
-                self.offset += if ks == 0xFF55 {
-                    -self.vis_rows()
-                } else {
-                    self.vis_rows()
-                };
-                self.clamp_offset();
-                self.paint(conn);
-            }
-            0xFF0D | 0xFF8D | 0x20 => {
-                if let Some(s) = self.selected {
-                    self.activate(conn, wm, s);
-                    self.paint(conn);
+        match self.view.handle_key(conn.as_ref(), ks, false) {
+            ListNav::Close => true,
+            ListNav::Activate(item) => {
+                if let Some(cid) = wm.cid_for_xid(item.client_id) {
+                    crate::focus::activate_window(wm, cid);
                 }
+                self.paint(conn);
+                let _ = conn.flush();
+                false
             }
-            0xFF1B => return true,
-            _ => {}
+            _ => false,
         }
-        false
     }
 
     pub fn paint(&self, conn: &Arc<dyn DisplayBackend>) {
-        let win = match &self.window {
-            Some(v) => v,
-            None => return,
-        };
-        crate::paintbuf::buffered(&**conn, win.id(), self.w, self.h, |g| self.paint_to(g));
-        if let Some(ref bar) = self.bar {
-            bar.repaint();
-        }
-        let _ = conn.flush();
-    }
-
-    fn paint_to(&self, g: &dyn GraphicsContext) {
-        let c = crate::menu::MenuColors::default();
-        let field = theme::field();
-        let lw = self.list_w() as u16;
-        let _ = g.set_foreground(field);
-        let _ = g.fill_rect(0, 0, self.w, self.h);
-        let _ = g.set_font(&FontSpec::role(
-            FontRole::Switch,
-            antibox_ui::metrics::font_pt(),
-        ));
-        for vr in 0..self.vis_rows() {
-            let row_idx = (self.offset + vr) as usize;
-            let row = match self.rows.get(row_idx) {
-                Some(row) => row,
-                None => break,
-            };
-            let y = self.list_top() + vr * row_h();
-            match row {
-                Row::Header(ws) => {
-                    let active = *ws == self.active_ws;
-                    let _ = g.set_foreground(theme::face());
-                    let _ = g.fill_rect(0, y, lw, row_h() as u16);
-                    let _ = g.set_foreground(theme::shadow());
-                    let _ = g.draw_line(0, y + row_h() - 1, lw as i16, y + row_h() - 1);
-                    let _ = g.set_font(&FontSpec::role_styled(
-                        FontRole::Switch,
-                        antibox_ui::metrics::font_pt(),
-                        active,
-                        false,
-                    ));
-                    let _ = g.set_foreground(theme::text());
-                    let _ = g.set_background(theme::face());
-                    let label = if active {
-                        format!("Workspace {} *", ws + 1)
-                    } else {
-                        format!("Workspace {}", ws + 1)
-                    };
-                    let _ = g.draw_text(
-                        6,
-                        antibox_ui::metrics::baseline(y as i32, row_h() as i32) as i16,
-                        &label,
-                    );
-                    let _ = g.set_font(&FontSpec::role(
-                        FontRole::Switch,
-                        antibox_ui::metrics::font_pt(),
-                    ));
-                }
-                Row::Win(i) => {
-                    if let Some(item) = self.items.get(*i) {
-                        let sel = self.selected == Some(row_idx);
-                        if sel {
-                            crate::render::fill_menu_selection(
-                                g,
-                                0,
-                                y,
-                                lw,
-                                row_h() as u16,
-                                c.sel_bg,
-                            );
-                        }
-                        let mut tx = 20;
-                        if let Some(ref icon) = item.icon {
-                            let iy = y + (row_h() - icon.height as i16) / 2;
-                            let _ = g.draw_pixmap(4, iy, icon);
-                            tx = 4 + icon.width as i16 + antibox_ui::metrics::gap() as i16;
-                        }
-                        let _ = g.set_foreground(if sel { c.sel_fg } else { theme::text() });
-                        let _ = g.set_background(if sel { c.sel_bg } else { field });
-                        let _ = g.draw_text(
-                            tx,
-                            antibox_ui::metrics::baseline(y as i32, row_h() as i32) as i16,
-                            &item.title,
-                        );
-                    }
-                }
-            }
-        }
-        if self.needs_sb() {
-            self.paint_scrollbar(g);
-        }
-    }
-
-    fn paint_scrollbar(&self, g: &dyn GraphicsContext) {
-        draw_scrollbar(g, self.sb_x(), self.sb_top(), self.h as i16, self.thumb());
-    }
-}
-
-pub(crate) fn draw_scrollbar(
-    g: &dyn GraphicsContext,
-    x: i16,
-    top: i16,
-    bottom: i16,
-    thumb: (i16, i16),
-) {
-    let face = theme::face();
-    let bwid = sb_w();
-    let w = bwid as u16;
-
-    let _ = g.set_foreground(crate::render::bevel_light(face));
-    let _ = g.fill_rect(x, top + bwid, w, (bottom - top - 2 * bwid).max(0) as u16);
-
-    let _ = g.set_foreground(face);
-    let _ = g.fill_rect(x, top, w, bwid as u16);
-    let _ = crate::render::draw_button_bevel(g, x, top, w, bwid as u16, face, false);
-    sb_arrow(g, x, top, bwid, true);
-
-    let _ = g.set_foreground(face);
-    let _ = g.fill_rect(x, bottom - bwid, w, bwid as u16);
-    let _ = crate::render::draw_button_bevel(g, x, bottom - bwid, w, bwid as u16, face, false);
-    sb_arrow(g, x, bottom - bwid, bwid, false);
-
-    let (ty, tht) = thumb;
-    let _ = g.set_foreground(face);
-    let _ = g.fill_rect(x, ty, w, tht as u16);
-    let _ = crate::render::draw_button_bevel(g, x, ty, w, tht as u16, face, false);
-}
-
-fn sb_arrow(g: &dyn GraphicsContext, x: i16, y: i16, bwid: i16, up: bool) {
-    let cx = x + bwid / 2;
-    let cy = y + bwid / 2;
-    let r = (bwid / 4).max(2);
-    let _ = g.set_foreground(theme::text());
-    if up {
-        let _ = g.fill_polygon(&[(cx, cy - r), (cx - r, cy + r), (cx + r, cy + r)]);
-    } else {
-        let _ = g.fill_polygon(&[(cx, cy + r), (cx - r, cy - r), (cx + r, cy - r)]);
+        self.view.paint(conn.as_ref());
     }
 }
 

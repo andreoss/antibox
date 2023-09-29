@@ -73,3 +73,16 @@ fn test_frame_ops() {
     m.handle_destroy(xid);
     assert_eq!(m.frame_count(), 0);
 }
+
+#[test]
+fn test_expected_unmap_counts_self_window_twice() {
+    let mut m = WindowManager::<MockDisplay>::new_test();
+    m.expect_client_unmap(300);
+    assert!(m.consume_expected_unmap(300));
+    assert!(!m.consume_expected_unmap(300));
+    m.self_windows.insert(400);
+    m.expect_client_unmap(400);
+    assert!(m.consume_expected_unmap(400));
+    assert!(m.consume_expected_unmap(400));
+    assert!(!m.consume_expected_unmap(400));
+}

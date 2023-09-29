@@ -3,6 +3,7 @@ use std::path::PathBuf;
 pub struct DesktopApp {
     pub name: String,
     pub command: Vec<String>,
+    pub categories: Vec<String>,
 }
 
 fn xdg_app_dirs() -> Vec<PathBuf> {
@@ -93,7 +94,12 @@ fn clean_exec(exec: &str, name: &str, icon: &str) -> Vec<String> {
 
 fn parse_desktop(content: &str) -> Option<DesktopApp> {
     let mut in_entry = false;
-    let (mut name, mut exec, mut icon) = (String::new(), String::new(), String::new());
+    let (mut name, mut exec, mut icon, mut categories) = (
+        String::new(),
+        String::new(),
+        String::new(),
+        Vec::new(),
+    );
     let mut typ = String::new();
     let (mut terminal, mut hidden) = (false, false);
     for raw in content.lines() {
@@ -121,6 +127,13 @@ fn parse_desktop(content: &str) -> Option<DesktopApp> {
             "Name" => name = value.to_string(),
             "Exec" => exec = value.to_string(),
             "Icon" => icon = value.to_string(),
+            "Categories" => {
+                categories = value
+                    .split(';')
+                    .map(|c| c.trim().to_string())
+                    .filter(|c| !c.is_empty())
+                    .collect();
+            }
             "Terminal" => terminal = value.eq_ignore_ascii_case("true"),
             "NoDisplay" | "Hidden" if value.eq_ignore_ascii_case("true") => {
                 hidden = true;
@@ -147,7 +160,35 @@ fn parse_desktop(content: &str) -> Option<DesktopApp> {
     Some(DesktopApp {
         name,
         command: tokens,
+        categories,
     })
+}
+
+pub const OTHER_SECTION: &str = "Other";
+
+pub fn section_for(app: &DesktopApp) -> &str {
+    match app.categories.first() {
+        Some(c) => c.as_str(),
+        None => OTHER_SECTION,
+    }
+}
+
+pub fn grouped(apps: &[DesktopApp]) -> Vec<(String, Vec<&DesktopApp>)> {
+    let mut out: Vec<(String, Vec<&DesktopApp>)> = Vec::new();
+    for a in apps {
+        let key = section_for(a).to_string();
+        match out.iter_mut().find(|(k, _)| *k == key) {
+            Some(e) => e.1.push(a),
+            None => out.push((key, vec![a])),
+        }
+    }
+    out.sort_by(|a, b| match (a.0 == OTHER_SECTION, b.0 == OTHER_SECTION) {
+        (true, true) => std::cmp::Ordering::Equal,
+        (true, false) => std::cmp::Ordering::Greater,
+        (false, true) => std::cmp::Ordering::Less,
+        (false, false) => a.0.cmp(&b.0),
+    });
+    out
 }
 
 pub fn scan() -> Vec<DesktopApp> {
@@ -179,7 +220,7 @@ pub fn scan() -> Vec<DesktopApp> {
             }
         }
     }
-    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    apps.sort_by_key(|a| a.name.to_lowercase());
     apps
 }
 

@@ -83,3 +83,12 @@
         );
         set_taskbar_layout(crate::wmconfig::DEFAULT_TASKBAR_LAYOUT);
     }
+
+    #[test]
+    fn super_tap_pref_defaults_on_and_toggles() {
+        set_menu_on_super_tap(true);
+        assert!(menu_on_super_tap());
+        set_menu_on_super_tap(false);
+        assert!(!menu_on_super_tap());
+        set_menu_on_super_tap(true);
+    }
