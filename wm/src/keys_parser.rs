@@ -181,6 +181,7 @@ pub fn parse_action(name: &str) -> Option<Action> {
             "WorkspacePrevTakeWin",
             Action::Workspace(WorkspaceOp::WorkspacePrevTakeWin),
         ),
+        ("RootMenu", Action::Menu(MenuOp::RootMenu)),
         ("Pager", Action::Menu(MenuOp::Pager)),
         ("Omni", Action::Menu(MenuOp::Omni)),
         ("ClickToFocus", Action::Focus(FocusOp::ClickToFocus)),

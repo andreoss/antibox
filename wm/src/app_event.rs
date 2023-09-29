@@ -134,6 +134,7 @@ impl App {
         antibox_ui::ticker::set_enabled(prefs.ticker.enabled);
         crate::frame::set_tabs_on_bottom(prefs.tabs.position == "bottom");
         crate::layout_preferences::set_taskbar_layout(&prefs.taskbar.layout);
+        crate::layout_preferences::set_menu_on_super_tap(prefs.taskbar.menu_on_super_tap);
         self.sync_taskbar_layout(&prefs);
 
         let (count, names) = wmconfig::workspaces_from(&prefs);
@@ -266,7 +267,7 @@ impl App {
             }
             let _ = self.backend.flush();
         }
-        if self.omni.visible {
+        if self.omni.visible() {
             let take = match event {
                 BackendEvent::KeyPress { .. } | BackendEvent::ButtonPress { .. } => true,
                 BackendEvent::MotionNotify { window, .. }
@@ -278,6 +279,10 @@ impl App {
                 self.handle_omni_event(event);
                 return;
             }
+        }
+        if self.root_menu.as_ref().map_or(false, |m| m.visible) && self.handle_root_menu_event(event)
+        {
+            return;
         }
         if self.group_menu.as_ref().map_or(false, |m| m.visible) && self.handle_group_menu_event(event)
         {
@@ -349,6 +354,7 @@ impl App {
         if let Some(a) = self.wm.pending_action.take() {
             match a {
                 Action::Menu(MenuOp::WindowPickerList) => self.show_window_list(),
+                Action::Menu(MenuOp::RootMenu) => self.show_root_menu(),
                 Action::Menu(MenuOp::Omni) => self.show_omni(),
                 Action::Menu(MenuOp::Pager) => self.preview.show(&self.backend, &self.wm),
                 _ => {
@@ -411,6 +417,7 @@ impl App {
         {
             match action {
                 Action::Menu(MenuOp::WindowPickerList) => self.show_window_list(),
+                Action::Menu(MenuOp::RootMenu) => self.show_root_menu(),
                 Action::Menu(MenuOp::Omni) => self.show_omni(),
                 Action::Workspace(WorkspaceOp::WorkspaceMenu(ws)) => {
                     let current = self.wm.layout_for(ws);
@@ -428,25 +435,13 @@ impl App {
             tb.menu.as_ref().map_or(false, |m| m.visible)
         });
         if menu_open {
-            let on_menu = self.taskbar.as_ref().map_or(false, |tb| {
-                tb.menu.as_ref().map_or(false, |m| {
-                    event
-                        .window()
-                        .map_or(false, |w| m.window.as_ref().map_or(false, |mw| mw.id() == w))
-                })
-            });
-            if on_menu {
-                if let Some(ref mut tb) = self.taskbar {
-                    tb.handle_menu_event(event, &*self.backend);
-                }
+            let backend = self.backend.clone();
+            let handled = self
+                .taskbar
+                .as_mut()
+                .map_or(false, |tb| tb.handle_menu_event(event, &*backend));
+            if handled {
                 return;
-            }
-            if matches!(event, BackendEvent::ButtonPress { .. }) {
-                if let Some(ref mut tb) = self.taskbar {
-                    if let Some(ref mut m) = tb.menu {
-                        m.hide();
-                    }
-                }
             }
         }
         let tb = match self.taskbar.as_ref() {
@@ -499,6 +494,9 @@ impl App {
                             .ok().map_or_else(|| Point::new(point.x, point.y), |p| {
                                 Point::new(p.root_x as i32, p.root_y as i32)
                             });
+                        if let Some(mut old) = self.wm.win_menu.take() {
+                            old.hide(&*self.backend);
+                        }
                         let join = self.wm.join_candidates();
                         let mut menu = crate::winmenu::WindowActionMenu::for_focused_client_opts(
                             ws_count,
@@ -582,11 +580,20 @@ impl App {
     fn handle_super_tap(&mut self, event: &BackendEvent) -> bool {
         const SUPER_L: u32 = 0xFFEB;
         const SUPER_R: u32 = 0xFFEC;
+        const TAP_WINDOW: std::time::Duration = std::time::Duration::from_millis(400);
         match event {
             BackendEvent::KeyPress { keycode, .. } => {
                 let ks = self.lookup_keysym(*keycode);
                 if ks == SUPER_L || ks == SUPER_R {
+                    let now = Instant::now();
+                    let double = self
+                        .super_tap_at
+                        .map_or(false, |t| now.duration_since(t) <= TAP_WINDOW);
+                    self.super_tap_at = Some(now);
                     self.super_tap_armed = true;
+                    if double && crate::layout_preferences::menu_on_super_tap() {
+                        self.show_root_menu();
+                    }
                     return true;
                 }
                 self.super_tap_armed = false;
@@ -610,13 +617,10 @@ impl App {
 
     fn open_alt_tab(&mut self, forward: bool) {
         if self.winlist.visible {
-            self.winlist.hide(&self.backend);
+            self.hide_winlist();
         }
         self.winlist.show_switcher(&self.backend, &self.wm, forward);
-        let id = self.winlist.client_id();
-        if id != 0 {
-            self.wm.self_windows.insert(id);
-            crate::handler::map_request_ex(&mut self.wm, id, true);
+        if self.winlist.client_id() != 0 {
             let alt_up = self
                 .backend
                 .query_pointer(self.backend.root().read_id())
@@ -645,8 +649,7 @@ impl App {
                 }
             }
         }
-        self.winlist.hide(&self.backend);
-        let _ = self.backend.flush();
+        self.hide_winlist();
     }
 
     fn handle_alt_tab_event(&mut self, event: &BackendEvent) {
@@ -790,12 +793,12 @@ impl App {
 
 
     fn show_omni(&mut self) {
-        if self.omni.visible {
+        if self.omni.visible() {
             self.omni.hide(&self.backend);
             return;
         }
         if self.winlist.visible {
-            self.winlist.hide(&self.backend);
+            self.hide_winlist();
         }
         self.omni.show(&self.backend, &self.wm);
     }
@@ -894,9 +897,17 @@ impl App {
         crate::focus::focus_window(&mut self.wm, id);
     }
 
+    fn hide_winlist(&mut self) {
+        self.winlist.hide(&self.backend);
+        if let Some(tb) = self.taskbar.as_ref() {
+            let _ = tb.paint();
+        }
+        let _ = self.backend.flush();
+    }
+
     fn show_window_list(&mut self) {
         if self.winlist.visible {
-            self.winlist.hide(&self.backend);
+            self.hide_winlist();
             return;
         }
         self.winlist.show(&self.backend, &self.wm);
@@ -910,17 +921,143 @@ impl App {
         }
     }
 
+    fn set_menu_pressed(&mut self, v: bool) {
+        let tb = match self.taskbar.as_mut() {
+            Some(tb) => tb,
+            None => return,
+        };
+        let mut wid = None;
+        for a in tb.applets.iter_mut() {
+            if let Some(m) = a
+                .as_any_mut()
+                .downcast_mut::<crate::menu_applet::MenuApplet>()
+            {
+                m.set_pressed(v);
+                wid = Some(m.window().id());
+            }
+        }
+        if let Some(id) = wid {
+            let _ = tb.paint_window(id);
+            let _ = self.backend.flush();
+            if !v {
+                let _ = tb.paint();
+                let _ = self.backend.flush();
+            }
+        }
+    }
+
+    fn root_menu_nodes(&self) -> Vec<crate::menu_tree::MenuNode<crate::action::Action>> {
+        use crate::action::Action;
+        use crate::action::WorkspaceOp;
+        use crate::menu_tree::MenuNode;
+
+        let mut nodes: Vec<MenuNode<Action>> = Vec::new();
+        for (section, members) in
+            crate::desktop_apps::grouped(&crate::desktop_apps::scan())
+        {
+            let children = members
+                .iter()
+                .map(|a| {
+                    MenuNode::leaf(
+                        a.name.clone(),
+                        Action::Misc(crate::action::MiscOp::Command(a.command.join(" "))),
+                    )
+                })
+                .collect();
+            nodes.push(MenuNode::group(section, children));
+        }
+        if !nodes.is_empty() {
+            nodes.push(MenuNode::separator());
+        }
+        nodes.push(MenuNode::leaf(
+            "Show Desktop",
+            Action::Workspace(WorkspaceOp::ShowDesktop),
+        ));
+        nodes
+    }
+
+    fn show_root_menu(&mut self) {
+        if let Some(mut open) = self.root_menu.take() {
+            let was_visible = open.visible;
+            open.hide(&*self.backend);
+            self.set_menu_pressed(false);
+            let _ = self.backend.flush();
+            if was_visible {
+                return;
+            }
+        }
+        let nodes = self.root_menu_nodes();
+        if nodes.is_empty() {
+            return;
+        }
+        let mut anchor = Point::new(0, 0);
+        if let Some(tb) = self.taskbar.as_ref() {
+            for a in &tb.applets {
+                if let Some(m) = a
+                    .as_any()
+                    .downcast_ref::<crate::menu_applet::MenuApplet>()
+                {
+                    if let Ok(p) = m.window().translate_coords(Point::ZERO) {
+                        anchor = p;
+                    }
+                }
+            }
+        }
+        let mut menu = crate::menu::MenuView::with_nodes(nodes);
+        menu.show(&*self.backend, anchor);
+        if let Some(rb) = self.wm.render_backend.clone() {
+            menu.enable_filter(&rb);
+        }
+        menu.paint(&*self.backend);
+        self.root_menu = Some(menu);
+        self.set_menu_pressed(true);
+    }
+
+    fn handle_root_menu_event(&mut self, event: &BackendEvent) -> bool {
+        use crate::menu::MenuNav;
+        let mut menu = match self.root_menu.take() {
+            Some(menu) => menu,
+            None => return false,
+        };
+        if !menu.visible {
+            return false;
+        }
+        match menu.handle_event(&*self.backend, event) {
+            MenuNav::Ignored => {
+                self.root_menu = Some(menu);
+                false
+            }
+            MenuNav::Handled => {
+                self.root_menu = Some(menu);
+                true
+            }
+            MenuNav::Close => {
+                menu.hide(&*self.backend);
+                self.set_menu_pressed(false);
+                true
+            }
+            MenuNav::Activate(action) => {
+                menu.hide(&*self.backend);
+                self.set_menu_pressed(false);
+                self.wm.handle_action(&action);
+                let _ = self.backend.flush();
+                true
+            }
+        }
+    }
+
     fn show_group_menu(&mut self, members: &[u32]) {
-        use crate::menu::{MenuRow, MenuView};
-        let rows: Vec<MenuRow<u32>> = members
+        use crate::menu::MenuView;
+        use crate::menu_tree::MenuNode;
+        let nodes: Vec<MenuNode<u32>> = members
             .iter()
             .filter_map(|&xid| {
                 let cid = self.wm.cid_for_xid(xid)?;
                 let title = self.wm.frames.get(&cid)?.client().title().to_string();
-                Some(MenuRow::item(title, xid))
+                Some(MenuNode::leaf(title, xid))
             })
             .collect();
-        if rows.is_empty() {
+        if nodes.is_empty() {
             return;
         }
         let root = self.backend.root().read_id();
@@ -930,7 +1067,10 @@ impl App {
             .map_or(Point::new(0, 0), |p| {
                 Point::new(p.root_x as i32, p.root_y as i32)
             });
-        let mut menu = MenuView::with_items(rows);
+        if let Some(mut old) = self.group_menu.take() {
+            old.hide(&*self.backend);
+        }
+        let mut menu = MenuView::with_nodes(nodes);
         menu.show(&*self.backend, pos);
         let rb: Arc<dyn RenderBackend> = self.wm.render_backend.clone().expect("render backend");
         menu.enable_filter(&rb);
@@ -946,64 +1086,26 @@ impl App {
         if !menu.visible {
             return false;
         }
-        match event {
-            BackendEvent::ButtonPress {
-                window,
-                point,
-                root,
-                button,
-                ..
-            } => {
-                if menu.handle_bar_button(&*self.backend, *window, *point, *button) {
-                    self.group_menu = Some(menu);
-                    return true;
-                }
-                let target = if menu.contains_window(*window) {
-                    menu.handle_click(*root)
-                } else {
-                    None
-                };
-                menu.hide(&*self.backend);
-                if let Some(xid) = target {
-                    if let Some(cid) = self.wm.cid_for_xid(xid) {
-                        crate::focus::activate_window(&mut self.wm, cid);
-                    }
-                    let _ = self.backend.flush();
-                }
-                true
-            }
-            BackendEvent::MotionNotify { window, root, .. } if menu.contains_window(*window) => {
-                menu.handle_motion(&*self.backend, *root);
-                self.group_menu = Some(menu);
-                true
-            }
-            BackendEvent::Expose { window, .. } if menu.contains_window(*window) => {
-                menu.paint(&*self.backend);
-                self.group_menu = Some(menu);
-                true
-            }
-            BackendEvent::KeyPress { keycode, state, .. } => {
-                let ks = self.lookup_keysym(*keycode);
-                let nav = match crate::bindings::keymap(self.backend.as_ref()) {
-                    Some(m) => menu.handle_key_input(&*self.backend, *keycode, *state, &m, ks),
-                    None => menu.handle_key(&*self.backend, ks),
-                };
-                match nav {
-                    MenuNav::Ignored | MenuNav::Handled => self.group_menu = Some(menu),
-                    MenuNav::Close => menu.hide(&*self.backend),
-                    MenuNav::Activate(xid) => {
-                        menu.hide(&*self.backend);
-                        if let Some(cid) = self.wm.cid_for_xid(xid) {
-                        crate::focus::activate_window(&mut self.wm, cid);
-                    }
-                        let _ = self.backend.flush();
-                    }
-                }
-                true
-            }
-            _ => {
+        match menu.handle_event(&*self.backend, event) {
+            MenuNav::Ignored => {
                 self.group_menu = Some(menu);
                 false
+            }
+            MenuNav::Handled => {
+                self.group_menu = Some(menu);
+                true
+            }
+            MenuNav::Close => {
+                menu.hide(&*self.backend);
+                true
+            }
+            MenuNav::Activate(xid) => {
+                menu.hide(&*self.backend);
+                if let Some(cid) = self.wm.cid_for_xid(xid) {
+                    crate::focus::activate_window(&mut self.wm, cid);
+                }
+                let _ = self.backend.flush();
+                true
             }
         }
     }
@@ -1038,6 +1140,9 @@ impl App {
                             .backend
                             .query_pointer(root)
                             .ok().map_or_else(|| Point::new(point.x, point.y), |p| Point::new(p.root_x as i32, p.root_y as i32));
+                        if let Some(mut old) = self.wm.win_menu.take() {
+                            old.hide(&*self.backend);
+                        }
                         let join = self.wm.join_candidates();
                         let mut menu = crate::winmenu::WindowActionMenu::for_focused_client_opts(
                             ws_count,
@@ -1080,7 +1185,7 @@ impl App {
                     self.winlist.handle_key(&self.backend, &mut self.wm, ks)
                 };
                 if close {
-                    self.winlist.hide(&self.backend);
+                    self.hide_winlist();
                 }
             }
             BackendEvent::Expose { .. } => self.winlist.paint(&self.backend),

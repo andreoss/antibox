@@ -250,6 +250,7 @@ pub struct App {
     pub winlist: WinListMenu,
     pub omni: crate::omni::Omni,
     pub group_menu: Option<crate::menu::MenuView<u32>>,
+    pub root_menu: Option<crate::menu::MenuView<crate::action::Action>>,
     pub last_pager_sync: Instant,
     pub taskbar: Option<TaskBar>,
     pub(crate) keyboard_layouts_pref: String,
@@ -263,6 +264,7 @@ pub struct App {
     pub(crate) tray_composite: bool,
 
     pub(crate) super_tap_armed: bool,
+    pub(crate) super_tap_at: Option<Instant>,
     pub(crate) wm_sn_atom: u32,
     pub(crate) wm_sn_owner: Option<Box<dyn WindowHandle>>,
 }
@@ -528,6 +530,7 @@ impl App {
             winlist: WinListMenu::new(),
             omni: crate::omni::Omni::new(),
             group_menu: None,
+            root_menu: None,
             last_pager_sync: Instant::now(),
             taskbar,
             keyboard_layouts_pref: prefs.keyboard.layouts.clone(),
@@ -537,6 +540,7 @@ impl App {
             tray: tray.cloned(),
             tray_composite: composite_available,
             super_tap_armed: false,
+            super_tap_at: None,
             wm_sn_atom,
             wm_sn_owner,
         })
@@ -720,6 +724,12 @@ impl App {
     ) -> Option<Box<dyn Applet>> {
         use crate::layout_preferences::Widget;
         match w {
+            Widget::Menu => crate::menu_applet::MenuApplet::new(conn, wid)
+                .ok()
+                .map(|mut a| {
+                    a.set_colours(&wm.theme_colours);
+                    Box::new(a) as Box<dyn Applet>
+                }),
             Widget::Workspaces => {
                 WorkspacesPane::new(conn, wid, &wm.workspace_names, wm.theme_colours)
                     .ok()

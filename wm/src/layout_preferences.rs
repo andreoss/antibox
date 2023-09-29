@@ -16,11 +16,13 @@ static TASKBAR_TITLES: AtomicBool = AtomicBool::new(true);
 static TASKBAR_DOUBLE: AtomicBool = AtomicBool::new(false);
 static TASKBAR_WHEEL: AtomicBool = AtomicBool::new(true);
 static PAGER_NUMBERS: AtomicBool = AtomicBool::new(false);
+static MENU_ON_SUPER_TAP: AtomicBool = AtomicBool::new(true);
 static PAGER_PREVIEW: AtomicBool = AtomicBool::new(true);
 static MINIMIZE_ANIMATION: AtomicBool = AtomicBool::new(false);
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Widget {
+    Menu,
     Workspaces,
     Windows,
     Tray,
@@ -33,8 +35,9 @@ pub enum Widget {
 }
 
 impl Widget {
-    pub const COUNT: usize = 9;
+    pub const COUNT: usize = 10;
     pub const ALL: [Self; Self::COUNT] = [
+        Widget::Menu,
         Widget::Workspaces,
         Widget::Windows,
         Widget::Tray,
@@ -52,6 +55,7 @@ impl Widget {
 
 fn widget_token(name: &str) -> Option<Widget> {
     match name.trim().to_ascii_lowercase().as_str() {
+        "menu" | "start" => Some(Widget::Menu),
         "workspaces" | "pager" => Some(Widget::Workspaces),
         "windows" | "tasks" | "taskbar" | "windowlist" => Some(Widget::Windows),
         "tray" | "systray" | "systemtray" => Some(Widget::Tray),
@@ -97,6 +101,7 @@ pub fn apply() {
     antibox_ui::theme::set_title_side_override("");
     set_taskbar_align("");
     TASKBAR_GROUPING.store(false, Ordering::Relaxed);
+    MENU_ON_SUPER_TAP.store(true, Ordering::Relaxed);
     if let Ok(mut g) = TASKBAR_LAYOUT.write() {
         *g = parse_layout("");
     }
@@ -106,6 +111,7 @@ pub fn apply() {
     set_pager_style(false, true);
     set_minimize_animation(false);
     let present = |w: Widget| match w {
+        Widget::Menu => false,
         Widget::Workspaces => true,
         Widget::Windows => true,
         Widget::Tray => true,
@@ -163,6 +169,14 @@ pub fn taskbar_wheel_enabled() -> bool {
 pub fn set_pager_style(numbers: bool, preview: bool) {
     PAGER_NUMBERS.store(numbers, Ordering::Relaxed);
     PAGER_PREVIEW.store(preview, Ordering::Relaxed);
+}
+
+pub fn set_menu_on_super_tap(v: bool) {
+    MENU_ON_SUPER_TAP.store(v, Ordering::Relaxed);
+}
+
+pub fn menu_on_super_tap() -> bool {
+    MENU_ON_SUPER_TAP.load(Ordering::Relaxed)
 }
 
 pub fn pager_numbers() -> bool {

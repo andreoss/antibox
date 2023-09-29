@@ -1,25 +1,7 @@
+use crate::menu_tree::{self, MenuNode};
 use antibox_core::backend::*;
 use antibox_core::point::Point;
 use antibox_core::rect::Rect;
-
-pub trait MenuItem {
-    fn is_separator(&self) -> bool;
-}
-
-pub fn next_selectable<T: MenuItem>(items: &[T], from: Option<usize>, dir: i32) -> Option<usize> {
-    let n = items.len();
-    if n == 0 {
-        return None;
-    }
-    let mut i = from.map_or(if dir > 0 { -1 } else { n as i32 }, |s| s as i32);
-    for _ in 0..n {
-        i = ((i + dir) % n as i32 + n as i32) % n as i32;
-        if !items[i as usize].is_separator() {
-            return Some(i as usize);
-        }
-    }
-    None
-}
 
 #[derive(Clone, Copy)]
 pub struct MenuColors {
@@ -49,62 +31,18 @@ impl MenuColors {
             sel_fg: antibox_ui::theme::menu_sel_fg(),
         }
     }
-
-    pub const fn for_taskbar(tc: &crate::render::ThemeColors) -> MenuColors {
-        MenuColors {
-            bg: tc.task_bar_colour,
-            fg: tc.button_fg,
-            sel_bg: tc.workspace_active_bg,
-            sel_fg: tc.workspace_active_fg,
-        }
-    }
 }
 
 pub fn item_h() -> u16 {
     antibox_ui::metrics::menu_item_height() as u16
 }
 
-#[derive(Clone)]
-pub struct MenuRow<T> {
-    pub label: String,
-    pub payload: Option<T>,
-    pub submenu: Option<Vec<MenuRow<T>>>,
-    pub separator: bool,
+fn band_h() -> i32 {
+    (item_h() as i32) * 3 / 4
 }
 
-impl<T> MenuRow<T> {
-    pub fn item(label: impl Into<String>, payload: T) -> Self {
-        MenuRow {
-            label: label.into(),
-            payload: Some(payload),
-            submenu: None,
-            separator: false,
-        }
-    }
-
-    pub fn submenu(label: impl Into<String>, rows: Vec<Self>) -> Self {
-        MenuRow {
-            label: label.into(),
-            payload: None,
-            submenu: Some(rows),
-            separator: false,
-        }
-    }
-
-    pub fn separator() -> Self {
-        MenuRow {
-            label: String::new(),
-            payload: None,
-            submenu: None,
-            separator: true,
-        }
-    }
-}
-
-impl<T> MenuItem for MenuRow<T> {
-    fn is_separator(&self) -> bool {
-        self.separator
-    }
+fn frame_pad() -> i32 {
+    4
 }
 
 pub enum MenuNav<T> {
@@ -114,19 +52,28 @@ pub enum MenuNav<T> {
     Activate(T),
 }
 
+enum Hit {
+    Item(usize),
+    ScrollUp,
+    ScrollDown,
+    Inert,
+}
+
 pub struct MenuView<T> {
-    pub window: Option<Box<dyn WindowHandle>>,
-    pub items: Vec<MenuRow<T>>,
-    all: Vec<MenuRow<T>>,
+    window: Option<Box<dyn WindowHandle>>,
+    items: Vec<MenuNode<T>>,
+    all: Vec<MenuNode<T>>,
     bar: Option<antibox_ui::searchbar::SearchBar>,
-    pub pos: Point,
+    pos: Point,
     anchor: Point,
     last_pointer: Option<Point>,
     pub visible: bool,
-    pub selected: Option<usize>,
-    pub submenu: Option<Box<MenuView<T>>>,
+    selected: Option<usize>,
+    offset: usize,
+    vis_rows: usize,
+    scrollable: bool,
+    submenu: Option<Box<MenuView<T>>>,
     pub colours: MenuColors,
-    pub min_w: u16,
 }
 
 impl<T: Clone> Default for MenuView<T> {
@@ -151,17 +98,24 @@ impl<T: Clone> MenuView<T> {
             last_pointer: None,
             visible: false,
             selected: None,
+            offset: 0,
+            vis_rows: 0,
+            scrollable: false,
             submenu: None,
             colours: MenuColors::default(),
-            min_w: 0,
         }
     }
 
-    pub fn with_items(items: Vec<MenuRow<T>>) -> Self {
+    pub fn with_nodes(nodes: Vec<MenuNode<T>>) -> Self {
         MenuView {
-            items,
+            items: nodes.clone(),
+            all: nodes,
             ..Self::new()
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.all.is_empty()
     }
 
     fn bar_off(&self) -> i16 {
@@ -189,13 +143,37 @@ impl<T: Clone> MenuView<T> {
             bar.set_focus(true);
             bar.show();
             self.bar = Some(bar);
-            self.all = self.items.clone();
             self.reposition(rb.screen_width() as i32, rb.screen_height() as i32);
         }
     }
 
+    fn fit_rows(&mut self, sh: i32) {
+        let n = self.items.len();
+        let ih = item_h() as i32;
+        let avail = sh - frame_pad() * 2 - self.bar_off() as i32;
+        if n as i32 * ih <= avail {
+            self.vis_rows = n;
+            self.scrollable = false;
+        } else {
+            self.vis_rows = ((avail - 2 * band_h()) / ih).max(1) as usize;
+            self.scrollable = true;
+        }
+        self.clamp_offset();
+    }
+
+    fn clamp_offset(&mut self) {
+        let max = self.items.len().saturating_sub(self.vis_rows.max(1));
+        if self.offset > max {
+            self.offset = max;
+        }
+    }
+
     fn reposition(&mut self, sw: i32, sh: i32) {
-        let win = match self.window { Some(ref w) => w, None => return };
+        self.fit_rows(sh);
+        let win = match self.window {
+            Some(ref w) => w,
+            None => return,
+        };
         let ph = self.height().max(1);
         let pos =
             crate::render::menu_clamp_pos(self.anchor, self.menu_w() as i32, ph, sw, sh, true);
@@ -207,28 +185,21 @@ impl<T: Clone> MenuView<T> {
         let keep = self.selected.and_then(|s| {
             self.items
                 .get(s)
-                .map(|it| crate::render::parse_mnemonic(&it.label).0)
+                .map(|it| crate::render::parse_mnemonic(it.title()).0)
         });
         self.items = if needle.is_empty() {
             self.all.clone()
         } else {
-            self.all
-                .iter()
-                .filter(|it| {
-                    !it.separator
-                        && crate::render::parse_mnemonic(&it.label)
-                            .0
-                            .to_lowercase()
-                            .contains(needle)
-                })
-                .cloned()
-                .collect()
+            let mut out = Vec::new();
+            menu_tree::collect_leaves(&menu_tree::filter_nodes(&self.all, needle), &mut out);
+            out
         };
+        self.offset = 0;
         self.selected = keep
             .and_then(|k| {
                 self.items
                     .iter()
-                    .position(|it| crate::render::parse_mnemonic(&it.label).0 == k)
+                    .position(|it| crate::render::parse_mnemonic(it.title()).0 == k)
             })
             .or_else(|| self.next_selectable(None, 1));
     }
@@ -258,7 +229,7 @@ impl<T: Clone> MenuView<T> {
         d.paint(conn);
     }
 
-    pub fn handle_key_input<H: DisplayBackend + ?Sized>(
+    fn handle_key_input<H: DisplayBackend + ?Sized>(
         &mut self,
         conn: &H,
         keycode: u32,
@@ -288,7 +259,7 @@ impl<T: Clone> MenuView<T> {
         }
     }
 
-    pub fn handle_bar_button<H: DisplayBackend + ?Sized>(
+    fn handle_bar_button<H: DisplayBackend + ?Sized>(
         &mut self,
         conn: &H,
         window: u32,
@@ -311,6 +282,14 @@ impl<T: Clone> MenuView<T> {
         true
     }
 
+    fn icon_col(&self) -> i16 {
+        if self.items.iter().any(|it| it.icon().is_some()) {
+            (crate::listview::row_icon_px() + antibox_ui::metrics::gap() as u16) as i16
+        } else {
+            0
+        }
+    }
+
     pub fn menu_w(&self) -> u16 {
         let labels = if self.all.is_empty() {
             &self.items
@@ -320,10 +299,9 @@ impl<T: Clone> MenuView<T> {
         crate::render::menu_content_width(
             labels
                 .iter()
-                .filter(|it| !it.separator)
-                .map(|it| it.label.as_str()),
-        )
-        .max(self.min_w)
+                .filter(|it| !it.is_separator())
+                .map(|it| it.title()),
+        ) + self.icon_col() as u16
     }
 
     pub fn contains_window(&self, window: u32) -> bool {
@@ -347,15 +325,15 @@ impl<T: Clone> MenuView<T> {
     }
 
     fn show_at<H: DisplayBackend + ?Sized>(&mut self, conn: &H, pos: Point) {
-        let n = self.items.len();
-        if n == 0 {
+        if self.items.is_empty() {
             return;
         }
         self.anchor = pos;
-        let ph = (n as u16) * item_h() + 8;
         let sw = conn.screen_width() as i32;
         let sh = conn.screen_height() as i32;
-        let pos = crate::render::menu_clamp_pos(pos, self.menu_w() as i32, ph as i32, sw, sh, true);
+        self.fit_rows(sh);
+        let ph = self.height();
+        let pos = crate::render::menu_clamp_pos(pos, self.menu_w() as i32, ph, sw, sh, true);
         let mask = EventMask::BUTTON_PRESS
             | EventMask::EXPOSURE
             | EventMask::POINTER_MOTION
@@ -364,7 +342,7 @@ impl<T: Clone> MenuView<T> {
             | EventMask::KEY_PRESS;
         if let Ok(win) = conn.create_window(
             conn.root().as_parent(),
-            Rect::new(pos.x, pos.y, self.menu_w() as i32, ph as i32),
+            Rect::new(pos.x, pos.y, self.menu_w() as i32, ph),
             WmWindowClass::InputOutput,
             true,
             mask,
@@ -374,11 +352,18 @@ impl<T: Clone> MenuView<T> {
             self.pos = pos;
             self.visible = true;
             self.selected = None;
+            self.offset = 0;
         }
     }
 
     fn height(&self) -> i32 {
-        (self.items.len().max(1) as i32) * item_h() as i32 + 8 + self.bar_off() as i32
+        let ih = item_h() as i32;
+        let rows = if self.scrollable {
+            2 * band_h() + self.vis_rows as i32 * ih
+        } else {
+            (self.items.len().max(1) as i32) * ih
+        };
+        rows + frame_pad() * 2 + self.bar_off() as i32
     }
 
     fn contains(&self, root: Point) -> bool {
@@ -388,21 +373,88 @@ impl<T: Clone> MenuView<T> {
             && root.y < self.pos.y + self.height()
     }
 
-    fn item_at(&self, root: Point) -> Option<usize> {
+    fn tree_contains(&self, root: Point) -> bool {
+        self.contains(root)
+            || self
+                .submenu
+                .as_ref()
+                .map_or(false, |s| s.tree_contains(root))
+    }
+
+    fn rows_top(&self) -> i32 {
+        frame_pad()
+            + self.bar_off() as i32
+            + if self.scrollable { band_h() } else { 0 }
+    }
+
+    fn row_y(&self, idx: usize) -> i32 {
+        self.rows_top() + (idx as i32 - self.offset as i32) * item_h() as i32
+    }
+
+    fn hit_at(&self, root: Point) -> Hit {
         if !self.contains(root) {
-            return None;
+            return Hit::Inert;
         }
-        let idx = crate::render::menu_item_at(
-            root,
-            self.pos,
-            4 + self.bar_off() as i32,
-            item_h() as i32,
-            self.items.len(),
-        )?;
-        if self.items[idx].separator {
-            return None;
+        let wy = root.y - self.pos.y - frame_pad() - self.bar_off() as i32;
+        if wy < 0 {
+            return Hit::Inert;
         }
-        Some(idx)
+        let ih = item_h() as i32;
+        if self.scrollable {
+            let rows_h = self.vis_rows as i32 * ih;
+            if wy < band_h() {
+                return Hit::ScrollUp;
+            }
+            if wy >= band_h() + rows_h {
+                if wy < 2 * band_h() + rows_h {
+                    return Hit::ScrollDown;
+                }
+                return Hit::Inert;
+            }
+            let idx = self.offset + ((wy - band_h()) / ih) as usize;
+            if idx < self.items.len() {
+                return Hit::Item(idx);
+            }
+            return Hit::Inert;
+        }
+        let idx = (wy / ih) as usize;
+        if idx < self.items.len() {
+            Hit::Item(idx)
+        } else {
+            Hit::Inert
+        }
+    }
+
+    fn item_at(&self, root: Point) -> Option<usize> {
+        match self.hit_at(root) {
+            Hit::Item(idx) if !self.items[idx].is_separator() => Some(idx),
+            _ => None,
+        }
+    }
+
+    fn scroll_by<H: DisplayBackend + ?Sized>(&mut self, conn: &H, d: i32) {
+        if !self.scrollable {
+            return;
+        }
+        let max = self.items.len().saturating_sub(self.vis_rows) as i32;
+        self.offset = (self.offset as i32 + d).clamp(0, max) as usize;
+        self.paint(conn);
+    }
+
+    fn ensure_visible(&mut self) {
+        let s = match self.selected {
+            Some(s) => s,
+            None => return,
+        };
+        if !self.scrollable {
+            return;
+        }
+        if s < self.offset {
+            self.offset = s;
+        } else if s >= self.offset + self.vis_rows {
+            self.offset = s + 1 - self.vis_rows;
+        }
+        self.clamp_offset();
     }
 
     #[allow(clippy::only_used_in_recursion)]
@@ -414,10 +466,7 @@ impl<T: Clone> MenuView<T> {
         crate::render::menu_destroy_window(&mut self.window, &mut self.visible);
         self.bar = None;
         self.selected = None;
-    }
-
-    pub fn handle_motion<H: DisplayBackend + ?Sized>(&mut self, conn: &H, root: Point) {
-        self.motion_root(conn, root);
+        self.offset = 0;
     }
 
     fn motion_root<H: DisplayBackend + ?Sized>(&mut self, conn: &H, root: Point) {
@@ -426,7 +475,7 @@ impl<T: Clone> MenuView<T> {
         }
         let prev = self.last_pointer.replace(root);
         if let Some(ref mut sub) = self.submenu {
-            if sub.contains(root) {
+            if sub.tree_contains(root) {
                 sub.motion_root(conn, root);
                 return;
             }
@@ -444,13 +493,16 @@ impl<T: Clone> MenuView<T> {
                     return;
                 }
             }
+            if !self.contains(root) && new_sel.is_none() {
+                return;
+            }
             if let Some(mut sub) = self.submenu.take() {
                 sub.hide(conn);
             }
             self.selected = new_sel;
             self.paint(conn);
             if let Some(s) = self.selected {
-                if self.items[s].submenu.is_some() {
+                if self.items[s].children().is_some() {
                     self.show_submenu(conn, s);
                 }
             }
@@ -458,8 +510,8 @@ impl<T: Clone> MenuView<T> {
     }
 
     fn show_submenu<H: DisplayBackend + ?Sized>(&mut self, conn: &H, idx: usize) {
-        let sub_items = match self.items[idx].submenu.clone() {
-            Some(s) => s,
+        let sub_items = match self.items[idx].children() {
+            Some(s) => s.to_vec(),
             None => return,
         };
         if let Some(bar) = self.bar.as_mut() {
@@ -467,29 +519,19 @@ impl<T: Clone> MenuView<T> {
                 bar.set_text("");
             }
         }
-        let mut sub = Self::new();
-        sub.all = sub_items.clone();
-        sub.items = sub_items;
+        let mut sub = Self::with_nodes(sub_items);
         sub.colours = self.colours;
         let sub_pos = Point::new(
-            self.pos.x + self.menu_w() as i32,
-            self.pos.y + 4 + self.bar_off() as i32 + (idx as i16 * item_h() as i16) as i32,
+            self.pos.x + self.menu_w() as i32 - antibox_core::scale::scaled(2),
+            self.pos.y + self.row_y(idx),
         );
         sub.show_at(conn, sub_pos);
         self.submenu = Some(Box::new(sub));
     }
 
-    pub fn handle_click(&mut self, root: Point) -> Option<T> {
-        self.click_root(root)
-    }
-
-    pub fn click_opens_submenu<H: DisplayBackend + ?Sized>(&mut self, conn: &H, root: Point) -> bool {
-        self.press_opens_submenu(conn, root)
-    }
-
     fn press_opens_submenu<H: DisplayBackend + ?Sized>(&mut self, conn: &H, root: Point) -> bool {
         if let Some(sub) = self.submenu.as_mut() {
-            if sub.contains(root) {
+            if sub.tree_contains(root) {
                 return sub.press_opens_submenu(conn, root);
             }
         }
@@ -497,7 +539,7 @@ impl<T: Clone> MenuView<T> {
             Some(idx) => idx,
             None => return false,
         };
-        if self.items[idx].submenu.is_none() {
+        if self.items[idx].children().is_none() {
             return false;
         }
         if self.selected != Some(idx) {
@@ -518,19 +560,27 @@ impl<T: Clone> MenuView<T> {
             return None;
         }
         if let Some(ref sub) = self.submenu {
-            if sub.contains(root) {
+            if sub.tree_contains(root) {
                 return sub.click_root(root);
             }
         }
         let idx = self.item_at(root)?;
-        if self.items[idx].submenu.is_some() {
-            return None;
-        }
-        self.items[idx].payload.clone()
+        self.items[idx].payload().cloned()
     }
 
     fn next_selectable(&self, from: Option<usize>, dir: i32) -> Option<usize> {
-        next_selectable(&self.items, from, dir)
+        let n = self.items.len();
+        if n == 0 {
+            return None;
+        }
+        let mut i = from.map_or(if dir > 0 { -1 } else { n as i32 }, |s| s as i32);
+        for _ in 0..n {
+            i = ((i + dir) % n as i32 + n as i32) % n as i32;
+            if !self.items[i as usize].is_separator() {
+                return Some(i as usize);
+            }
+        }
+        None
     }
 
     #[allow(clippy::unnecessary_unwrap)]
@@ -560,7 +610,7 @@ impl<T: Clone> MenuView<T> {
             Some(s) => s,
             None => return MenuNav::Ignored,
         };
-        if d.items[s].submenu.is_none() {
+        if d.items[s].children().is_none() {
             return MenuNav::Ignored;
         }
         d.show_submenu(conn, s);
@@ -571,20 +621,28 @@ impl<T: Clone> MenuView<T> {
         MenuNav::Handled
     }
 
-    pub fn handle_key<H: DisplayBackend + ?Sized>(&mut self, conn: &H, ks: u32) -> MenuNav<T> {
+    fn move_selection<H: DisplayBackend + ?Sized>(
+        &mut self,
+        conn: &H,
+        from_current: bool,
+        dir: i32,
+    ) -> MenuNav<T> {
+        let d = self.deepest();
+        let from = if from_current { d.selected } else { None };
+        d.selected = d.next_selectable(from, dir);
+        d.ensure_visible();
+        d.paint(conn);
+        MenuNav::Handled
+    }
+
+    fn handle_key<H: DisplayBackend + ?Sized>(&mut self, conn: &H, ks: u32) -> MenuNav<T> {
         match ks {
-            0xFF52 | 0xFF54 => {
-                let dir = if ks == 0xFF52 { -1 } else { 1 };
+            0xFF52 | 0xFF54 => self.move_selection(conn, true, if ks == 0xFF52 { -1 } else { 1 }),
+            0xFF50 | 0xFF57 => self.move_selection(conn, false, if ks == 0xFF50 { 1 } else { -1 }),
+            0xFF55 | 0xFF56 => {
                 let d = self.deepest();
-                d.selected = d.next_selectable(d.selected, dir);
-                d.paint(conn);
-                MenuNav::Handled
-            }
-            0xFF50 | 0xFF57 => {
-                let dir = if ks == 0xFF50 { 1 } else { -1 };
-                let d = self.deepest();
-                d.selected = d.next_selectable(None, dir);
-                d.paint(conn);
+                let step = d.vis_rows.max(1) as i32 * if ks == 0xFF55 { -1 } else { 1 };
+                d.scroll_by(conn, step);
                 MenuNav::Handled
             }
             0xFF53 => self.open_selected_submenu(conn),
@@ -600,7 +658,10 @@ impl<T: Clone> MenuView<T> {
                 let (is_sub, payload) = {
                     let d = self.deepest();
                     match d.selected {
-                        Some(s) => (d.items[s].submenu.is_some(), d.items[s].payload.clone()),
+                        Some(s) => (
+                            d.items[s].children().is_some(),
+                            d.items[s].payload().cloned(),
+                        ),
                         None => return MenuNav::Ignored,
                     }
                 };
@@ -629,22 +690,23 @@ impl<T: Clone> MenuView<T> {
                         .items
                         .iter()
                         .map(|it| {
-                            if it.separator {
+                            if it.is_separator() {
                                 None
                             } else {
-                                crate::render::mnemonic_key(&it.label)
+                                crate::render::mnemonic_key(it.title())
                             }
                         })
                         .collect();
                     match crate::render::menu_hot_match(&hots, d.selected, key) {
                         Some((idx, count)) => {
                             d.selected = Some(idx);
+                            d.ensure_visible();
                             d.paint(conn);
                             (
                                 true,
                                 count,
-                                d.items[idx].submenu.is_some(),
-                                d.items[idx].payload.clone(),
+                                d.items[idx].children().is_some(),
+                                d.items[idx].payload().cloned(),
                             )
                         }
                         None => (false, 0, false, None),
@@ -669,6 +731,98 @@ impl<T: Clone> MenuView<T> {
         }
     }
 
+    fn wheel<H: DisplayBackend + ?Sized>(&mut self, conn: &H, root: Point, up: bool) {
+        if let Some(sub) = self.submenu.as_mut() {
+            if sub.tree_contains(root) {
+                return sub.wheel(conn, root, up);
+            }
+        }
+        self.scroll_by(conn, if up { -3 } else { 3 });
+    }
+
+    pub fn handle_event<H: DisplayBackend + ?Sized>(
+        &mut self,
+        conn: &H,
+        event: &BackendEvent,
+    ) -> MenuNav<T> {
+        if !self.visible {
+            return MenuNav::Ignored;
+        }
+        match event {
+            BackendEvent::ButtonPress {
+                window,
+                point,
+                root,
+                button,
+                ..
+            } => {
+                if self.handle_bar_button(conn, *window, *point, *button) {
+                    return MenuNav::Handled;
+                }
+                if *button == 4 || *button == 5 {
+                    self.wheel(conn, *root, *button == 4);
+                    return MenuNav::Handled;
+                }
+                if !self.tree_contains(*root) {
+                    return MenuNav::Close;
+                }
+                if self.press_opens_submenu(conn, *root) {
+                    return MenuNav::Handled;
+                }
+                match self.scroll_press(conn, *root) {
+                    Some(nav) => nav,
+                    None => match self.click_root(*root) {
+                        Some(p) => MenuNav::Activate(p),
+                        None => MenuNav::Handled,
+                    },
+                }
+            }
+            BackendEvent::MotionNotify { root, .. } => {
+                self.motion_root(conn, *root);
+                MenuNav::Handled
+            }
+            BackendEvent::Expose { window, .. } if self.contains_window(*window) => {
+                self.paint(conn);
+                MenuNav::Handled
+            }
+            BackendEvent::KeyPress { keycode, state, .. } => {
+                let ks = crate::bindings::keysym_for_keycode(conn, *keycode);
+                let nav = match crate::bindings::keymap(conn) {
+                    Some(m) => self.handle_key_input(conn, *keycode, *state, &m, ks),
+                    None => self.handle_key(conn, ks),
+                };
+                match nav {
+                    MenuNav::Ignored => MenuNav::Handled,
+                    nav => nav,
+                }
+            }
+            _ => MenuNav::Ignored,
+        }
+    }
+
+    fn scroll_press<H: DisplayBackend + ?Sized>(
+        &mut self,
+        conn: &H,
+        root: Point,
+    ) -> Option<MenuNav<T>> {
+        if let Some(sub) = self.submenu.as_mut() {
+            if sub.tree_contains(root) {
+                return sub.scroll_press(conn, root);
+            }
+        }
+        match self.hit_at(root) {
+            Hit::ScrollUp => {
+                self.scroll_by(conn, -1);
+                Some(MenuNav::Handled)
+            }
+            Hit::ScrollDown => {
+                self.scroll_by(conn, 1);
+                Some(MenuNav::Handled)
+            }
+            _ => None,
+        }
+    }
+
     pub fn paint<H: DisplayBackend + ?Sized>(&self, conn: &H) {
         let win = match &self.window {
             Some(win) => win,
@@ -690,44 +844,58 @@ impl<T: Clone> MenuView<T> {
             antibox_ui::metrics::font_pt(),
         ));
         let (light, dark) = crate::render::draw_menu_frame(&*g, w, h, c.bg);
-        for (i, item) in self.items.iter().enumerate() {
-            let y = 4 + self.bar_off() + i as i16 * item_h() as i16;
-            if item.separator {
+        let ih = item_h();
+        let icon_col = self.icon_col();
+        let top = self.rows_top() as i16;
+        let last = if self.scrollable {
+            (self.offset + self.vis_rows).min(self.items.len())
+        } else {
+            self.items.len()
+        };
+        for (v, item) in self.items[self.offset..last].iter().enumerate() {
+            let idx = self.offset + v;
+            let y = top + (v as i16) * ih as i16;
+            if item.is_separator() {
                 crate::render::draw_menu_separator(
                     &*g,
-                    4,
-                    y + (item_h() / 2) as i16,
-                    w - 8,
+                    frame_pad() as i16,
+                    y + (ih / 2) as i16 - 1,
+                    w - 2 * frame_pad() as u16,
                     light,
                     dark,
                 );
-            } else {
-                let sel = self.selected == Some(i);
-                if sel {
-                    crate::render::fill_menu_selection(&*g, 2, y, w - 4, item_h(), c.sel_bg);
-                }
-                let fg = if sel { c.sel_fg } else { c.fg };
-                let _ = g.set_background(if sel { c.sel_bg } else { c.bg });
-                crate::render::draw_text_mnemonic(
+                continue;
+            }
+            let sel = self.selected == Some(idx);
+            if sel {
+                crate::render::fill_menu_selection(&*g, 2, y, w - 4, ih, c.sel_bg);
+            }
+            let fg = if sel { c.sel_fg } else { c.fg };
+            let _ = g.set_background(if sel { c.sel_bg } else { c.bg });
+            let mut tx = 8;
+            if let Some(ico) = item.icon() {
+                let _ = g.draw_pixmap(tx, y + (ih as i16 - ico.height as i16) / 2, ico);
+            }
+            tx += icon_col;
+            crate::render::draw_text_mnemonic(
+                &*g,
+                tx,
+                antibox_ui::metrics::baseline(y as i32, ih as i32) as i16,
+                item.title(),
+                fg,
+            );
+            if item.children().is_some() {
+                crate::render::draw_submenu_arrow(
                     &*g,
-                    8,
-                    antibox_ui::metrics::baseline(y as i32, item_h() as i32) as i16,
-                    &item.label,
+                    w as i16 - antibox_core::scale::scaled(12) as i16,
+                    y + ih as i16 / 2,
+                    antibox_core::scale::scaled(7) as i16,
                     fg,
                 );
-                if item.submenu.is_some() {
-                    crate::render::draw_submenu_arrow(
-                        &*g,
-                        w as i16 - 12,
-                        y + item_h() as i16 / 2,
-                        7,
-                        if sel { c.sel_fg } else { c.fg },
-                    );
-                }
-                if i + 1 < self.items.len() && !self.items[i + 1].separator {
-                    crate::render::draw_menu_row_rule(&*g, 2, y + item_h() as i16 - 1, w - 4);
-                }
             }
+        }
+        if self.scrollable {
+            self.paint_scroll_bands(&*g, w, h);
         }
         if let Ok(wg) = conn.create_graphics(win.id()) {
             let _ = wg.copy_from(pm, Rect::px(0, 0, w, h), Point::ZERO);
@@ -739,5 +907,89 @@ impl<T: Clone> MenuView<T> {
         if let Some(ref sub) = self.submenu {
             sub.paint(conn);
         }
+    }
+
+    fn paint_scroll_bands(&self, g: &dyn GraphicsContext, w: u16, _h: u16) {
+        let c = self.colours;
+        let bh = band_h();
+        let ih = item_h() as i32;
+        let top_y = frame_pad() + self.bar_off() as i32;
+        let bot_y = top_y + bh + self.vis_rows as i32 * ih;
+        let cx = (w / 2) as i16;
+        let asz = antibox_core::scale::scaled(7).max(5) as i16;
+        let can_up = self.offset > 0;
+        let can_down = self.offset + self.vis_rows < self.items.len();
+        let arrow = |y: i32, dir: antibox_ui::theme::Arrow, on: bool| {
+            let colour = if on {
+                c.fg
+            } else {
+                antibox_ui::theme::shadow()
+            };
+            antibox_ui::theme::arrow_glyph(
+                g,
+                cx,
+                (y + bh / 2) as i16,
+                asz,
+                dir,
+                colour,
+            );
+        };
+        arrow(top_y, antibox_ui::theme::Arrow::Up, can_up);
+        arrow(bot_y, antibox_ui::theme::Arrow::Down, can_down);
+    }
+}
+
+#[cfg(test)]
+mod menu_filter_tests {
+    use crate::menu_tree::{collect_leaves, filter_nodes, MenuNode};
+
+    fn leaf(label: &str) -> MenuNode<u32> {
+        MenuNode::leaf(label, 0)
+    }
+
+    fn leaves(rows: &[MenuNode<u32>], needle: &str) -> Vec<String> {
+        let mut out = Vec::new();
+        collect_leaves(&filter_nodes(rows, needle), &mut out);
+        out.iter().map(|n| n.title().to_string()).collect()
+    }
+
+    #[test]
+    fn matching_descends_into_submenus() {
+        let rows = vec![
+            MenuNode::group("Network", vec![leaf("Firefox"), leaf("Thunderbird")]),
+            MenuNode::group("Game", vec![leaf("Mines")]),
+            MenuNode::separator(),
+            leaf("Show Desktop"),
+        ];
+        assert_eq!(leaves(&rows, "fire"), ["Firefox"]);
+    }
+
+    #[test]
+    fn matching_is_case_insensitive_and_returns_leaves_only() {
+        let rows = vec![
+            MenuNode::group("Utility", vec![leaf("Calculator"), leaf("Vim")]),
+            leaf("Show Desktop"),
+        ];
+        assert_eq!(leaves(&rows, "DESKTOP"), ["Show Desktop"]);
+        assert_eq!(leaves(&rows, "").len(), 3);
+    }
+
+    #[test]
+    fn category_name_surfaces_its_children() {
+        let rows = vec![
+            MenuNode::group("Game", vec![leaf("Mines")]),
+            MenuNode::group("Network", vec![leaf("Firefox")]),
+        ];
+        assert_eq!(leaves(&rows, "game"), ["Mines"]);
+        assert_eq!(leaves(&rows, "network"), ["Firefox"]);
+    }
+
+    #[test]
+    fn nested_category_name_matches_deeper_children() {
+        let rows = vec![MenuNode::group(
+            "Game",
+            vec![MenuNode::group("BoardGame", vec![leaf("Chess")])],
+        )];
+        assert_eq!(leaves(&rows, "board"), ["Chess"]);
     }
 }

@@ -1,5 +1,7 @@
 use crate::id::ClientId;
+use crate::listview::{ListNav, ListView, Place};
 use crate::manager::WindowManager;
+use crate::menu_tree::{FlatEntry, MenuNode};
 use antibox_core::backend::*;
 use antibox_core::keysyms::{
     KEY_Down, KEY_End, KEY_Escape, KEY_Home, KEY_Left, KEY_Next, KEY_Prior, KEY_Return, KEY_Right,
@@ -8,7 +10,7 @@ use antibox_core::keysyms::{
 use antibox_core::point::Point;
 use antibox_core::rect::Rect;
 use antibox_core::scale::scaled;
-use antibox_ui::searchbar::{SearchBar, SearchEvent};
+use antibox_ui::searchbar::SearchEvent;
 use std::sync::Arc;
 
 pub struct OmniItem {
@@ -20,6 +22,16 @@ pub struct OmniItem {
     pub run: bool,
     pub marked: bool,
     pub command: Vec<String>,
+}
+
+#[derive(Clone)]
+pub enum OmniAct {
+    Window(u32),
+    Launch(Vec<String>),
+    RunEntry,
+    Op(OmniWinOp),
+    CycleSort,
+    ToggleGrouping,
 }
 
 pub enum OmniOutcome {
@@ -44,15 +56,6 @@ pub enum OmniWinOp {
     CloseMarked,
     KillMarked,
     UnmarkAll,
-}
-
-#[derive(Clone, Copy)]
-enum OpAction {
-    Do(OmniWinOp),
-    OpenSend,
-    OpenJoin,
-    CycleSort,
-    ToggleGrouping,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -128,58 +131,16 @@ fn compare_items(mode: OmniSort, a: &OmniItem, b: &OmniItem) -> std::cmp::Orderi
     }
 }
 
-struct OpLevel {
-    all: Vec<(String, OpAction)>,
-    rows: Vec<(String, OpAction)>,
-    selected: usize,
-}
-
-impl OpLevel {
-    fn new(all: Vec<(String, OpAction)>) -> Self {
-        Self {
-            rows: all.clone(),
-            all,
-            selected: 0,
-        }
-    }
-
-    fn apply_filter(&mut self, needle: &str) {
-        let needle = needle.to_lowercase();
-        self.rows = if needle.is_empty() {
-            self.all.clone()
-        } else {
-            self.all
-                .iter()
-                .filter(|(l, _)| !l.is_empty() && l.to_lowercase().contains(&needle))
-                .cloned()
-                .collect()
-        };
-        self.selected = crate::menu::next_selectable(&self.rows, None, 1).unwrap_or(0);
-    }
-}
-
-impl crate::menu::MenuItem for (String, OpAction) {
-    fn is_separator(&self) -> bool {
-        self.0.is_empty()
-    }
-}
-
 pub struct Omni {
-    pub window: Option<Box<dyn WindowHandle>>,
-    pub bar: Option<SearchBar>,
+    pub view: ListView<OmniAct>,
     pub items: Vec<OmniItem>,
-    pub filtered: Vec<usize>,
-    pub selected: usize,
-    pub offset: usize,
-    pub pos: Point,
-    pub visible: bool,
-    pub run_mode: bool,
     pub run_items: Vec<OmniItem>,
     run_history: Vec<String>,
     mapping: Option<KeyboardMapping>,
     min_keycode: u8,
-    menu_target: u32,
-    menu_levels: Vec<OpLevel>,
+    pub run_mode: bool,
+    in_ops: bool,
+    ops_target: u32,
     saved_query: String,
     sort: OmniSort,
     group_override: Option<bool>,
@@ -284,21 +245,15 @@ fn icon_size() -> u16 {
 impl Omni {
     pub fn new() -> Self {
         Self {
-            window: None,
-            bar: None,
+            view: ListView::new(),
             items: Vec::new(),
-            filtered: Vec::new(),
-            selected: 0,
-            offset: 0,
-            pos: Point::new(0, 0),
-            visible: false,
-            run_mode: false,
             run_items: Vec::new(),
             run_history: load_run_history(),
             mapping: None,
             min_keycode: 8,
-            menu_target: 0,
-            menu_levels: Vec::new(),
+            run_mode: false,
+            in_ops: false,
+            ops_target: 0,
             saved_query: String::new(),
             sort: OmniSort::default(),
             group_override: None,
@@ -310,6 +265,10 @@ impl Omni {
             panel_w: 0,
             max_rows: DEFAULT_ROWS,
         }
+    }
+
+    pub fn visible(&self) -> bool {
+        self.view.visible
     }
 
     fn width(&self) -> u16 {
@@ -331,14 +290,6 @@ impl Omni {
         save_run_history(&self.run_history);
     }
 
-    const fn cur_items(&self) -> &Vec<OmniItem> {
-        if self.run_mode {
-            &self.run_items
-        } else {
-            &self.items
-        }
-    }
-
     pub fn is_marked(&self, client_id: u32) -> bool {
         self.items
             .iter()
@@ -346,33 +297,7 @@ impl Omni {
     }
 
     pub fn owns_window(&self, id: u32) -> bool {
-        self.window.as_ref().map(|w| w.id()) == Some(id)
-            || self.bar.as_ref().map_or(false, |b| b.owns_window(id))
-    }
-
-    fn visible_rows(&self) -> usize {
-        if let Some(level) = self.menu_levels.last() {
-            return level.rows.len().clamp(1, self.max_rows);
-        }
-        self.filtered.len().clamp(1, self.max_rows)
-    }
-
-    fn height(&self) -> u16 {
-        (pad() as u16) * 2 + bar_h() + row_h() * self.visible_rows() as u16
-    }
-
-    fn in_submenu(&self) -> bool {
-        !self.menu_levels.is_empty()
-    }
-
-    fn relayout(&mut self, conn: &Arc<dyn DisplayBackend>) {
-        let w = self.width();
-        let h = self.height();
-        if let Some(win) = self.window.as_ref() {
-            let _ = win.configure(None, None, Some(w), Some(h));
-        }
-        self.paint(conn);
-        let _ = conn.flush();
+        self.view.owns_window(id)
     }
 
     fn grouping_enabled(&self) -> bool {
@@ -394,74 +319,6 @@ impl Omni {
         self.items.sort_by(|a, b| compare_items(mode, a, b));
     }
 
-    fn refresh_ops_labels(&mut self) {
-        let sort_label = self.sort_row_label();
-        let group_label = self.group_row_label();
-        if let Some(level) = self.menu_levels.last_mut() {
-            for (label, action) in level.all.iter_mut().chain(level.rows.iter_mut()) {
-                match action {
-                    OpAction::CycleSort => *label = sort_label.clone(),
-                    OpAction::ToggleGrouping => *label = group_label.clone(),
-                    _ => {}
-                }
-            }
-        }
-    }
-
-    fn ops_bar_reset(&mut self) {
-        if let Some(bar) = self.bar.as_mut() {
-            bar.set_text("");
-        }
-    }
-
-    fn pop_ops_level(&mut self, conn: &Arc<dyn DisplayBackend>) {
-        self.menu_levels.pop();
-        if self.menu_levels.is_empty() {
-            let saved = std::mem::take(&mut self.saved_query);
-            if let Some(bar) = self.bar.as_mut() {
-                bar.set_text(&saved);
-            }
-            self.refilter(conn);
-        } else {
-            self.ops_bar_reset();
-        }
-        self.relayout(conn);
-    }
-
-    fn refilter_ops(&mut self, conn: &Arc<dyn DisplayBackend>) {
-        let needle = self
-            .bar
-            .as_ref()
-            .map(|b| b.text().to_string())
-            .unwrap_or_default();
-        if let Some(level) = self.menu_levels.last_mut() {
-            level.apply_filter(&needle);
-        }
-        self.relayout(conn);
-    }
-
-    fn resort(&mut self, conn: &Arc<dyn DisplayBackend>) {
-        let keep = self.menu_target;
-        self.apply_sort();
-        self.win_list = self
-            .items
-            .iter()
-            .filter(|it| !it.run)
-            .map(|it| (it.client_id, it.title.clone()))
-            .collect();
-        self.refilter(conn);
-        if let Some(pos) = self
-            .filtered
-            .iter()
-            .position(|&i| !self.items[i].run && self.items[i].client_id == keep)
-        {
-            self.selected = pos;
-        }
-        self.ensure_visible();
-        self.refresh_ops_labels();
-        self.relayout(conn);
-    }
-
     fn ws_label(&self, i: u32) -> String {
         self.ws_names
             .get(i as usize)
@@ -470,193 +327,288 @@ impl Omni {
             .unwrap_or_else(|| format!("Workspace {}", i + 1))
     }
 
-    fn open_ops_menu(&mut self, conn: &Arc<dyn DisplayBackend>) -> OmniOutcome {
-        if self.run_mode || self.in_submenu() {
-            return OmniOutcome::Consumed;
+    fn window_nodes(&self) -> Vec<MenuNode<OmniAct>> {
+        let wins: Vec<MenuNode<OmniAct>> = self
+            .items
+            .iter()
+            .filter(|it| !it.run)
+            .map(|it| {
+                let title = if it.marked {
+                    format!("{} \u{25A0}", it.title)
+                } else {
+                    it.title.clone()
+                };
+                MenuNode::leaf(title, OmniAct::Window(it.client_id))
+                    .with_icon(Some(it.icon.clone()))
+            })
+            .collect();
+        let apps: Vec<MenuNode<OmniAct>> = self
+            .apps
+            .as_deref()
+            .unwrap_or(&[])
+            .iter()
+            .map(|app| MenuNode::leaf(app.name.clone(), OmniAct::Launch(app.command.clone())))
+            .collect();
+        let mut nodes = Vec::new();
+        if !wins.is_empty() {
+            nodes.push(MenuNode::group_expanded("Windows", wins));
         }
-        let i = match self.filtered.get(self.selected) {
-            Some(&i) => i,
-            None => return OmniOutcome::Consumed,
-        };
-        let item = &self.items[i];
-        if item.run {
-            return OmniOutcome::Consumed;
+        if !apps.is_empty() {
+            nodes.push(MenuNode::group("Applications", apps));
         }
-        self.menu_target = item.client_id;
+        nodes.push(MenuNode::group_expanded(
+            "Actions",
+            vec![MenuNode::leaf("Run\u{2026}", OmniAct::RunEntry)],
+        ));
+        nodes
+    }
+
+    fn run_nodes(&self) -> Vec<MenuNode<OmniAct>> {
+        self.run_items
+            .iter()
+            .map(|it| {
+                MenuNode::leaf(it.title.clone(), OmniAct::Launch(it.command.clone()))
+                    .with_icon(Some(it.icon.clone()))
+            })
+            .collect()
+    }
+
+    fn ops_nodes(&self) -> Vec<MenuNode<OmniAct>> {
+        let marked = self
+            .items
+            .iter()
+            .find(|it| !it.run && it.client_id == self.ops_target)
+            .map_or(false, |it| it.marked);
         let marked_count = self.items.iter().filter(|it| it.marked).count();
-        let toggle = if item.marked { "Unmark" } else { "Mark" };
-        let mut rows: Vec<(String, OpAction)> = vec![
-            (toggle.into(), OpAction::Do(OmniWinOp::ToggleMark)),
-            (String::new(), OpAction::Do(OmniWinOp::Separator)),
-            ("Close".into(), OpAction::Do(OmniWinOp::Close)),
-            ("Kill".into(), OpAction::Do(OmniWinOp::Kill)),
+        let toggle = if marked { "Unmark" } else { "Mark" };
+        let mut nodes: Vec<MenuNode<OmniAct>> = vec![
+            MenuNode::leaf(toggle, OmniAct::Op(OmniWinOp::ToggleMark)),
+            MenuNode::separator(),
+            MenuNode::leaf("Close", OmniAct::Op(OmniWinOp::Close)),
+            MenuNode::leaf("Kill", OmniAct::Op(OmniWinOp::Kill)),
         ];
         if self.ws_count > 1 {
-            rows.push(("Send to".into(), OpAction::OpenSend));
+            let ws = (0..self.ws_count)
+                .map(|i| MenuNode::leaf(self.ws_label(i), OmniAct::Op(OmniWinOp::SendTo(i))))
+                .collect();
+            nodes.push(MenuNode::group("Send to", ws));
         }
-        if self.win_list.iter().any(|(id, _)| *id != self.menu_target) {
-            rows.push(("Join".into(), OpAction::OpenJoin));
-        }
-        if marked_count > 0 {
-            rows.push((String::new(), OpAction::Do(OmniWinOp::Separator)));
-            rows.push(("Close marked".into(), OpAction::Do(OmniWinOp::CloseMarked)));
-            rows.push(("Kill marked".into(), OpAction::Do(OmniWinOp::KillMarked)));
-            if marked_count > 1 {
-                rows.push(("Unmark all".into(), OpAction::Do(OmniWinOp::UnmarkAll)));
-            }
-        }
-        rows.push((String::new(), OpAction::Do(OmniWinOp::Separator)));
-        rows.push((self.sort_row_label(), OpAction::CycleSort));
-        rows.push((self.group_row_label(), OpAction::ToggleGrouping));
-        self.menu_levels.push(OpLevel::new(rows));
-        self.saved_query = self
-            .bar
-            .as_ref()
-            .map(|b| b.text().to_string())
-            .unwrap_or_default();
-        self.ops_bar_reset();
-        self.relayout(conn);
-        OmniOutcome::Consumed
-    }
-
-    fn push_send_level(&mut self) {
-        let rows: Vec<(String, OpAction)> = (0..self.ws_count)
-            .map(|i| (self.ws_label(i), OpAction::Do(OmniWinOp::SendTo(i))))
-            .collect();
-        self.menu_levels.push(OpLevel::new(rows));
-    }
-
-    fn push_join_level(&mut self) {
-        let rows: Vec<(String, OpAction)> = self
+        let join: Vec<MenuNode<OmniAct>> = self
             .win_list
             .iter()
-            .filter(|(id, _)| *id != self.menu_target)
-            .map(|(id, title)| (title.clone(), OpAction::Do(OmniWinOp::Join(*id))))
+            .filter(|(id, _)| *id != self.ops_target)
+            .map(|(id, title)| MenuNode::leaf(title.clone(), OmniAct::Op(OmniWinOp::Join(*id))))
             .collect();
-        self.menu_levels.push(OpLevel::new(rows));
+        if !join.is_empty() {
+            nodes.push(MenuNode::group("Join", join));
+        }
+        if marked_count > 0 {
+            nodes.push(MenuNode::separator());
+            nodes.push(MenuNode::leaf(
+                "Close marked",
+                OmniAct::Op(OmniWinOp::CloseMarked),
+            ));
+            nodes.push(MenuNode::leaf(
+                "Kill marked",
+                OmniAct::Op(OmniWinOp::KillMarked),
+            ));
+            if marked_count > 1 {
+                nodes.push(MenuNode::leaf(
+                    "Unmark all",
+                    OmniAct::Op(OmniWinOp::UnmarkAll),
+                ));
+            }
+        }
+        nodes.push(MenuNode::separator());
+        nodes.push(MenuNode::leaf(self.sort_row_label(), OmniAct::CycleSort));
+        nodes.push(MenuNode::leaf(
+            self.group_row_label(),
+            OmniAct::ToggleGrouping,
+        ));
+        nodes
     }
 
-    fn submenu_key(&mut self, ks: u32, conn: &Arc<dyn DisplayBackend>) -> OmniOutcome {
-        match ks {
-            k if k == KEY_Up || k == KEY_Down => {
-                let dir = if k == KEY_Up { -1 } else { 1 };
-                if let Some(level) = self.menu_levels.last_mut() {
-                    if let Some(next) =
-                        crate::menu::next_selectable(&level.rows, Some(level.selected), dir)
-                    {
-                        level.selected = next;
-                    }
-                }
-                self.paint(conn);
-            }
-            k if k == KEY_Left || k == KEY_Escape => {
-                self.pop_ops_level(conn);
-            }
-            k if k == KEY_Return || k == KEY_Right => {
-                return self.activate_submenu(conn);
-            }
-            _ => {}
+    fn current_nodes(&self) -> Vec<MenuNode<OmniAct>> {
+        if self.in_ops {
+            self.ops_nodes()
+        } else if self.run_mode {
+            self.run_nodes()
+        } else {
+            self.window_nodes()
         }
+    }
+
+    fn query(&self) -> String {
+        self.view
+            .bar()
+            .map(|b| b.text().to_string())
+            .unwrap_or_default()
+    }
+
+    fn set_query(&mut self, text: &str) {
+        if let Some(bar) = self.view.bar_mut() {
+            bar.set_text(text);
+            bar.repaint();
+        }
+    }
+
+    fn reselect(&mut self) {
+        self.view.selected = self
+            .view
+            .next_leaf(None, 1)
+            .or_else(|| self.view.next_selectable(None, 1));
+    }
+
+    fn reload(&mut self, conn: &Arc<dyn DisplayBackend>) {
+        let nodes = self.current_nodes();
+        self.view.set_tree(nodes);
+        self.view.offset = 0;
+        self.reselect();
+        self.view.sync_geometry(conn.as_ref());
+        self.paint(conn);
+    }
+
+    fn reload_keep_row(&mut self, conn: &Arc<dyn DisplayBackend>, title_prefix: &str) {
+        let nodes = self.current_nodes();
+        self.view.set_tree(nodes);
+        self.view.selected = self
+            .view
+            .items
+            .iter()
+            .position(|r| r.title.starts_with(title_prefix))
+            .or_else(|| self.view.next_leaf(None, 1));
+        self.view.sync_geometry(conn.as_ref());
+        self.paint(conn);
+    }
+
+    fn refilter(&mut self, conn: &Arc<dyn DisplayBackend>) {
+        self.view.refilter(conn.as_ref());
+        self.reselect();
+        self.view.paint(conn.as_ref());
+    }
+
+    fn open_ops_menu(&mut self, conn: &Arc<dyn DisplayBackend>) -> OmniOutcome {
+        if self.run_mode || self.in_ops {
+            return OmniOutcome::Consumed;
+        }
+        let target = match self
+            .view
+            .selected
+            .and_then(|i| self.view.items.get(i))
+            .and_then(|r| r.payload())
+        {
+            Some(OmniAct::Window(id)) => *id,
+            _ => return OmniOutcome::Consumed,
+        };
+        self.ops_target = target;
+        self.saved_query = self.query();
+        self.in_ops = true;
+        self.set_query("");
+        self.reload(conn);
         OmniOutcome::Consumed
     }
 
-    fn activate_submenu(&mut self, conn: &Arc<dyn DisplayBackend>) -> OmniOutcome {
-        let action = match self
-            .menu_levels
-            .last()
-            .and_then(|level| level.rows.get(level.selected))
-        {
-            Some((_, action)) => *action,
-            None => return OmniOutcome::Consumed,
-        };
-        match action {
-            OpAction::Do(op) => match op {
-                OmniWinOp::ToggleMark => {
-                    if let Some(&i) = self.filtered.get(self.selected) {
-                        self.items[i].marked = !self.items[i].marked;
-                    }
-                    OmniOutcome::Consumed
-                }
-                OmniWinOp::Separator => OmniOutcome::Consumed,
-                OmniWinOp::UnmarkAll => {
-                    for it in &mut self.items {
-                        it.marked = false;
-                    }
-                    OmniOutcome::Consumed
-                }
-                OmniWinOp::CloseMarked => OmniOutcome::CloseMarked,
-                OmniWinOp::KillMarked => OmniOutcome::KillMarked,
-                _ => OmniOutcome::WindowOp {
-                    target: self.menu_target,
-                    op,
-                },
-            },
-            OpAction::OpenSend => {
-                self.push_send_level();
-                self.ops_bar_reset();
-                self.relayout(conn);
-                OmniOutcome::Consumed
-            }
-            OpAction::OpenJoin => {
-                self.push_join_level();
-                self.ops_bar_reset();
-                self.relayout(conn);
-                OmniOutcome::Consumed
-            }
-            OpAction::CycleSort => {
-                self.sort = self.sort.next();
-                self.resort(conn);
-                OmniOutcome::Consumed
-            }
-            OpAction::ToggleGrouping => {
-                self.group_override = Some(!self.grouping_enabled());
-                self.refresh_ops_labels();
-                self.paint(conn);
-                OmniOutcome::Consumed
-            }
-        }
+    fn pop_ops(&mut self, conn: &Arc<dyn DisplayBackend>) {
+        self.in_ops = false;
+        let saved = std::mem::take(&mut self.saved_query);
+        self.set_query(&saved);
+        self.reload(conn);
     }
 
     fn enter_run_mode(&mut self, conn: &Arc<dyn DisplayBackend>) {
         self.run_mode = true;
-        self.selected = 0;
-        self.offset = 0;
-        if let Some(bar) = self.bar.as_mut() {
-            bar.set_text("");
-        }
-        self.refilter(conn);
-        self.paint(conn);
+        self.set_query("");
+        self.reload(conn);
     }
 
     fn exit_run_mode(&mut self, conn: &Arc<dyn DisplayBackend>) {
         self.run_mode = false;
-        self.selected = 0;
-        if let Some(bar) = self.bar.as_mut() {
-            bar.set_text("");
-        }
-        self.refilter(conn);
-        self.paint(conn);
+        self.set_query("");
+        self.reload(conn);
     }
 
-    fn activate_selected(&mut self, conn: &Arc<dyn DisplayBackend>) -> OmniOutcome {
-        if self.run_mode {
-            if let Some(&i) = self.filtered.get(self.selected) {
-                return OmniOutcome::Launch(self.run_items[i].command.clone());
-            }
-            let line = self.bar.as_ref().map(|b| b.text().trim().to_string());
-            return match line {
-                Some(l) if !l.is_empty() => OmniOutcome::Run(l),
-                _ => OmniOutcome::Consumed,
-            };
+    fn resort(&mut self, conn: &Arc<dyn DisplayBackend>) {
+        self.apply_sort();
+        self.win_list = self
+            .items
+            .iter()
+            .filter(|it| !it.run)
+            .map(|it| (it.client_id, it.title.clone()))
+            .collect();
+        if self.in_ops {
+            self.reload_keep_row(conn, "Sort:");
+        } else {
+            self.reload(conn);
         }
-        match self.filtered.get(self.selected).copied() {
-            Some(i) if self.items[i].run => {
+    }
+
+    fn perform(&mut self, conn: &Arc<dyn DisplayBackend>, act: OmniAct) -> OmniOutcome {
+        match act {
+            OmniAct::Window(id) => OmniOutcome::Activate(id),
+            OmniAct::RunEntry => {
                 self.enter_run_mode(conn);
                 OmniOutcome::Consumed
             }
-            Some(i) => OmniOutcome::Activate(self.items[i].client_id),
-            None => OmniOutcome::Consumed,
+            OmniAct::Launch(cmd) => OmniOutcome::Launch(cmd),
+            OmniAct::CycleSort => {
+                self.sort = self.sort.next();
+                self.resort(conn);
+                OmniOutcome::Consumed
+            }
+            OmniAct::ToggleGrouping => {
+                self.group_override = Some(!self.grouping_enabled());
+                if self.in_ops {
+                    self.reload_keep_row(conn, "Group by class:");
+                }
+                OmniOutcome::Consumed
+            }
+            OmniAct::Op(op) => match op {
+                OmniWinOp::ToggleMark => {
+                    let target = self.ops_target;
+                    for it in &mut self.items {
+                        if !it.run && it.client_id == target {
+                            it.marked = !it.marked;
+                        }
+                    }
+                    self.reload_keep_row(conn, "");
+                    OmniOutcome::Consumed
+                }
+                OmniWinOp::UnmarkAll => {
+                    for it in &mut self.items {
+                        it.marked = false;
+                    }
+                    self.reload_keep_row(conn, "");
+                    OmniOutcome::Consumed
+                }
+                OmniWinOp::Separator => OmniOutcome::Consumed,
+                OmniWinOp::CloseMarked => OmniOutcome::CloseMarked,
+                OmniWinOp::KillMarked => OmniOutcome::KillMarked,
+                _ => OmniOutcome::WindowOp {
+                    target: self.ops_target,
+                    op,
+                },
+            },
         }
+    }
+
+    fn activate_selected(&mut self, conn: &Arc<dyn DisplayBackend>) -> OmniOutcome {
+        if let Some(idx) = self.view.selected {
+            match self.view.items.get(idx).map(|r| r.entry.clone()) {
+                Some(FlatEntry::Group { .. }) => {
+                    self.view.toggle_row(conn.as_ref(), idx);
+                    return OmniOutcome::Consumed;
+                }
+                Some(FlatEntry::Leaf(act)) => return self.perform(conn, act),
+                _ => {}
+            }
+        }
+        if self.run_mode {
+            let line = self.query().trim().to_string();
+            if !line.is_empty() {
+                return OmniOutcome::Run(line);
+            }
+        }
+        OmniOutcome::Consumed
     }
 
     fn monitor_for_pointer(
@@ -700,7 +652,7 @@ impl Omni {
     }
 
     pub fn show(&mut self, conn: &Arc<dyn DisplayBackend>, wm: &WindowManager<dyn DisplayBackend>) {
-        if self.visible {
+        if self.visible() {
             return;
         }
         let isz = icon_size();
@@ -764,17 +716,6 @@ impl Omni {
                 }
             })
             .collect();
-
-        self.items.push(OmniItem {
-            title: "Run\u{2026}".to_string(),
-            class: "run".to_string(),
-            client_id: 0,
-            workspace: !0,
-            icon: crate::icon_render::resolve_client_icon(&[], isz, antibox_ui::theme::field()),
-            marked: false,
-            run: true,
-            command: Vec::new(),
-        });
         self.apply_sort();
 
         if self.apps.is_none() {
@@ -812,10 +753,9 @@ impl Omni {
             .collect();
         self.run_items.splice(0..0, history);
         self.run_mode = false;
-        self.selected = 0;
-        self.offset = 0;
-        self.menu_target = 0;
-        self.menu_levels.clear();
+        self.in_ops = false;
+        self.ops_target = 0;
+        self.saved_query.clear();
         self.ws_count = wm.config.workspace_count;
         self.ws_names = wm.workspace_names.clone();
         self.win_list = self
@@ -824,7 +764,6 @@ impl Omni {
             .filter(|it| !it.run)
             .map(|it| (it.client_id, it.title.clone()))
             .collect();
-        self.filtered = (0..self.items.len()).collect();
         self.min_keycode = conn.setup_min_keycode();
         let max = conn.setup_max_keycode();
         self.mapping = conn
@@ -834,22 +773,16 @@ impl Omni {
         self.panel_w = panel_w_for(mon.w);
         self.max_rows = rows_for(mon.h);
         let w = self.width();
-        let h = self.height();
-        self.pos = self.place(mon, w, h);
-        let mask = EventMask::EXPOSURE
-            | EventMask::KEY_PRESS
-            | EventMask::BUTTON_PRESS
-            | EventMask::POINTER_MOTION;
-        let win = match conn.create_window(
-            conn.root().as_parent(),
-            Rect::new(self.pos.x, self.pos.y, w as i32, h as i32),
-            WmWindowClass::InputOutput,
-            true,
-            mask,
-        ) {
-            Ok(w) => w,
-            Err(_) => return,
-        };
+        let cap = pad() as i32 * 3 + bar_h() as i32 + self.max_rows as i32 * row_h() as i32;
+        let nodes = self.current_nodes();
+        let rows = crate::menu_tree::flatten_nodes(&nodes).len() as i32;
+        let want = pad() as i32 * 3 + bar_h() as i32 + rows * row_h() as i32;
+        let h = want.clamp(scaled(120), cap.max(scaled(120))) as u16;
+        let pos = self.place(mon, w, h);
+        self.view.show_with(conn.as_ref(), nodes, Place::At(pos), w, cap, true, |_, _| {});
+        if !self.view.visible {
+            return;
+        }
         if conn
             .grab_keyboard(
                 false,
@@ -860,37 +793,25 @@ impl Omni {
             )
             .is_err()
         {
-            let _ = win.destroy();
+            self.view.hide(conn.as_ref());
             return;
         }
-        let _ = win.map();
-        let _ = win.raise();
-        let bw = (w as i16 - pad() * 2).max(1) as u16;
-        if let Some(rconn) = wm.render_backend.clone() {
-            if let Ok(mut bar) = SearchBar::new(&rconn, win.id(), pad(), pad(), bw, bar_h()) {
-                bar.set_focus(true);
-                bar.show();
-                self.bar = Some(bar);
-            }
+        if let Some(win) = &self.view.window {
+            let _ = win.raise();
         }
-        self.window = Some(win);
-        self.visible = true;
-        self.refilter(conn);
+        if let Some(rb) = wm.render_backend.clone() {
+            self.view.enable_filter(&rb);
+        }
+        self.reselect();
         self.paint(conn);
         let _ = conn.flush();
     }
 
     pub fn hide(&mut self, conn: &Arc<dyn DisplayBackend>) {
         let _ = conn.ungrab_keyboard(0);
-        if let Some(bar) = self.bar.take() {
-            bar.hide();
-        }
-        if let Some(win) = self.window.take() {
-            let _ = win.unmap();
-            let _ = win.destroy();
-        }
-        self.visible = false;
-        self.menu_levels.clear();
+        self.view.hide(conn.as_ref());
+        self.run_mode = false;
+        self.in_ops = false;
         self.saved_query.clear();
         let _ = conn.flush();
     }
@@ -928,11 +849,7 @@ impl Omni {
     }
 
     fn complete_command(&mut self, conn: &Arc<dyn DisplayBackend>) -> OmniOutcome {
-        let text = self
-            .bar
-            .as_ref()
-            .map(|b| b.text().to_string())
-            .unwrap_or_default();
+        let text = self.query();
         if text.is_empty() {
             return OmniOutcome::Consumed;
         }
@@ -967,135 +884,41 @@ impl Omni {
             }
         };
         if let Some(completed) = completed.filter(|c| *c != text) {
-            if let Some(bar) = self.bar.as_mut() {
-                bar.set_text(&completed);
-            }
-            self.selected = 0;
+            self.set_query(&completed);
             self.refilter(conn);
-            self.paint(conn);
         }
         OmniOutcome::Consumed
     }
 
     fn cursor_at_end(&self) -> bool {
-        self.bar
-            .as_ref()
+        self.view
+            .bar()
             .map_or(false, |b| b.input.cursor_pos() == b.text().len())
     }
 
-    fn command_line(item: &OmniItem) -> String {
-        match item.command.as_slice() {
+    fn command_line_argv(cmd: &[String]) -> String {
+        match cmd {
             [sh, flag, line] if sh == "sh" && flag == "-c" => line.clone(),
             cmd => cmd.join(" "),
         }
     }
 
     fn complete_selection(&mut self, conn: &Arc<dyn DisplayBackend>) -> bool {
-        let i = match self.filtered.get(self.selected) {
-            Some(&i) => i,
-            None => return false,
+        let line = match self
+            .view
+            .selected
+            .and_then(|i| self.view.items.get(i))
+            .and_then(|r| r.payload())
+        {
+            Some(OmniAct::Launch(cmd)) => Self::command_line_argv(cmd),
+            _ => return false,
         };
-        let line = Self::command_line(&self.run_items[i]);
-        if line.is_empty() || self.bar.as_ref().map_or(false, |b| b.text() == line) {
+        if line.is_empty() || self.query() == line {
             return false;
         }
-        if let Some(bar) = self.bar.as_mut() {
-            bar.set_text(&line);
-        }
-        self.selected = 0;
+        self.set_query(&line);
         self.refilter(conn);
-        self.paint(conn);
         true
-    }
-
-    fn refilter(&mut self, conn: &Arc<dyn DisplayBackend>) {
-        let needle = self
-            .bar
-            .as_ref()
-            .map(|b| b.text().to_ascii_lowercase())
-            .unwrap_or_default();
-        let src = self.cur_items();
-        let filtered: Vec<usize> = src
-            .iter()
-            .enumerate()
-            .filter(|(_, it)| {
-                it.run
-                    || needle.is_empty()
-                    || it.title.to_ascii_lowercase().contains(&needle)
-                    || it.class.to_ascii_lowercase().contains(&needle)
-            })
-            .map(|(i, _)| i)
-            .collect();
-        self.filtered = filtered;
-        if self.selected >= self.filtered.len() {
-            self.selected = self.filtered.len().saturating_sub(1);
-        }
-        self.offset = 0;
-        self.ensure_visible();
-        if let Some(win) = self.window.as_ref() {
-            let w = self.width();
-            let h = self.height();
-            let _ = conn.configure_window(
-                win.id(),
-                &[
-                    self.pos.x.max(0) as u32,
-                    self.pos.y.max(0) as u32,
-                    w as u32,
-                    h as u32,
-                ],
-            );
-        }
-    }
-
-    fn ensure_visible(&mut self) {
-        if self.selected < self.offset {
-            self.offset = self.selected;
-        }
-        if self.selected >= self.offset + self.max_rows {
-            self.offset = self.selected + 1 - self.max_rows;
-        }
-        let max_off = self.filtered.len().saturating_sub(self.max_rows);
-        self.offset = self.offset.min(max_off);
-    }
-
-    fn row_at(&self, y: i32) -> Option<usize> {
-        let top = pad() as i32 * 2 + bar_h() as i32;
-        if y < top {
-            return None;
-        }
-        let idx = self.offset + ((y - top) / row_h() as i32) as usize;
-        if idx < self.filtered.len() && idx < self.offset + self.visible_rows() {
-            Some(idx)
-        } else {
-            None
-        }
-    }
-
-    fn menu_row_at(&self, y: i32) -> Option<usize> {
-        let top = pad() as i32 * 2 + bar_h() as i32;
-        if y < top {
-            return None;
-        }
-        let idx = ((y - top) / row_h() as i32) as usize;
-        let level = self.menu_levels.last()?;
-        level
-            .rows
-            .get(idx)
-            .filter(|(label, _)| !label.is_empty())
-            .map(|_| idx)
-    }
-
-    fn scroll(&mut self, delta: i32) {
-        let max_off = self.filtered.len().saturating_sub(self.max_rows) as i32;
-        self.offset = (self.offset as i32 + delta).clamp(0, max_off.max(0)) as usize;
-        let last = (self.offset + self.visible_rows()).saturating_sub(1);
-        self.selected = self.selected.clamp(self.offset, last);
-    }
-
-    fn select(&mut self, idx: usize, conn: &Arc<dyn DisplayBackend>) {
-        self.selected = idx.min(self.filtered.len().saturating_sub(1));
-        self.ensure_visible();
-        self.paint(conn);
     }
 
     fn keysym_for(&self, keycode: u32) -> u32 {
@@ -1108,6 +931,27 @@ impl Omni {
         m.keysyms.get(off).copied().unwrap_or(0)
     }
 
+    fn move_selection(&mut self, conn: &Arc<dyn DisplayBackend>, dir: i32) {
+        self.view.selected = self.view.next_selectable(self.view.selected, dir);
+        self.view.scroll_to_selected();
+        self.view.paint(conn.as_ref());
+    }
+
+    fn select_edge(&mut self, conn: &Arc<dyn DisplayBackend>, dir: i32) {
+        self.view.selected = self.view.next_selectable(None, dir);
+        self.view.scroll_to_selected();
+        self.view.paint(conn.as_ref());
+    }
+
+    fn page(&mut self, conn: &Arc<dyn DisplayBackend>, dir: i32) {
+        let vr = self.view.vis_rows();
+        self.view.scroll_by(if dir < 0 { -vr } else { vr });
+        let first = self.view.offset as usize;
+        let from = first.checked_sub(1);
+        self.view.selected = self.view.next_selectable(from, 1);
+        self.view.paint(conn.as_ref());
+    }
+
     pub fn handle_event(
         &mut self,
         conn: &Arc<dyn DisplayBackend>,
@@ -1117,24 +961,30 @@ impl Omni {
             BackendEvent::KeyPress { keycode, state, .. } => {
                 let shift = state & 0x01 != 0;
                 let ks = self.keysym_for(*keycode);
-                if self.in_submenu() {
-                    let has_query = self.bar.as_ref().map_or(false, |b| !b.text().is_empty());
-                    if ks == KEY_Up
-                        || ks == KEY_Down
-                        || ks == KEY_Return
-                        || ks == KEY_Right
-                        || ((ks == KEY_Left || ks == KEY_Escape) && !has_query)
-                    {
-                        return self.submenu_key(ks, conn);
-                    }
-                    if ks == KEY_Escape {
-                        self.ops_bar_reset();
-                        self.refilter_ops(conn);
+                if self.in_ops {
+                    let has_query = !self.query().is_empty();
+                    if (ks == KEY_Left || ks == KEY_Escape) && !has_query {
+                        self.pop_ops(conn);
                         return OmniOutcome::Consumed;
                     }
-                    if let (Some(mapping), Some(bar)) = (self.mapping.as_ref(), self.bar.as_mut()) {
+                    if ks == KEY_Escape {
+                        self.set_query("");
+                        self.refilter(conn);
+                        return OmniOutcome::Consumed;
+                    }
+                    if ks == KEY_Up || ks == KEY_Down {
+                        self.move_selection(conn, if ks == KEY_Up { -1 } else { 1 });
+                        return OmniOutcome::Consumed;
+                    }
+                    if ks == KEY_Return || ks == KEY_Right {
+                        return self.activate_selected(conn);
+                    }
+                    if let (Some(mapping), Some(bar)) =
+                        (self.mapping.as_ref(), self.view.bar_mut())
+                    {
                         if bar.handle_key(*keycode, *state, mapping) == SearchEvent::Changed {
-                            self.refilter_ops(conn);
+                            bar.repaint();
+                            self.refilter(conn);
                         }
                     }
                     return OmniOutcome::Consumed;
@@ -1151,39 +1001,34 @@ impl Omni {
                 }
                 match ks {
                     k if k == KEY_Up => {
-                        self.select(self.selected.saturating_sub(1), conn);
+                        self.move_selection(conn, -1);
                         return OmniOutcome::Consumed;
                     }
                     k if k == KEY_Down => {
-                        self.select(self.selected + 1, conn);
+                        self.move_selection(conn, 1);
                         return OmniOutcome::Consumed;
                     }
                     k if k == KEY_Tab => {
                         if self.run_mode && !shift {
                             return self.complete_command(conn);
                         }
-                        let next = if shift {
-                            self.selected.saturating_sub(1)
-                        } else {
-                            self.selected + 1
-                        };
-                        self.select(next, conn);
+                        self.move_selection(conn, if shift { -1 } else { 1 });
                         return OmniOutcome::Consumed;
                     }
                     k if k == KEY_Home => {
-                        self.select(0, conn);
+                        self.select_edge(conn, 1);
                         return OmniOutcome::Consumed;
                     }
                     k if k == KEY_End => {
-                        self.select(self.filtered.len().saturating_sub(1), conn);
+                        self.select_edge(conn, -1);
                         return OmniOutcome::Consumed;
                     }
                     k if k == KEY_Prior => {
-                        self.select(self.selected.saturating_sub(self.max_rows), conn);
+                        self.page(conn, -1);
                         return OmniOutcome::Consumed;
                     }
                     k if k == KEY_Next => {
-                        self.select(self.selected + self.max_rows, conn);
+                        self.page(conn, 1);
                         return OmniOutcome::Consumed;
                     }
                     _ => {}
@@ -1192,15 +1037,19 @@ impl Omni {
                     Some(m) => m,
                     None => return OmniOutcome::Close,
                 };
-                let bar = match self.bar.as_mut() {
-                    Some(b) => b,
+                let ev = match self.view.bar_mut() {
+                    Some(bar) => {
+                        let ev = bar.handle_key(*keycode, *state, mapping);
+                        if ev != SearchEvent::None {
+                            bar.repaint();
+                        }
+                        ev
+                    }
                     None => return OmniOutcome::Close,
                 };
-                match bar.handle_key(*keycode, *state, mapping) {
+                match ev {
                     SearchEvent::Changed => {
-                        self.selected = 0;
                         self.refilter(conn);
-                        self.paint(conn);
                         OmniOutcome::Consumed
                     }
                     SearchEvent::Submitted => self.activate_selected(conn),
@@ -1218,78 +1067,61 @@ impl Omni {
             BackendEvent::ButtonPress {
                 window,
                 point,
+                root,
                 button,
                 ..
             } => {
-                let own = self.window.as_ref().map(|w| w.id()) == Some(*window);
+                let own = self.view.window_id() == *window;
                 if !own && !self.owns_window(*window) {
                     return OmniOutcome::Close;
                 }
-                if own && self.in_submenu() {
-                    if let Some(row) = self.menu_row_at(point.y) {
-                        if let Some(level) = self.menu_levels.last_mut() {
-                            level.selected = row;
-                        }
-                        return self.activate_submenu(conn);
-                    }
-                    return OmniOutcome::Consumed;
-                }
                 if own && (*button == 4 || *button == 5) {
-                    self.scroll(if *button == 4 { -1 } else { 1 });
-                    self.paint(conn);
+                    self.view.scroll_by(if *button == 4 { -3 } else { 3 });
+                    self.view.paint(conn.as_ref());
                     return OmniOutcome::Consumed;
                 }
-                if let Some(row) = own.then(|| self.row_at(point.y)).flatten() {
-                    self.selected = row;
-                    return self.activate_selected(conn);
-                }
-                if let Some(bar) = self.bar.as_mut() {
-                    if bar.handle_button(*window, point.x, point.y, *button) == SearchEvent::Changed
-                    {
-                        if self.in_submenu() {
-                            self.refilter_ops(conn);
-                        } else {
-                            self.selected = 0;
-                            self.refilter(conn);
-                            self.paint(conn);
-                        }
+                if own {
+                    match self.view.handle_click(conn.as_ref(), *root) {
+                        ListNav::Activate(act) => return self.perform(conn, act),
+                        ListNav::Handled => return OmniOutcome::Consumed,
+                        _ => {}
                     }
+                }
+                let changed = match self.view.bar_mut() {
+                    Some(bar) => {
+                        bar.handle_button(*window, point.x, point.y, *button)
+                            == SearchEvent::Changed
+                    }
+                    None => false,
+                };
+                if changed {
+                    self.refilter(conn);
                 }
                 OmniOutcome::Consumed
             }
-            BackendEvent::MotionNotify { window, point, .. } => {
-                if self.window.as_ref().map(|w| w.id()) == Some(*window) {
-                    if self.in_submenu() {
-                        if let Some(row) = self.menu_row_at(point.y) {
-                            if self.menu_levels.last().map(|l| l.selected) != Some(row) {
-                                if let Some(level) = self.menu_levels.last_mut() {
-                                    level.selected = row;
-                                }
-                                self.paint(conn);
-                            }
-                        }
-                    } else if let Some(row) = self.row_at(point.y) {
-                        if row != self.selected {
-                            self.selected = row;
-                            self.paint(conn);
-                        }
+            BackendEvent::MotionNotify {
+                window,
+                point,
+                root,
+                ..
+            } => {
+                if self.view.window_id() == *window {
+                    if self.view.row_at(*root).is_some() {
+                        self.view.handle_motion(conn.as_ref(), *root);
                     }
-                } else if let Some(bar) = self.bar.as_mut() {
+                } else if let Some(bar) = self.view.bar_mut() {
                     bar.handle_motion(*window, point.x);
                 }
                 OmniOutcome::Consumed
             }
             BackendEvent::ButtonRelease { window, button, .. } => {
-                if let Some(bar) = self.bar.as_mut() {
+                if let Some(bar) = self.view.bar_mut() {
                     bar.handle_release(*window, *button);
                 }
                 OmniOutcome::Consumed
             }
             BackendEvent::Expose { .. } => {
                 self.paint(conn);
-                if let Some(bar) = self.bar.as_ref() {
-                    bar.repaint();
-                }
                 OmniOutcome::Consumed
             }
             _ => OmniOutcome::Consumed,
@@ -1297,130 +1129,11 @@ impl Omni {
     }
 
     pub fn paint(&self, conn: &Arc<dyn DisplayBackend>) {
-        let win = match self.window.as_ref() {
-            Some(w) => w,
-            None => return,
-        };
-        let w = self.width();
-        let h = self.height();
-        crate::paintbuf::buffered(&**conn, win.id(), w, h, |g| self.render(g, w, h));
-        if let Some(bar) = self.bar.as_ref() {
+        self.view.paint(conn.as_ref());
+        if let Some(bar) = self.view.bar() {
             bar.repaint();
         }
         let _ = conn.flush();
-    }
-
-    fn needs_sb(&self) -> bool {
-        self.menu_levels.is_empty() && self.filtered.len() > self.max_rows
-    }
-
-    fn list_w(&self, w: u16) -> u16 {
-        if self.needs_sb() {
-            (w as i16 - crate::winlist::sb_w()).max(1) as u16
-        } else {
-            w
-        }
-    }
-
-    fn render(&self, g: &dyn GraphicsContext, w: u16, h: u16) {
-        let c = crate::menu::MenuColors::default();
-        let field = antibox_ui::theme::field();
-        let lw = self.list_w(w);
-        let _ = g.set_foreground(field);
-        let _ = g.fill_rect(0, 0, w, h);
-        let _ = g.set_font(&FontSpec::role(
-            FontRole::Switch,
-            antibox_ui::metrics::font_pt(),
-        ));
-        let top = pad() * 2 + bar_h() as i16;
-        let vis = self.visible_rows();
-        if let Some(level) = self.menu_levels.last() {
-            for (row, (label, action)) in level.rows.iter().enumerate().take(vis) {
-                let y = top + row as i16 * row_h() as i16;
-                if label.is_empty() {
-                    let _ = g.set_foreground(antibox_ui::theme::shadow());
-                    let _ =
-                        g.draw_line(0, y + row_h() as i16 / 2, lw as i16, y + row_h() as i16 / 2);
-                    continue;
-                }
-                let sel = row == level.selected;
-                if sel {
-                    crate::render::fill_menu_selection(g, 0, y, lw, row_h(), c.sel_bg);
-                }
-                let fg = if sel {
-                    c.sel_fg
-                } else {
-                    antibox_ui::theme::text()
-                };
-                let _ = g.set_foreground(fg);
-                let _ = g.set_background(if sel { c.sel_bg } else { field });
-                let baseline = antibox_ui::metrics::baseline(y as i32, row_h() as i32) as i16;
-                let _ = g.draw_text(20, baseline, label);
-                if matches!(action, OpAction::OpenSend | OpAction::OpenJoin) {
-                    crate::render::draw_submenu_arrow(
-                        g,
-                        lw as i16 - scaled(12) as i16,
-                        y + row_h() as i16 / 2,
-                        scaled(7) as i16,
-                        fg,
-                    );
-                }
-            }
-            antibox_ui::theme::well(g, 0, 0, w, h);
-            return;
-        }
-        for (row, &i) in self.filtered.iter().skip(self.offset).take(vis).enumerate() {
-            let y = top + row as i16 * row_h() as i16;
-            let sel = self.offset + row == self.selected;
-            if sel {
-                crate::render::fill_menu_selection(g, 0, y, lw, row_h(), c.sel_bg);
-            }
-            let item = &self.cur_items()[i];
-            let iy = y + ((row_h() as i16 - item.icon.height as i16) / 2).max(0);
-            let _ = g.draw_pixmap(4, iy, &item.icon);
-            let text_x = 4 + item.icon.width as i16 + antibox_ui::metrics::gap() as i16;
-            let fg = if sel {
-                c.sel_fg
-            } else {
-                antibox_ui::theme::text()
-            };
-            let _ = g.set_foreground(fg);
-            let _ = g.set_background(if sel { c.sel_bg } else { field });
-            let avail = (lw as i16 - text_x - pad() * 2) as u16;
-            let label = crate::applet::fit_label(g, &item.title, avail);
-            let baseline = antibox_ui::metrics::baseline(y as i32, row_h() as i32) as i16;
-            let _ = g.draw_text(text_x, baseline, &label);
-            if item.marked {
-                let mx = lw as i16 - pad() - scaled(12) as i16;
-                let my = y + (row_h() as i16 - scaled(10) as i16) / 2;
-                let _ = g.set_foreground(if sel {
-                    c.sel_fg
-                } else {
-                    antibox_ui::theme::sel_bg()
-                });
-                let _ = g.fill_rect(mx, my, scaled(8) as u16, scaled(8) as u16);
-            }
-        }
-        if self.needs_sb() {
-            let bwid = crate::winlist::sb_w();
-            let track_top = top + bwid;
-            let track_h = (h as i16 - track_top - bwid).max(1);
-            let thumb = antibox_ui::thumb::Thumb::new(
-                track_top as i32,
-                vis as i32,
-                self.offset as i32,
-                self.filtered.len() as i32,
-            );
-            let (ty, th) = thumb.rect(track_h as i32);
-            crate::winlist::draw_scrollbar(g, lw as i16, top, h as i16, (ty as i16, th as i16));
-        }
-        if self.filtered.is_empty() && !self.run_mode {
-            let _ = g.set_foreground(antibox_ui::theme::disabled());
-            let _ = g.set_background(field);
-            let baseline = antibox_ui::metrics::baseline(top as i32, row_h() as i32) as i16;
-            let _ = g.draw_text(20, baseline, "No matches");
-        }
-        antibox_ui::theme::well(g, 0, 0, w, h);
     }
 }
 

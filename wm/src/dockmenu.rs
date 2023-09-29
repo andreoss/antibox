@@ -1,4 +1,5 @@
-use crate::menu::{MenuRow, MenuView};
+use crate::menu::MenuView;
+use crate::menu_tree::MenuNode;
 
 pub type DockMenu = MenuView<u32>;
 
@@ -8,10 +9,10 @@ pub struct DockMenuAction {
 }
 
 pub fn dock_menu(items: Vec<DockMenuAction>) -> DockMenu {
-    MenuView::with_items(
+    MenuView::with_nodes(
         items
             .into_iter()
-            .map(|it| MenuRow::item(it.label, it.window))
+            .map(|it| MenuNode::leaf(it.label, it.window))
             .collect(),
     )
 }

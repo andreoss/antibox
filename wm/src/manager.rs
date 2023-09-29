@@ -292,7 +292,12 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
     }
 
     pub(crate) fn expect_client_unmap(&mut self, client: u32) {
-        *self.pending_unmaps.entry(client).or_insert(0) += 1;
+        let n = if self.self_windows.contains(&client) {
+            2
+        } else {
+            1
+        };
+        *self.pending_unmaps.entry(client).or_insert(0) += n;
     }
 
     pub(crate) fn consume_expected_unmap(&mut self, client: u32) -> bool {
@@ -313,7 +318,76 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
         }
     }
 
+    fn route_win_menu(&mut self, e: &BackendEvent) -> bool {
+        use crate::menu::MenuNav;
+        if !self.win_menu.as_ref().map_or(false, |m| m.visible()) {
+            return false;
+        }
+        let backend = match self.backend.clone() {
+            Some(b) => b,
+            None => return false,
+        };
+        let mut menu = self.win_menu.take().expect("win_menu confirmed Some");
+        match menu.handle_event(&*backend, e) {
+            MenuNav::Ignored => {
+                self.win_menu = Some(menu);
+                false
+            }
+            MenuNav::Handled => {
+                self.win_menu = Some(menu);
+                true
+            }
+            MenuNav::Close => {
+                menu.hide(&*backend);
+                handler::redraw_all_frames(self);
+                true
+            }
+            MenuNav::Activate(a) => {
+                menu.hide(&*backend);
+                self.handle_action(&a);
+                handler::redraw_all_frames(self);
+                true
+            }
+        }
+    }
+
+    fn route_dock_menu(&mut self, e: &BackendEvent) -> bool {
+        use crate::menu::MenuNav;
+        if !self.dock_menu.as_ref().map_or(false, |m| m.visible) {
+            return false;
+        }
+        let backend = match self.backend.clone() {
+            Some(b) => b,
+            None => return false,
+        };
+        let mut menu = self.dock_menu.take().expect("dock_menu confirmed Some");
+        match menu.handle_event(&*backend, e) {
+            MenuNav::Ignored => {
+                self.dock_menu = Some(menu);
+                false
+            }
+            MenuNav::Handled => {
+                self.dock_menu = Some(menu);
+                true
+            }
+            MenuNav::Close => {
+                menu.hide(&*backend);
+                handler::redraw_all_frames(self);
+                true
+            }
+            MenuNav::Activate(w) => {
+                menu.hide(&*backend);
+                self.undock_and_close(w);
+                handler::redraw_all_frames(self);
+                true
+            }
+        }
+    }
+
     fn dispatch_event(&mut self, e: &BackendEvent) {
+        if self.route_win_menu(e) || self.route_dock_menu(e) {
+            return;
+        }
         match e {
             BackendEvent::MapRequest { window } => handler::map_request(self, *window),
             BackendEvent::ConfigureRequest {
@@ -331,22 +405,6 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
             } => handler::client_message(self, *window, *message_type, *data),
             BackendEvent::UnmapNotify { window } => handler::unmap(self, *window),
             BackendEvent::Expose { window, rect } => {
-                if let Some(menu) = self.win_menu.as_ref().filter(|m| m.visible) {
-                    if menu.contains_window(*window) {
-                        if let Some(b) = self.backend() {
-                            menu.paint(b);
-                        }
-                        return;
-                    }
-                }
-                if let Some(dock) = self.dock_menu.as_ref().filter(|m| m.visible) {
-                    if dock.contains_window(*window) {
-                        if let Some(b) = self.backend() {
-                            dock.paint(b);
-                        }
-                        return;
-                    }
-                }
                 handler::expose(self, *window, *rect);
             }
             BackendEvent::PropertyNotify { window, atom, .. } => {
@@ -355,74 +413,10 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
             BackendEvent::ButtonPress {
                 window,
                 point,
-                root,
                 button,
                 state,
                 ..
             } => {
-                if self.win_menu.as_ref().map_or(false, |m| m.visible) {
-                    let mut menu = self.win_menu.take().expect("win_menu confirmed Some");
-                    let backend = self.backend.clone();
-                    if let Some(b) = backend.as_ref().map(|v| v.as_ref()) {
-                        if menu.handle_bar_button(b, *window, *point, *button) {
-                            self.win_menu = Some(menu);
-                            return;
-                        }
-                    }
-                    if menu.contains_window(*window) {
-                        if let Some(b) = self.backend.clone() {
-                            if menu.click_opens_submenu(&*b, *root) {
-                                self.win_menu = Some(menu);
-                                return;
-                            }
-                        }
-                    }
-                    let on_menu = menu.contains_window(*window);
-                    let action = if on_menu {
-                        menu.handle_click(*root)
-                    } else {
-                        None
-                    };
-                    if let Some(b) = self.backend() {
-                        menu.hide(b);
-                    }
-                    if let Some(a) = action {
-                        self.handle_action(&a);
-                    }
-                    handler::redraw_all_frames(self);
-                    return;
-                }
-                if self.dock_menu.as_ref().map_or(false, |m| m.visible) {
-                    let mut menu = self.dock_menu.take().expect("dock_menu confirmed Some");
-                    let backend = self.backend.clone();
-                    if let Some(b) = backend.as_ref().map(|v| v.as_ref()) {
-                        if menu.handle_bar_button(b, *window, *point, *button) {
-                            self.dock_menu = Some(menu);
-                            return;
-                        }
-                    }
-                    if menu.contains_window(*window) {
-                        if let Some(b) = self.backend.clone() {
-                            if menu.click_opens_submenu(&*b, *root) {
-                                self.dock_menu = Some(menu);
-                                return;
-                            }
-                        }
-                    }
-                    let win_id = if menu.contains_window(*window) {
-                        menu.handle_click(*root)
-                    } else {
-                        None
-                    };
-                    if let Some(b) = self.backend() {
-                        menu.hide(b);
-                    }
-                    if let Some(w) = win_id {
-                        self.undock_and_close(w);
-                    }
-                    handler::redraw_all_frames(self);
-                    return;
-                }
                 let root = self.backend().map(|b| b.root().read_id());
                 if !self.mouse_bindings.is_empty() && root == Some(*window) {
                     if let Some(action) = self.lookup_mouse(*state, *button) {
@@ -441,88 +435,9 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
                 root,
                 ..
             } => {
-                if let Some(ref mut menu) = self.win_menu {
-                    if menu.visible && menu.contains_window(*window) {
-                        menu.handle_motion(
-                            self.backend.as_ref().map(|v| v.as_ref()).expect("backend present"),
-                            *root,
-                        );
-                        return;
-                    }
-                }
-                if let Some(ref mut menu) = self.dock_menu {
-                    if menu.visible && menu.contains_window(*window) {
-                        menu.handle_motion(
-                            self.backend.as_ref().map(|v| v.as_ref()).expect("backend present"),
-                            *root,
-                        );
-                        return;
-                    }
-                }
                 drag::motion_notify(self, *window, *point, *root);
             }
             BackendEvent::KeyPress { keycode, state, .. } => {
-                if self.win_menu.as_ref().map_or(false, |m| m.visible) {
-                    let ks = self.keysym_for(*keycode);
-                    let mut menu = self.win_menu.take().expect("win_menu visible");
-                    let backend = self.backend.clone();
-                    let res = backend
-                        .as_ref().map(|v| v.as_ref())
-                        .map_or(crate::menu::MenuNav::Ignored, |b| {
-                            match crate::bindings::keymap(b) {
-                                Some(m) => menu.handle_key_input(b, *keycode, *state, &m, ks),
-                                None => menu.handle_key(b, ks),
-                            }
-                        });
-                    match res {
-                        crate::menu::MenuNav::Ignored | crate::menu::MenuNav::Handled => {
-                            self.win_menu = Some(menu);
-                        }
-                        crate::menu::MenuNav::Close => {
-                            if let Some(b) = self.backend() {
-                                menu.hide(b);
-                            }
-                            handler::redraw_all_frames(self);
-                        }
-                        crate::menu::MenuNav::Activate(a) => {
-                            if let Some(b) = self.backend() {
-                                menu.hide(b);
-                            }
-                            self.handle_action(&a);
-                            handler::redraw_all_frames(self);
-                        }
-                    }
-                    return;
-                }
-                if self.dock_menu.as_ref().map_or(false, |m| m.visible) {
-                    use crate::menu::MenuNav;
-                    let ks = self.keysym_for(*keycode);
-                    let mut menu = self.dock_menu.take().expect("dock_menu visible");
-                    let backend = self.backend.clone();
-                    let res = backend.as_ref().map(|v| v.as_ref()).map_or(MenuNav::Ignored, |b| {
-                        match crate::bindings::keymap(b) {
-                            Some(m) => menu.handle_key_input(b, *keycode, *state, &m, ks),
-                            None => menu.handle_key(b, ks),
-                        }
-                    });
-                    match res {
-                        MenuNav::Ignored | MenuNav::Handled => self.dock_menu = Some(menu),
-                        MenuNav::Close => {
-                            if let Some(b) = self.backend() {
-                                menu.hide(b);
-                            }
-                            handler::redraw_all_frames(self);
-                        }
-                        MenuNav::Activate(w) => {
-                            if let Some(b) = self.backend() {
-                                menu.hide(b);
-                            }
-                            self.undock_and_close(w);
-                            handler::redraw_all_frames(self);
-                        }
-                    }
-                    return;
-                }
                 if self.keymaps.is_active() {
                     if self.drag_state.is_none() {
                         self.keymaps.clear();
@@ -839,6 +754,7 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
                 }
             }
             Action::Menu(MenuOp::WindowPickerList)
+            | Action::Menu(MenuOp::RootMenu)
             | Action::Menu(MenuOp::Pager)
             | Action::Menu(MenuOp::Omni) => {
                 self.pending_action = Some(a.clone());
@@ -851,7 +767,7 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
                     &self.theme_colours,
                     &join,
                 );
-                if let Some(b) = self.backend() {
+                if let Some(b) = self.backend.clone() {
                     let pos = self.focused_window.and_then(|fwid| {
                         self.frames.get(&fwid).map(|fw| {
                             let fr = fw.frame_rect();
@@ -859,7 +775,10 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
                         })
                     });
                     if let Some(pos) = pos {
-                        menu.show(b, pos);
+                        if let Some(mut old) = self.win_menu.take() {
+                            old.hide(&*b);
+                        }
+                        menu.show(&*b, pos);
                         if let Some(rb) = self.render_backend.as_ref() {
                             menu.enable_filter(rb);
                         }

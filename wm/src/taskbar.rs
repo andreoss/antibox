@@ -23,168 +23,6 @@ pub enum BarRepaint {
     Full,
 }
 
-pub struct TaskBarMenu {
-    pub window: Option<Box<dyn WindowHandle>>,
-    pub items: Vec<(String, Action)>,
-    pub pos: Point,
-    pub colours: crate::menu::MenuColors,
-    pub visible: bool,
-    pub selected: Option<usize>,
-}
-
-impl TaskBarMenu {
-    pub fn new() -> TaskBarMenu {
-        TaskBarMenu {
-            window: None,
-            items: Vec::new(),
-            pos: Point::new(0, 0),
-            colours: crate::menu::MenuColors::default(),
-            visible: false,
-            selected: None,
-        }
-    }
-
-    pub fn set_colours(&mut self, tc: &crate::render::ThemeColors) {
-        self.colours = crate::menu::MenuColors {
-            bg: tc.task_bar_colour,
-            fg: tc.button_fg,
-            sel_bg: tc.workspace_active_bg,
-            sel_fg: tc.workspace_active_fg,
-        };
-    }
-
-    fn menu_w(&self) -> u16 {
-        crate::render::menu_content_width(
-            self.items
-                .iter()
-                .filter(|(label, _)| !label.is_empty())
-                .map(|(label, _)| label.as_str()),
-        )
-    }
-
-    fn item_at(&self, root: Point) -> Option<usize> {
-        let idx = crate::render::menu_item_at(
-            root,
-            self.pos,
-            4,
-            crate::menu::item_h() as i32,
-            self.items.len(),
-        )?;
-        if self.items[idx].0.is_empty() {
-            return None;
-        }
-        Some(idx)
-    }
-
-    pub fn show<H: DisplayBackend + ?Sized>(
-        &mut self,
-        conn: &H,
-        pos: Point,
-        items: Vec<(String, Action)>,
-    ) {
-        let n = items.len();
-        if n == 0 {
-            return;
-        }
-        self.items = items;
-        let mw = self.menu_w();
-        let ph = (n as u16) * crate::menu::item_h() + 8;
-        let sw = conn.screen_width() as i32;
-        let sh = conn.screen_height() as i32;
-        let pos = crate::render::menu_clamp_pos(pos, mw as i32, ph as i32, sw, sh, true);
-        let mask = EventMask::BUTTON_PRESS
-            | EventMask::EXPOSURE
-            | EventMask::POINTER_MOTION
-            | EventMask::ENTER_WINDOW
-            | EventMask::LEAVE_WINDOW;
-        if let Ok(win) = conn.create_window(
-            conn.root().as_parent(),
-            Rect::new(pos.x, pos.y, mw as i32, ph as i32),
-            WmWindowClass::InputOutput,
-            true,
-            mask,
-        ) {
-            let _ = win.map();
-            let _ = conn.grab_pointer(PointerGrab::new(
-                win.id(),
-                EventMask::BUTTON_PRESS | EventMask::BUTTON_RELEASE | EventMask::POINTER_MOTION,
-            ));
-            self.window = Some(win);
-            self.pos = pos;
-            self.visible = true;
-            self.selected = None;
-        }
-    }
-
-    pub fn hide(&mut self) {
-        crate::render::menu_destroy_window(&mut self.window, &mut self.visible);
-        self.selected = None;
-        self.items.clear();
-    }
-
-    pub fn handle_motion<H: DisplayBackend + ?Sized>(&mut self, conn: &H, p: Point) {
-        if !self.visible {
-            return;
-        }
-        let root = Point::new(self.pos.x + p.x, self.pos.y + p.y);
-        let new_sel = self.item_at(root);
-        if new_sel != self.selected {
-            self.selected = new_sel;
-            self.paint(conn);
-        }
-    }
-
-    pub fn handle_click(&mut self, p: Point) -> Option<Action> {
-        if !self.visible {
-            return None;
-        }
-        let root = Point::new(self.pos.x + p.x, self.pos.y + p.y);
-        let idx = self.item_at(root)?;
-        Some(self.items[idx].1.clone())
-    }
-
-    pub fn paint<H: DisplayBackend + ?Sized>(&self, conn: &H) {
-        let win = match &self.window {
-            Some(v) => v,
-            None => return,
-        };
-        let g = match conn.create_graphics(win.id()) {
-            Ok(g) => g,
-            Err(_) => return,
-        };
-        let _ = g.set_font(&FontSpec::role(
-            FontRole::Menu,
-            antibox_ui::metrics::font_pt(),
-        ));
-        let ih = crate::menu::item_h();
-        let w = self.menu_w();
-        let h = (self.items.len() as u16) * ih + 8;
-        let c = self.colours;
-        let (light, dark) = crate::render::draw_menu_frame(&*g, w, h, c.bg);
-        for (i, (label, _)) in self.items.iter().enumerate() {
-            let y = 4 + i as i16 * ih as i16;
-            if label.is_empty() {
-                crate::render::draw_menu_separator(&*g, 4, y + (ih / 2) as i16, w - 8, light, dark);
-            } else {
-                let sel = self.selected == Some(i);
-                if sel {
-                    crate::render::fill_menu_selection(&*g, 2, y, w - 4, ih, c.sel_bg);
-                }
-                let _ = g.set_foreground(if sel { c.sel_fg } else { c.fg });
-                let _ = g.set_background(if sel { c.sel_bg } else { c.bg });
-                let baseline = antibox_ui::metrics::baseline(y as i32, ih as i32) as i16;
-                let _ = g.draw_text(8, baseline, label);
-            }
-        }
-    }
-}
-
-impl Default for TaskBarMenu {
-    fn default() -> TaskBarMenu {
-        Self::new()
-    }
-}
-
 pub struct TaskBar {
     pub(crate) conn: Arc<dyn DisplayBackend>,
     pub(crate) window: Box<dyn WindowHandle>,
@@ -197,7 +35,7 @@ pub struct TaskBar {
     pub menu_colours: crate::menu::MenuColors,
     pub(crate) window_x: i32,
     pub(crate) window_y: i32,
-    pub(crate) menu: Option<TaskBarMenu>,
+    pub(crate) menu: Option<crate::menu::MenuView<Action>>,
     pub(crate) pending_action: Option<Action>,
     pub(crate) strut_atom: u32,
     gfx_cache: std::cell::RefCell<std::collections::HashMap<u32, Box<dyn GraphicsContext>>>,
@@ -282,7 +120,7 @@ impl TaskBar {
     pub(crate) fn apply_theme_colours(&mut self, tc: &crate::render::ThemeColors, gradients: bool) {
         self.gradients_enabled = gradients;
         self.set_taskbar_colour(tc.task_bar_colour);
-        self.menu_colours = crate::menu::MenuColors::for_taskbar(tc);
+        self.menu_colours = crate::menu::MenuColors::from_theme(tc);
     }
 
     fn applet_geom(&self, applet: &dyn Applet) -> Option<(u16, u16)> {
@@ -479,39 +317,32 @@ impl TaskBar {
         if self.window.id() == id {
             return true;
         }
-        self.menu
-            .as_ref()
-            .map_or(false, |m| m.window.as_ref().map_or(false, |w| w.id() == id))
+        self.menu.as_ref().map_or(false, |m| m.contains_window(id))
     }
 
-    pub fn handle_menu_event(&mut self, event: &BackendEvent, conn: &dyn DisplayBackend) {
-        let action = {
-            let menu = match self.menu.as_mut() {
-                Some(menu) => menu,
-                None => return,
-            };
-            if !menu.visible {
-                return;
-            }
-            match event {
-                BackendEvent::ButtonPress { point, .. } => {
-                    let action = menu.handle_click(*point);
-                    menu.hide();
-                    action
-                }
-                BackendEvent::MotionNotify { point, .. } => {
-                    menu.handle_motion(conn, *point);
-                    None
-                }
-                BackendEvent::Expose { .. } => {
-                    menu.paint(conn);
-                    None
-                }
-                _ => None,
-            }
+    pub fn handle_menu_event(&mut self, event: &BackendEvent, conn: &dyn DisplayBackend) -> bool {
+        use crate::menu::MenuNav;
+        let menu = match self.menu.as_mut() {
+            Some(menu) => menu,
+            None => return false,
         };
-        if let Some(a) = action {
-            self.pending_action = Some(a);
+        if !menu.visible {
+            return false;
+        }
+        match menu.handle_event(conn, event) {
+            MenuNav::Ignored => false,
+            MenuNav::Handled => true,
+            MenuNav::Close => {
+                menu.hide(conn);
+                self.menu = None;
+                true
+            }
+            MenuNav::Activate(a) => {
+                menu.hide(conn);
+                self.menu = None;
+                self.pending_action = Some(a);
+                true
+            }
         }
     }
 
@@ -520,40 +351,38 @@ impl TaskBar {
     }
 
     pub fn show_menu(&mut self, x: i32, y: i32) {
-        let items: Vec<(String, Action)> = vec![
-            ("Tile Vertically".into(), Action::Tile(TileOp::TileVertical)),
-            (
-                "Tile Horizontally".into(),
-                Action::Tile(TileOp::TileHorizontal),
-            ),
-            ("Cascade".into(), Action::Tile(TileOp::Cascade)),
-            ("Arrange".into(), Action::Tile(TileOp::Arrange)),
-            (
-                "Minimize All".into(),
+        use crate::menu_tree::MenuNode;
+        let nodes: Vec<MenuNode<Action>> = vec![
+            MenuNode::leaf("_Cascade", Action::Tile(TileOp::Cascade)),
+            MenuNode::leaf("Tile _Vertically", Action::Tile(TileOp::TileVertical)),
+            MenuNode::leaf("Tile _Horizontally", Action::Tile(TileOp::TileHorizontal)),
+            MenuNode::leaf("_Arrange", Action::Tile(TileOp::Arrange)),
+            MenuNode::leaf("_Undo", Action::Tile(TileOp::UndoArrange)),
+            MenuNode::separator(),
+            MenuNode::leaf(
+                "_Minimize All",
                 Action::Workspace(WorkspaceOp::MinimizeAll),
             ),
-            ("Hide All".into(), Action::Workspace(WorkspaceOp::HideAll)),
-            ("Undo".into(), Action::Tile(TileOp::UndoArrange)),
-            ("Window List".into(), Action::Menu(MenuOp::WindowPickerList)),
+            MenuNode::leaf("Hi_de All", Action::Workspace(WorkspaceOp::HideAll)),
+            MenuNode::separator(),
+            MenuNode::leaf("_Window List", Action::Menu(MenuOp::WindowPickerList)),
         ];
         let pos = self
             .conn
             .query_pointer(self.conn.root().read_id())
             .map(|p| Point::new(p.root_x as i32, p.root_y as i32))
             .unwrap_or_else(|_| Point::new(x + self.window_x, y + self.window_y));
-        let mut menu = TaskBarMenu::new();
-        menu.colours = self.menu_colours;
-        menu.show(self.conn.as_ref(), pos, items);
-        self.menu = Some(menu);
+        self.open_menu(nodes, pos);
     }
 
     pub fn show_workspace_menu(&mut self, ws: u32, current: crate::layout::Layout) {
-        let items: Vec<(String, Action)> = crate::layout::Layout::ALL
+        use crate::menu_tree::MenuNode;
+        let nodes: Vec<MenuNode<Action>> = crate::layout::Layout::ALL
             .iter()
             .enumerate()
             .map(|(i, l)| {
                 let mark = if *l == current { "\u{2022} " } else { "  " };
-                (
+                MenuNode::leaf(
                     format!("{}{}", mark, l.title()),
                     Action::Workspace(WorkspaceOp::SetLayout(ws, i as u8)),
                 )
@@ -564,9 +393,13 @@ impl TaskBar {
             .query_pointer(self.conn.root().read_id())
             .map(|p| Point::new(p.root_x as i32, p.root_y as i32))
             .unwrap_or_else(|_| Point::new(self.window_x, self.window_y));
-        let mut menu = TaskBarMenu::new();
+        self.open_menu(nodes, pos);
+    }
+
+    fn open_menu(&mut self, nodes: Vec<crate::menu_tree::MenuNode<Action>>, pos: Point) {
+        let mut menu = crate::menu::MenuView::with_nodes(nodes);
         menu.colours = self.menu_colours;
-        menu.show(self.conn.as_ref(), pos, items);
+        menu.show(self.conn.as_ref(), pos);
         self.menu = Some(menu);
     }
 
@@ -866,6 +699,7 @@ impl TaskBar {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum PanelSlot {
+    Menu,
     Workspaces,
     Task,
     Tray,
@@ -892,6 +726,7 @@ impl PanelSlot {
     fn from_widget(w: crate::layout_preferences::Widget) -> PanelSlot {
         use crate::layout_preferences::Widget;
         match w {
+            Widget::Menu => PanelSlot::Menu,
             Widget::Workspaces => PanelSlot::Workspaces,
             Widget::Windows => PanelSlot::Task,
             Widget::Tray => PanelSlot::Tray,
@@ -907,6 +742,7 @@ impl PanelSlot {
     fn matches(self, a: &dyn Applet) -> bool {
         let any = a.as_any();
         match self {
+            PanelSlot::Menu => any.is::<crate::menu_applet::MenuApplet>(),
             PanelSlot::Workspaces => any.is::<WorkspacesPane>(),
             PanelSlot::Task => any.is::<crate::taskpane::TaskPane>(),
             PanelSlot::Cpu => any.is::<crate::cpu_status_applet::CpuStatusApplet>(),

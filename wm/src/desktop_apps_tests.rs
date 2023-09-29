@@ -62,3 +62,54 @@ fn test_parse_desktop_stops_at_second_group() {
     .unwrap();
     assert_eq!(app.command, vec!["alacritty"]);
 }
+
+#[test]
+fn test_parse_desktop_reads_categories() {
+    let app = parse_desktop(
+        "[Desktop Entry]\nType=Application\nName=Browser\nExec=firefox\nCategories=Network;WebBrowser;\n",
+    )
+    .unwrap();
+    assert_eq!(app.categories, vec!["Network", "WebBrowser"]);
+}
+
+#[test]
+fn test_section_for_uses_the_first_category() {
+    let app = |cats: &[&str]| DesktopApp {
+        name: "x".to_string(),
+        command: vec!["x".to_string()],
+        categories: cats.iter().map(|c| c.to_string()).collect(),
+    };
+    assert_eq!(section_for(&app(&["Network", "WebBrowser"])), "Network");
+    assert_eq!(section_for(&app(&["Game"])), "Game");
+    assert_eq!(section_for(&app(&[])), OTHER_SECTION);
+}
+
+#[test]
+fn test_grouped_buckets_by_category_and_sorts_sections() {
+    let a = |name: &str, cats: &[&str]| DesktopApp {
+        name: name.to_string(),
+        command: vec![name.to_string()],
+        categories: cats.iter().map(|c| c.to_string()).collect(),
+    };
+    let apps = vec![
+        a("Zed", &["Utility"]),
+        a("Firefox", &["Network"]),
+        a("Mines", &["Game"]),
+        a("NoCat", &[]),
+        a("Alacritty", &["Utility"]),
+    ];
+    let g = grouped(&apps);
+    let got: Vec<(&str, Vec<&str>)> = g
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.iter().map(|x| x.name.as_str()).collect()))
+        .collect();
+    assert_eq!(
+        got,
+        vec![
+            ("Game", vec!["Mines"]),
+            ("Network", vec!["Firefox"]),
+            ("Utility", vec!["Zed", "Alacritty"]),
+            (OTHER_SECTION, vec!["NoCat"]),
+        ]
+    );
+}

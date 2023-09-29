@@ -592,6 +592,13 @@ impl FrameWindow {
             'm' if self.state.fullscreen => None,
             'm' if self.state.maximized => Some((1, "O", "restore")),
             'm' => Some((4, "D", "maximize")),
+            'i' if self
+                .client()
+                .mwm_hints()
+                .map_or(false, |h| !h.allows(mwm_func::MINIMIZE)) =>
+            {
+                None
+            }
             'i' if !self.state.minimized => Some((5, "_", "minimize")),
             'r' if self.state.shaded => Some((3, "=", "rolldown")),
             'r' => Some((6, "^", "rollup")),

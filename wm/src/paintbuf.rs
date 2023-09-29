@@ -1,7 +1,7 @@
 use antibox_core::backend::{DisplayBackend, GraphicsContext};
 
-pub fn buffered(
-    conn: &dyn DisplayBackend,
+pub fn buffered<H: DisplayBackend + ?Sized>(
+    conn: &H,
     dest: u32,
     w: u16,
     h: u16,

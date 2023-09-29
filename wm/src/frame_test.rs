@@ -64,3 +64,22 @@ fn test_frame_actions() {
     assert_eq!(fw.workspace(), 2);
 }
 
+#[test]
+fn test_mwm_functions_hide_minimize_and_maximize_buttons() {
+    use antibox_core::backend::hints::{mwm_func, mwm_hints_flags, MwmHints};
+    let mut c = ClientWindow::new(Box::new(MockWindow::new(1)));
+    c.mwm_hints = Some(MwmHints {
+        flags: mwm_hints_flags::FUNCTIONS,
+        functions: mwm_func::ALL | mwm_func::MAXIMIZE | mwm_func::MINIMIZE,
+        decorations: 0,
+        input_mode: 0,
+    });
+    let fw = FrameWindow::new(c, Box::new(MockWindow::new(2)));
+    assert!(fw.title_button_for('i').is_none());
+    assert!(fw.title_button_for('m').is_none());
+    assert!(fw.title_button_for('x').is_some());
+    let plain = mk();
+    assert!(plain.title_button_for('i').is_some());
+    assert!(plain.title_button_for('m').is_some());
+}
+

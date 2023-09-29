@@ -1,5 +1,6 @@
 use super::*;
 use antibox_core::mock::MockDisplay;
+use antibox_ui::searchbar::SearchBar;
 
 fn conn() -> Arc<dyn DisplayBackend> {
     Arc::new(MockDisplay::new(1280, 800, 24))
@@ -18,59 +19,94 @@ fn item(title: &str, class: &str, ws: u32, id: u32, run: bool) -> OmniItem {
     }
 }
 
+fn group_children<'a>(nodes: &'a [MenuNode<OmniAct>], title: &str) -> Option<&'a [MenuNode<OmniAct>]> {
+    nodes.iter().find_map(|n| match n {
+        MenuNode::Group {
+            title: t, children, ..
+        } if t == title => Some(children.as_slice()),
+        _ => None,
+    })
+}
+
+fn leaf_payload<T: Clone>(node: &MenuNode<T>) -> Option<&T> {
+    match node {
+        MenuNode::Leaf { payload, .. } => Some(payload),
+        _ => None,
+    }
+}
+
 #[test]
-fn test_send_level_lists_every_workspace_with_name_fallback() {
+fn test_send_to_group_lists_every_workspace_with_name_fallback() {
     let mut o = Omni::new();
     o.ws_count = 3;
     o.ws_names = vec!["one".into(), String::new(), "three".into()];
-    o.push_send_level();
-    let lvl = o.menu_levels.last().unwrap();
-    assert_eq!(lvl.rows.len(), 3);
-    assert_eq!(lvl.rows[0].0, "one");
-    assert!(matches!(lvl.rows[0].1, OpAction::Do(OmniWinOp::SendTo(0))));
-    assert_eq!(lvl.rows[1].0, "Workspace 2");
-    assert!(matches!(lvl.rows[2].1, OpAction::Do(OmniWinOp::SendTo(2))));
+    let nodes = o.ops_nodes();
+    let ws = group_children(&nodes, "Send to").expect("send-to group");
+    assert_eq!(ws.len(), 3);
+    assert_eq!(ws[0].title(), "one");
+    assert!(matches!(
+        leaf_payload(&ws[0]),
+        Some(OmniAct::Op(OmniWinOp::SendTo(0)))
+    ));
+    assert_eq!(ws[1].title(), "Workspace 2");
+    assert!(matches!(
+        leaf_payload(&ws[2]),
+        Some(OmniAct::Op(OmniWinOp::SendTo(2)))
+    ));
 }
 
 #[test]
-fn test_join_level_excludes_the_target_window() {
+fn test_join_group_excludes_the_target_window() {
     let mut o = Omni::new();
-    o.menu_target = 10;
+    o.ops_target = 10;
     o.win_list = vec![(10, "self".into()), (20, "b".into()), (30, "c".into())];
-    o.push_join_level();
-    let lvl = o.menu_levels.last().unwrap();
-    assert_eq!(lvl.rows.len(), 2);
-    assert!(matches!(lvl.rows[0].1, OpAction::Do(OmniWinOp::Join(20))));
-    assert!(matches!(lvl.rows[1].1, OpAction::Do(OmniWinOp::Join(30))));
+    let nodes = o.ops_nodes();
+    let join = group_children(&nodes, "Join").expect("join group");
+    assert_eq!(join.len(), 2);
+    assert!(matches!(
+        leaf_payload(&join[0]),
+        Some(OmniAct::Op(OmniWinOp::Join(20)))
+    ));
+    assert!(matches!(
+        leaf_payload(&join[1]),
+        Some(OmniAct::Op(OmniWinOp::Join(30)))
+    ));
 }
 
 #[test]
-fn test_submenu_navigates_picks_and_pops() {
+fn test_ops_menu_picks_ops_and_pops_back_to_windows() {
     let c = conn();
     let mut o = Omni::new();
-    o.menu_target = 42;
-    o.menu_levels.push(OpLevel::new(vec![
-        ("Close".into(), OpAction::Do(OmniWinOp::Close)),
-        ("Kill".into(), OpAction::Do(OmniWinOp::Kill)),
-    ]));
-    assert!(matches!(
-        o.submenu_key(antibox_core::keysyms::KEY_Down, &c),
-        OmniOutcome::Consumed
-    ));
-    assert_eq!(o.menu_levels.last().unwrap().selected, 1);
-    match o.submenu_key(antibox_core::keysyms::KEY_Return, &c) {
+    o.ops_target = 42;
+    o.in_ops = true;
+    let nodes = o.ops_nodes();
+    o.view.set_tree(nodes);
+    let idx = o
+        .view
+        .items
+        .iter()
+        .position(|r| r.title == "Kill")
+        .expect("kill row");
+    o.view.selected = Some(idx);
+    match o.activate_selected(&c) {
         OmniOutcome::WindowOp { target, op } => {
             assert_eq!(target, 42);
             assert!(matches!(op, OmniWinOp::Kill));
         }
         _ => panic!("expected a WindowOp outcome"),
     }
-    assert!(o.in_submenu());
-    assert!(matches!(
-        o.submenu_key(antibox_core::keysyms::KEY_Left, &c),
-        OmniOutcome::Consumed
-    ));
-    assert!(!o.in_submenu());
+    assert!(o.in_ops);
+    o.pop_ops(&c);
+    assert!(!o.in_ops);
+}
+
+#[test]
+fn test_ops_separators_are_skipped_by_selection() {
+    let mut o = Omni::new();
+    o.view.set_tree(o.ops_nodes());
+    assert!(o.view.items[1].is_separator());
+    assert_eq!(o.view.next_selectable(Some(0), 1), Some(2));
+    assert_eq!(o.view.items[2].title, "Close");
 }
 
 #[test]
@@ -183,28 +219,50 @@ fn test_cycle_sort_updates_the_ops_menu_row_label() {
         item("beta", "b", 0, 2, false),
         item("alpha", "a", 0, 1, false),
     ];
-    o.filtered = vec![0, 1];
-    o.menu_target = 2;
-    o.menu_levels.push(OpLevel::new(vec![(
-        "Sort: natural".into(),
-        OpAction::CycleSort,
-    )]));
-    assert!(matches!(o.activate_submenu(&c), OmniOutcome::Consumed));
+    o.in_ops = true;
+    o.ops_target = 2;
+    o.view.set_tree(o.ops_nodes());
+    let idx = o
+        .view
+        .items
+        .iter()
+        .position(|r| r.title == "Sort: natural")
+        .expect("sort row");
+    o.view.selected = Some(idx);
+    assert!(matches!(o.activate_selected(&c), OmniOutcome::Consumed));
     assert_eq!(o.sort, OmniSort::Title);
-    assert_eq!(o.menu_levels.last().unwrap().rows[0].0, "Sort: title");
+    assert!(o.view.items.iter().any(|r| r.title == "Sort: title"));
     assert_eq!(o.items[0].title, "alpha");
-    let sel = o.filtered[o.selected];
-    assert_eq!(o.items[sel].client_id, 2);
+    assert_eq!(o.win_list[0].0, 1);
+}
+
+#[test]
+fn test_windows_mode_groups_windows_applications_and_actions() {
+    let mut o = Omni::new();
+    o.items = vec![item("beta", "b", 0, 2, false)];
+    o.apps = Some(vec![crate::desktop_apps::DesktopApp {
+        name: "Editor".into(),
+        command: vec!["ed".into()],
+        categories: Vec::new(),
+    }]);
+    let nodes = o.window_nodes();
+    assert_eq!(group_children(&nodes, "Windows").map(<[_]>::len), Some(1));
+    assert_eq!(
+        group_children(&nodes, "Applications").map(<[_]>::len),
+        Some(1)
+    );
+    let actions = group_children(&nodes, "Actions").expect("actions group");
+    assert!(matches!(leaf_payload(&actions[0]), Some(OmniAct::RunEntry)));
 }
 
 #[test]
 fn test_command_line_unwraps_shell_history_and_joins_argv() {
     let mut hist = item("ls -la", "ls -la", !0, 0, false);
     hist.command = vec!["sh".into(), "-c".into(), "ls -la".into()];
-    assert_eq!(Omni::command_line(&hist), "ls -la");
+    assert_eq!(Omni::command_line_argv(&hist.command), "ls -la");
     let mut app = item("Terminal", "xterm", !0, 0, false);
     app.command = vec!["xterm".into(), "-fg".into(), "grey".into()];
-    assert_eq!(Omni::command_line(&app), "xterm -fg grey");
+    assert_eq!(Omni::command_line_argv(&app.command), "xterm -fg grey");
 }
 
 #[test]
@@ -212,16 +270,16 @@ fn test_right_arrow_completion_puts_the_selected_command_into_the_bar() {
     let c = conn();
     let rconn: Arc<dyn RenderBackend> = Arc::new(MockDisplay::new(1280, 800, 24));
     let mut o = Omni::new();
-    o.bar = SearchBar::new(&rconn, 1, 0, 0, 200, 24).ok();
+    o.view.set_bar(SearchBar::new(&rconn, 1, 0, 0, 200, 24).unwrap());
     let mut app = item("Terminal", "xterm", !0, 0, false);
     app.command = vec!["xterm".into(), "-fg".into(), "grey".into()];
     o.run_items = vec![app];
     o.run_mode = true;
-    o.filtered = vec![0];
-    o.selected = 0;
+    o.view.set_tree(o.run_nodes());
+    o.view.selected = o.view.next_leaf(None, 1);
     assert!(o.cursor_at_end());
     assert!(o.complete_selection(&c));
-    assert_eq!(o.bar.as_ref().unwrap().text(), "xterm -fg grey");
+    assert_eq!(o.query(), "xterm -fg grey");
     assert!(o.cursor_at_end());
     assert!(!o.complete_selection(&c));
 }
@@ -239,16 +297,16 @@ fn test_tab_completion_draws_from_run_history_including_multi_word_lines() {
     let c = conn();
     let rconn: Arc<dyn RenderBackend> = Arc::new(MockDisplay::new(1280, 800, 24));
     let mut o = Omni::new();
-    o.bar = SearchBar::new(&rconn, 1, 0, 0, 200, 24).ok();
+    o.view.set_bar(SearchBar::new(&rconn, 1, 0, 0, 200, 24).unwrap());
     o.run_mode = true;
     o.path_cmds = Some(Vec::new());
     o.run_history = vec!["xterm -fg grey -bg black".into(), "xclock".into()];
-    o.bar.as_mut().unwrap().set_text("xterm -f");
+    o.set_query("xterm -f");
     let _ = o.complete_command(&c);
-    assert_eq!(o.bar.as_ref().unwrap().text(), "xterm -fg grey -bg black");
-    o.bar.as_mut().unwrap().set_text("xcl");
+    assert_eq!(o.query(), "xterm -fg grey -bg black");
+    o.set_query("xcl");
     let _ = o.complete_command(&c);
-    assert_eq!(o.bar.as_ref().unwrap().text(), "xclock");
+    assert_eq!(o.query(), "xclock");
 }
 
 #[test]
@@ -256,41 +314,21 @@ fn test_ops_menu_filter_narrows_rows_and_pop_restores_the_window_query() {
     let c = conn();
     let rconn: Arc<dyn RenderBackend> = Arc::new(MockDisplay::new(1280, 800, 24));
     let mut o = Omni::new();
-    o.bar = SearchBar::new(&rconn, 1, 0, 0, 200, 24).ok();
+    o.view.set_bar(SearchBar::new(&rconn, 1, 0, 0, 200, 24).unwrap());
+    o.in_ops = true;
     o.saved_query = "alpha".into();
-    o.menu_levels.push(OpLevel::new(vec![
-        ("Mark".into(), OpAction::Do(OmniWinOp::ToggleMark)),
-        (String::new(), OpAction::Do(OmniWinOp::Separator)),
-        ("Close".into(), OpAction::Do(OmniWinOp::Close)),
-        ("Kill".into(), OpAction::Do(OmniWinOp::Kill)),
-    ]));
-    o.bar.as_mut().unwrap().set_text("clo");
-    o.refilter_ops(&c);
-    let level = o.menu_levels.last().unwrap();
-    assert_eq!(level.rows.len(), 1);
-    assert_eq!(level.rows[0].0, "Close");
-    assert_eq!(level.selected, 0);
-    o.bar.as_mut().unwrap().set_text("");
-    o.refilter_ops(&c);
-    assert_eq!(o.menu_levels.last().unwrap().rows.len(), 4);
-    o.pop_ops_level(&c);
-    assert!(o.menu_levels.is_empty());
-    assert_eq!(o.bar.as_ref().unwrap().text(), "alpha");
-}
-
-#[test]
-fn test_menu_row_at_skips_separator_rows() {
-    let mut o = Omni::new();
-    o.menu_levels.push(OpLevel::new(vec![
-        ("Mark".into(), OpAction::Do(OmniWinOp::ToggleMark)),
-        (String::new(), OpAction::Do(OmniWinOp::Separator)),
-        ("Close".into(), OpAction::Do(OmniWinOp::Close)),
-    ]));
-    let top = pad() as i32 * 2 + bar_h() as i32;
-    let rh = row_h() as i32;
-    assert_eq!(o.menu_row_at(top), Some(0));
-    assert_eq!(o.menu_row_at(top + rh), None);
-    assert_eq!(o.menu_row_at(top + rh * 2), Some(2));
+    o.view.set_tree(o.ops_nodes());
+    let full = o.view.items.len();
+    o.set_query("clo");
+    o.view.refilter(c.as_ref());
+    assert_eq!(o.view.items.len(), 1);
+    assert_eq!(o.view.items[0].title, "Close");
+    o.set_query("");
+    o.view.refilter(c.as_ref());
+    assert_eq!(o.view.items.len(), full);
+    o.pop_ops(&c);
+    assert!(!o.in_ops);
+    assert_eq!(o.query(), "alpha");
 }
 
 #[test]
