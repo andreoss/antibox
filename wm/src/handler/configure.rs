@@ -38,6 +38,11 @@ pub fn configure_request<H: DisplayBackend + 'static + ?Sized>(
         }
     };
 
+    if wm.frame(id).map_or(false, |f| f.state().shaded)
+        && value_mask & (CFG_WIDTH | CFG_HEIGHT) != 0
+    {
+        return;
+    }
     let cur = wm
         .frame(id)
         .map_or(r, super::super::frame::FrameWindow::client_rect);

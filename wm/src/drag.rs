@@ -232,7 +232,12 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
         if let Some(b) = wm.backend() {
             if let Some(pos) = pos {
                 let mut menu =
-                    crate::winmenu::WindowActionMenu::for_focused_client_opts(ws_count, &tc, &join);
+                    crate::winmenu::WindowActionMenu::for_focused_client_opts(
+                        ws_count,
+                        &tc,
+                        &join,
+                        wm.focused_shaded(),
+                    );
                 menu.show(b, pos);
                 if let Some(rb) = wm.render_backend.as_ref() {
                     menu.enable_filter(rb);
@@ -257,7 +262,12 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
             let join = wm.join_candidates();
             if let Some(b) = wm.backend() {
                 let mut menu =
-                    crate::winmenu::WindowActionMenu::for_focused_client_opts(ws_count, &tc, &join);
+                    crate::winmenu::WindowActionMenu::for_focused_client_opts(
+                        ws_count,
+                        &tc,
+                        &join,
+                        wm.focused_shaded(),
+                    );
                 menu.show(b, pos);
                 if let Some(rb) = wm.render_backend.as_ref() {
                     menu.enable_filter(rb);
@@ -843,6 +853,7 @@ fn open_window_menu<H: DisplayBackend + 'static + ?Sized>(
         wm.config.workspace_count,
         &wm.theme_colours,
         &join,
+        wm.focused_shaded(),
     );
     if let Some(b) = wm.backend() {
         menu.show(b, pos);
@@ -1020,13 +1031,20 @@ pub fn button_release<H: DisplayBackend + 'static + ?Sized>(
                 }
             }
             if let Some(cid) = cid_opt {
+                if wm.frame(cid).map_or(false, |f| f.state().shaded) {
+                    crate::wmaction::set_shaded(wm, cid, Some(false));
+                }
                 let needs_save = match wm.frame(cid) {
                     Some(fw) => fw.snap_zone.is_none(),
                     None => false,
                 };
                 if needs_save {
+                    let h = wm
+                        .frame(cid)
+                        .map_or(_init_rect.h, |f| f.frame_rect().h);
                     if let Some(fw) = wm.frame_mut(cid) {
-                        fw.snap_saved = Some(_init_rect);
+                        fw.snap_saved =
+                            Some(Rect::new(_init_rect.x, _init_rect.y, _init_rect.w, h));
                     }
                 }
                 crate::snap::apply_snap_rect(wm, cid, target);

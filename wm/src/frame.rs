@@ -601,7 +601,7 @@ impl FrameWindow {
             }
             'i' if !self.state.minimized => Some((5, "_", "minimize")),
             'r' if self.state.shaded => Some((3, "=", "rolldown")),
-            'r' => Some((6, "^", "rollup")),
+            'r' => None,
             'h' => Some((0, "0", "hide")),
             's' => Some((7, "S", "menu")),
             'p' if self.workspace() == !0 => Some((8, "P", "pinned")),
@@ -652,7 +652,7 @@ impl FrameWindow {
         let btn = button_width();
         let mut out = Vec::new();
         let supported = antibox_ui::theme::title_buttons();
-        let allowed = |code: char| code == 's' || supported.contains(code);
+        let allowed = |code: char| code == 's' || code == 'r' || supported.contains(code);
         let bw = if self.effective_border() > 0 {
             title_side_inset()
         } else {

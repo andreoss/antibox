@@ -26,24 +26,30 @@ impl WindowActionMenu {
         }
     }
 
-    pub fn for_focused_client(workspace_count: u32, tc: &crate::render::ThemeColors) -> Self {
-        Self::for_focused_client_opts(workspace_count, tc, &[])
+    pub fn for_focused_client(
+        workspace_count: u32,
+        tc: &crate::render::ThemeColors,
+        shaded: bool,
+    ) -> Self {
+        Self::for_focused_client_opts(workspace_count, tc, &[], shaded)
     }
 
     pub fn for_focused_client_opts(
         workspace_count: u32,
         tc: &crate::render::ThemeColors,
         join: &[(u32, String)],
+        shaded: bool,
     ) -> Self {
         let mut m = Self::new();
         m.view.colours = crate::menu::MenuColors::from_theme(tc);
-        m.nodes = Self::action_nodes(workspace_count, join);
+        m.nodes = Self::action_nodes(workspace_count, join, shaded);
         m
     }
 
     pub fn action_nodes(
         workspace_count: u32,
         join: &[(u32, String)],
+        shaded: bool,
     ) -> Vec<MenuNode<Action>> {
         let mut items: Vec<MenuNode<Action>> = vec![
             MenuNode::leaf("_Restore", Action::Window(WindowOp::Restore)),
@@ -75,12 +81,9 @@ impl WindowActionMenu {
                 MenuNode::leaf("Bottom _Right", Action::Tile(TileOp::TileBottomRight)),
             ],
         ));
-        items.push(MenuNode::group(
-            "Roll_up",
-            vec![
-                MenuNode::leaf("Roll_up", Action::Window(WindowOp::Rollup)),
-                MenuNode::leaf("_Shade", Action::Window(WindowOp::Shade)),
-            ],
+        items.push(MenuNode::leaf(
+            if shaded { "Un_roll" } else { "Roll_up" },
+            Action::Window(WindowOp::Rollup),
         ));
         items.push(MenuNode::leaf("_Hide", Action::Window(WindowOp::Hide)));
         let mut tab_rows = vec![MenuNode::leaf("_Untab", Action::Tab(TabOp::Untab))];

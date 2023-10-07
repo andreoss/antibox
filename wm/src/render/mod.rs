@@ -668,13 +668,21 @@ fn draw_button_glyph(
         }
         "rollup" => {
             let cx = ((l as i32 + r as i32) / 2) as i16;
-            let pts: [(i16, i16); 3] = [(cx, t + 1), (r, b - 1), (l, b - 1)];
-            g.fill_polygon(&pts)?;
+            let aw = (bw as i16 * 3 / 5).max(4) / 2;
+            let half = (aw / 2).max(2);
+            for d in 0..line2 {
+                g.draw_line(cx - aw, cy + half + d, cx, cy - half + d)?;
+                g.draw_line(cx, cy - half + d, cx + aw, cy + half + d)?;
+            }
         }
         "rolldown" => {
             let cx = ((l as i32 + r as i32) / 2) as i16;
-            let pts: [(i16, i16); 3] = [(cx, b - 1), (r, t + 1), (l, t + 1)];
-            g.fill_polygon(&pts)?;
+            let aw = (bw as i16 * 3 / 5).max(4) / 2;
+            let half = (aw / 2).max(2);
+            for d in 0..line2 {
+                g.draw_line(cx - aw, cy - half + d, cx, cy + half + d)?;
+                g.draw_line(cx, cy + half + d, cx + aw, cy - half + d)?;
+            }
         }
         "hide" => {
             let qw = (bw / 4).max(1) as i16;
@@ -685,28 +693,29 @@ fn draw_button_glyph(
                 line2 as u16,
             )?;
         }
-        "pin" => {
+        "pin" | "pinned" => {
             let cx = ((l as i32 + r as i32) / 2) as i16;
-            let head = (bw as i16 / 2).max(3);
-            g.fill_arc(cx - head / 2, t, head as u16, head as u16, 0, 360 * 64)?;
+            let s = (bw as i16 * 3 / 5).max(5);
+            let hw = s as u16;
+            let hh = (s / 2).max(3) as u16;
+            let stem = (s / 2).max(3);
+            let top = cy - (hh as i16 + stem) / 2;
+            if key == "pinned" {
+                g.fill_rect(cx - hw as i16 / 2, top, hw, hh)?;
+            } else {
+                g.draw_rect(
+                    cx - hw as i16 / 2,
+                    top,
+                    (hw - 1).max(1),
+                    (hh - 1).max(1),
+                )?;
+            }
             g.fill_rect(
                 cx - (line1 / 2).max(0),
-                t + head / 2,
+                top + hh as i16,
                 line1.max(1) as u16,
-                (b - t - head / 2).max(1) as u16,
+                stem as u16,
             )?;
-        }
-        "pinned" => {
-            let cx = ((l as i32 + r as i32) / 2) as i16;
-            let head = (bw as i16 / 2).max(3);
-            g.fill_arc(cx - head / 2, t, head as u16, head as u16, 0, 360 * 64)?;
-            g.fill_rect(
-                cx - (line1 / 2).max(0),
-                t + head / 2,
-                line1.max(1) as u16,
-                (b - t - head / 2 - line2).max(1) as u16,
-            )?;
-            g.fill_rect(l, b - line2 + 1, bw, line2 as u16)?;
         }
         "menu" => {
             let bar_w = (bw as i16 * 3 / 5).max(4) as u16;

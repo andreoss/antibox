@@ -13,7 +13,6 @@ pub enum WindowOp {
     Minimize,
     Restore,
     Fullscreen,
-    Shade,
     Hide,
     Rollup,
 }
@@ -137,7 +136,6 @@ fn window_name(op: &WindowOp) -> &'static str {
         WindowOp::Minimize => "Minimize",
         WindowOp::Restore => "Restore",
         WindowOp::Fullscreen => "Fullscreen",
-        WindowOp::Shade => "Shade",
         WindowOp::Hide => "Hide",
         WindowOp::Rollup => "Rollup",
     }

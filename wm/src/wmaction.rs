@@ -75,7 +75,7 @@ pub fn handle_wm_action<H: DisplayBackend + 'static + ?Sized>(
         Action::Misc(MiscOp::Show) => show(wm),
         Action::Window(WindowOp::Restore) => restore(wm),
         Action::Window(WindowOp::Fullscreen) => fullscreen(wm),
-        Action::Window(WindowOp::Shade) | Action::Window(WindowOp::Rollup) => shade(wm),
+        Action::Window(WindowOp::Rollup) => shade(wm),
         Action::Window(WindowOp::Hide) => hide(wm),
         Action::Window(WindowOp::Close) => close(wm),
         Action::Window(WindowOp::Kill) => kill(wm),
@@ -236,6 +236,9 @@ pub(crate) fn set_max_state_ext<H: DisplayBackend + 'static + ?Sized>(
         if wm.layout_for(ws).is_tiled() {
             return;
         }
+    }
+    if (want_vert || want_horz) && wm.frame(id).map_or(false, |f| f.state().shaded) {
+        set_shaded(wm, id, Some(false));
     }
     let (fr, cl, was_v, was_h, cur, hints, decorated) = match wm.frame(id) {
         Some(f) => (
@@ -417,6 +420,9 @@ fn minimize<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
 
 fn restore<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
     let id = match fid(wm) { Some(v) => v, None => return };
+    if wm.frames.get(&id).map_or(false, |f| f.state().shaded) {
+        set_shaded(wm, id, Some(false));
+    }
     if wm.frames.get(&id).map_or(false, |f| f.state().fullscreen) {
         set_fullscreen(wm, id, false);
     }
@@ -442,13 +448,20 @@ pub(crate) fn set_fullscreen<H: DisplayBackend + 'static + ?Sized>(
     id: ClientId,
     want: bool,
 ) {
-    let (was, cur) = match wm.frame(id) {
-        Some(f) => (f.state().fullscreen, f.frame_rect()),
+    let was = match wm.frame(id) {
+        Some(f) => f.state().fullscreen,
         None => return,
     };
     if want == was {
         return;
     }
+    if want && wm.frame(id).map_or(false, |f| f.state().shaded) {
+        set_shaded(wm, id, Some(false));
+    }
+    let cur = match wm.frame(id) {
+        Some(f) => f.frame_rect(),
+        None => return,
+    };
     let full = fullscreen_rect(wm, id);
     let restore = wm
         .frames
@@ -543,7 +556,7 @@ pub(crate) fn set_shaded<H: DisplayBackend + 'static + ?Sized>(
     if target == is_shaded {
         return;
     }
-    let title_h = crate::frame::title_block_height();
+    let title_h = crate::frame::title_block_height() + crate::frame::bottom_border_width();
     let new_h = {
         let f = match wm.frame_mut(id) { Some(v) => v, None => return };
         f.state_mut().shaded = target;
@@ -1099,6 +1112,11 @@ fn cascade<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
     if order.is_empty() {
         return;
     }
+    for id in &order {
+        if wm.frame(*id).map_or(false, |f| f.state().shaded) {
+            set_shaded(wm, *id, Some(false));
+        }
+    }
 
     let sizes: Vec<(i32, i32)> = order
         .iter()
@@ -1163,6 +1181,9 @@ fn apply_tile_rects<H: DisplayBackend + 'static + ?Sized>(
 ) {
     let placed: Vec<(ClientId, Rect)> = placed.into_iter().collect();
     for (id, _) in &placed {
+        if wm.frame(*id).map_or(false, |f| f.state().shaded) {
+            set_shaded(wm, *id, Some(false));
+        }
         clear_max_state(wm, *id);
     }
     let mut ops = Vec::new();
@@ -1280,6 +1301,9 @@ pub fn compute_tile_center_rect(wa_w: i32, wa_h: i32) -> Rect {
 
 fn tile_directional<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, dir: u32) {
     let id = match fid(wm) { Some(v) => v, None => return };
+    if wm.frame(id).map_or(false, |f| f.state().shaded) {
+        set_shaded(wm, id, Some(false));
+    }
     let (wa_x, wa_y, wa_w, wa_h) = workarea(wm);
     let r = match compute_tile_directional_rect(dir, wa_x, wa_y, wa_w, wa_h) {
         Some(r) => r,
@@ -1299,6 +1323,9 @@ fn tile_directional<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager
 
 fn tile_center<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
     let id = match fid(wm) { Some(v) => v, None => return };
+    if wm.frame(id).map_or(false, |f| f.state().shaded) {
+        set_shaded(wm, id, Some(false));
+    }
     let (_x, _y, wa_w, wa_h) = workarea(wm);
     let r = compute_tile_center_rect(wa_w, wa_h);
     let frame_id = match wm.frame(id).map(super::frame::FrameWindow::frame_id) {
