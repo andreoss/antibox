@@ -268,6 +268,9 @@ pub fn keyboard_snap<H: DisplayBackend + 'static + ?Sized>(
     dir: SnapDir,
 ) {
     let id = match wm.focused_window { Some(v) => v, None => return };
+    if wm.frame(id).map_or(false, |f| f.state().shaded) {
+        crate::wmaction::set_shaded(wm, id, Some(false));
+    }
     crate::wmaction::clear_max_state(wm, id);
     let fr = match wm.frame(id).map(super::frame::FrameWindow::frame_rect) {
         Some(fr) => fr,

@@ -502,6 +502,7 @@ impl App {
                             ws_count,
                             &self.wm.theme_colours,
                             &join,
+                            self.wm.focused_shaded(),
                             );
                         menu.show(&*self.backend, pos);
                         let rb: Arc<dyn RenderBackend> = self.wm.render_backend.clone().expect("render backend");
@@ -1148,6 +1149,7 @@ impl App {
                             ws_count,
                             &self.wm.theme_colours,
                             &join,
+                            self.wm.focused_shaded(),
                             );
                         menu.show(&*self.backend, pos);
                         let rb: Arc<dyn RenderBackend> = self.wm.render_backend.clone().expect("render backend");

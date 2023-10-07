@@ -766,6 +766,7 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
                     ws_count,
                     &self.theme_colours,
                     &join,
+                    self.focused_shaded(),
                 );
                 if let Some(b) = self.backend.clone() {
                     let pos = self.focused_window.and_then(|fwid| {
@@ -791,6 +792,11 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
     }
     pub fn focused_window(&self) -> Option<ClientId> {
         self.focused_window
+    }
+    pub(crate) fn focused_shaded(&self) -> bool {
+        self.focused_window
+            .and_then(|id| self.frames.get(&id))
+            .map_or(false, |f| f.state().shaded)
     }
     pub fn active_workspace(&self) -> u32 {
         self.active_workspace

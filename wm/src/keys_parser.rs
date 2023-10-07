@@ -130,7 +130,7 @@ pub fn parse_action(name: &str) -> Option<Action> {
         ("Resize", Action::Window(WindowOp::Resize)),
         ("Restore", Action::Window(WindowOp::Restore)),
         ("Rollup", Action::Window(WindowOp::Rollup)),
-        ("Shade", Action::Window(WindowOp::Shade)),
+        ("Shade", Action::Window(WindowOp::Rollup)),
         ("Show", Action::Misc(MiscOp::Show)),
         ("ShowDesktop", Action::Workspace(WorkspaceOp::ShowDesktop)),
         ("TileLeft", Action::Tile(TileOp::TileLeft)),
