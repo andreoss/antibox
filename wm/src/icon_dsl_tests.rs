@@ -110,7 +110,9 @@ fn test_rasterize_is_opaque_and_sized() {
     let icon = &WINDOW_ICON;
     let data = icon.rasterize(16, 0x808080, &[0x111111, 0x222222, 0x333333]);
     assert_eq!(data.len(), 16 * 16 * 4);
-    assert!(data.chunks_exact(4).all(|px| px[3] == 255));
+    assert_eq!(data[3], 0);
+    let mid = (8 * 16 + 8) * 4 + 3;
+    assert_eq!(data[mid], 255);
 }
 
 #[test]

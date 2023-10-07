@@ -164,6 +164,9 @@ impl Icon {
         let s = size as usize;
         let mut data = vec![0u8; s * s * 4];
         fill_rect_px(&mut data, s, 0, 0, s, s, bg);
+        for px in data.chunks_exact_mut(4) {
+            px[3] = 0;
+        }
         for (i, shape) in self.0.iter().enumerate() {
             if let Shape::Rect(nx, ny, nw, nh) = *shape {
                 let colour = colours[i % colours.len().max(1)];
