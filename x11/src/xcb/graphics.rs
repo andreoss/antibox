@@ -298,6 +298,51 @@ impl GraphicsContext for XcbGraphics {
             buf[d + 2] = data.data[s];
             buf[d + 3] = 0;
         }
+        let stride = (w + 31) / 32 * 4;
+        let masked = data
+            .mask
+            .as_ref()
+            .filter(|m| m.len() >= stride * h)
+            .map(|m| unsafe {
+                let mid = xcb_generate_id(self.conn.raw());
+                xcb_create_pixmap(
+                    self.conn.raw(),
+                    1,
+                    mid,
+                    self.drawable,
+                    data.width,
+                    data.height,
+                );
+                let mgc = xcb_generate_id(self.conn.raw());
+                let vals = [1u32, 0u32];
+                xcb_create_gc(
+                    self.conn.raw(),
+                    mgc,
+                    mid,
+                    XCB_GC_FOREGROUND | XCB_GC_BACKGROUND,
+                    vals.as_ptr(),
+                );
+                xcb_put_image(
+                    self.conn.raw(),
+                    XCB_IMAGE_FORMAT_XY_BITMAP,
+                    mid,
+                    mgc,
+                    data.width,
+                    data.height,
+                    0,
+                    0,
+                    0,
+                    1,
+                    (stride * h) as u32,
+                    m.as_ptr(),
+                );
+                xcb_free_gc(self.conn.raw(), mgc);
+                self.change_gc(
+                    XCB_GC_CLIP_ORIGIN_X | XCB_GC_CLIP_ORIGIN_Y | XCB_GC_CLIP_MASK,
+                    &[x as i32 as u32, y as i32 as u32, mid],
+                );
+                mid
+            });
         unsafe {
             xcb_put_image(
                 self.conn.raw(),
@@ -314,6 +359,10 @@ impl GraphicsContext for XcbGraphics {
                 buf.as_ptr(),
             )
         };
+        if let Some(mid) = masked {
+            unsafe { xcb_free_pixmap(self.conn.raw(), mid) };
+            self.apply_clip();
+        }
         Ok(())
     }
 

@@ -52,14 +52,17 @@
         assert_eq!(&pm.data[..4], &[0x11, 0x22, 0x33, 255]);
         let clear = icon(4, 4, 0x0000_0000);
         let pm = icon_to_pixmap(&clear, 8, 8, 0xAABBCC);
-        assert_eq!(&pm.data[..4], &[0xAA, 0xBB, 0xCC, 255]);
+        assert_eq!(&pm.data[..4], &[0xAA, 0xBB, 0xCC, 0]);
+        assert!(pm.mask.as_ref().map_or(false, |m| m.iter().all(|b| *b == 0)));
     }
 
     #[test]
     fn test_default_icon_opaque_and_sized() {
         let pm = default_icon(16, 0xD4D0C8);
         assert_eq!((pm.width, pm.height), (16, 16));
-        assert!(pm.data.chunks_exact(4).all(|px| px[3] == 255));
+        assert_eq!(pm.data[3], 0);
+        assert_eq!(pm.data[(8 * 16 + 8) * 4 + 3], 255);
+        assert!(pm.mask.is_some());
     }
 
     #[test]

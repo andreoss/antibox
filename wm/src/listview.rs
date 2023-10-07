@@ -717,7 +717,15 @@ impl<T: Clone> ListView<T> {
             antibox_ui::metrics::font_pt(),
         ));
         let (light, dark) = render::draw_menu_frame(g, w, h, c.bg);
+        let field = antibox_ui::theme::field();
         let top = self.list_top();
+        let _ = g.set_foreground(field);
+        let _ = g.fill_rect(
+            2,
+            top,
+            (w as i16 - 4).max(1) as u16,
+            (h as i16 - top - 2).max(0) as u16,
+        );
         let vis = self.vis_rows();
         for v in 0..vis {
             let idx = (self.offset + v) as usize;
@@ -738,6 +746,13 @@ impl<T: Clone> ListView<T> {
                 );
                 continue;
             }
+            let is_group = matches!(row.entry, FlatEntry::Group { .. });
+            if is_group {
+                let _ = g.set_foreground(c.bg);
+                let _ = g.fill_rect(2, y, (self.list_w() - 4).max(1) as u16, row_h() as u16);
+                let _ = g.set_foreground(antibox_ui::theme::shadow());
+                let _ = g.draw_line(2, y + row_h() - 1, self.list_w() - 2, y + row_h() - 1);
+            }
             let sel = self.selected == Some(idx);
             if sel {
                 render::fill_menu_selection(
@@ -750,7 +765,13 @@ impl<T: Clone> ListView<T> {
                 );
             }
             let fg = if sel { c.sel_fg } else { c.fg };
-            let _ = g.set_background(if sel { c.sel_bg } else { c.bg });
+            let _ = g.set_background(if sel {
+                c.sel_bg
+            } else if is_group {
+                c.bg
+            } else {
+                field
+            });
             let mut tx = x0;
             if let FlatEntry::Group { expanded, .. } = &row.entry {
                 draw_expander(g, x0, y, *expanded, fg);

@@ -42,10 +42,12 @@ pub fn icon_to_pixmap(
             data.push(blend(r, br));
             data.push(blend(g, bgc));
             data.push(blend(b, bb));
-            data.push(255);
+            data.push(a as u8);
         }
     }
-    PixmapData::new(tw, th, data)
+    let mut pm = PixmapData::new(tw, th, data);
+    pm.mask_from_alpha();
+    pm
 }
 
 pub fn default_icon(size: u32, bg: antibox_core::colour::Colour) -> PixmapData {
@@ -56,7 +58,9 @@ pub fn default_icon(size: u32, bg: antibox_core::colour::Colour) -> PixmapData {
         antibox_ui::theme::field(),
     ];
     let data = crate::icon_dsl::WINDOW_ICON.rasterize(s, bg, &colours);
-    PixmapData::new(s, s, data)
+    let mut pm = PixmapData::new(s, s, data);
+    pm.mask_from_alpha();
+    pm
 }
 
 pub fn resolve_client_icon(

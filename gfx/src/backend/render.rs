@@ -296,6 +296,7 @@ pub struct PixmapData {
     pub width: u16,
     pub height: u16,
     pub data: Vec<u8>,
+    pub mask: Option<Vec<u8>>,
 }
 
 impl PixmapData {
@@ -304,7 +305,29 @@ impl PixmapData {
             width,
             height,
             data,
+            mask: None,
         }
+    }
+
+    pub fn with_mask(mut self, mask: Vec<u8>) -> PixmapData {
+        self.mask = Some(mask);
+        self
+    }
+
+    pub fn mask_from_alpha(&mut self) {
+        let w = self.width as usize;
+        let h = self.height as usize;
+        let stride = (w + 31) / 32 * 4;
+        let mut mask = vec![0u8; stride * h];
+        for y in 0..h {
+            for x in 0..w {
+                let a = self.data[(y * w + x) * 4 + 3];
+                if a >= 128 {
+                    mask[y * stride + x / 8] |= 1 << (x & 7);
+                }
+            }
+        }
+        self.mask = Some(mask);
     }
 
     pub fn subimage(&self, x: u16, y: u16, w: u16, h: u16) -> Option<Self> {
