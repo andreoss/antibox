@@ -733,7 +733,9 @@ impl FrameWindow {
                 let ti = if bw > 0 { title_side_inset() as i16 } else { 0 };
                 rects.push((ti, ti, (r.w as i16 - ti * 2) as u16, th as u16));
                 let _ = self.frame.set_shape_rectangles(&rects, ShapeOp::Set);
-                let _ = self.frame.combine_shape(client_id, ShapeOp::Union);
+                let cr = self.client_rect;
+                let off = ((cr.x - r.x) as i16, (cr.y - r.y) as i16);
+                let _ = self.frame.combine_shape(client_id, off, ShapeOp::Union);
             }
             return;
         }

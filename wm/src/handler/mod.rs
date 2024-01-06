@@ -82,9 +82,11 @@ pub fn map_request_ex<H: DisplayBackend + 'static + ?Sized>(
     };
     let _ = xw.select_input(own_mask);
     let _ = xw.select_shape_input();
+    let shaped = xw.query_shaped().unwrap_or(false);
     let full_geom = xw.get_geometry_rect().unwrap_or(Rect::new(0, 0, 400, 300));
     let (cw, ch) = (full_geom.w, full_geom.h);
     let mut client = ClientWindow::new(xw);
+    client.f_shaped = shaped;
     client.read_initial_properties(wm.backend().unwrap(), &wm.atoms);
     let t_props = map_t0.elapsed();
     let decorated = want_decorated(&client);

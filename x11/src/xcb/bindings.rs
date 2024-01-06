@@ -1480,3 +1480,83 @@ extern "C" {
     ) -> c_uint;
     pub fn xcb_damage_destroy(c: *mut xcb_connection_t, damage: u32) -> c_uint;
 }
+
+pub const XCB_SHAPE_SO_SET: u8 = 0;
+pub const XCB_SHAPE_SO_UNION: u8 = 1;
+pub const XCB_SHAPE_SO_INTERSECT: u8 = 2;
+pub const XCB_SHAPE_SO_SUBTRACT: u8 = 3;
+pub const XCB_SHAPE_SK_BOUNDING: u8 = 0;
+pub const XCB_SHAPE_NOTIFY: u8 = 0;
+
+#[repr(C)]
+pub struct xcb_shape_notify_event_t {
+    pub response_type: u8,
+    pub shape_kind: u8,
+    pub sequence: u16,
+    pub affected_window: xcb_window_t,
+    pub extents_x: i16,
+    pub extents_y: i16,
+    pub extents_width: u16,
+    pub extents_height: u16,
+    pub server_time: u32,
+    pub shaped: u8,
+    pub pad0: [u8; 11],
+}
+
+#[repr(C)]
+pub struct xcb_shape_query_extents_reply_t {
+    pub response_type: u8,
+    pub pad0: u8,
+    pub sequence: u16,
+    pub length: u32,
+    pub bounding_shaped: u8,
+    pub clip_shaped: u8,
+    pub pad1: [u8; 2],
+    pub bounding_shape_extents_x: i16,
+    pub bounding_shape_extents_y: i16,
+    pub bounding_shape_extents_width: u16,
+    pub bounding_shape_extents_height: u16,
+    pub clip_shape_extents_x: i16,
+    pub clip_shape_extents_y: i16,
+    pub clip_shape_extents_width: u16,
+    pub clip_shape_extents_height: u16,
+}
+
+#[link(name = "xcb-shape")]
+extern "C" {
+    pub fn xcb_shape_rectangles(
+        c: *mut xcb_connection_t,
+        operation: u8,
+        destination_kind: u8,
+        ordering: u8,
+        destination_window: xcb_window_t,
+        x_offset: i16,
+        y_offset: i16,
+        rectangles_len: u32,
+        rectangles: *const xcb_rectangle_t,
+    ) -> c_uint;
+    pub fn xcb_shape_combine(
+        c: *mut xcb_connection_t,
+        operation: u8,
+        destination_kind: u8,
+        source_kind: u8,
+        destination_window: xcb_window_t,
+        x_offset: i16,
+        y_offset: i16,
+        source_window: xcb_window_t,
+    ) -> c_uint;
+    pub fn xcb_shape_select_input(
+        c: *mut xcb_connection_t,
+        destination_window: xcb_window_t,
+        enable: u8,
+    ) -> c_uint;
+    pub fn xcb_shape_query_extents(
+        c: *mut xcb_connection_t,
+        destination_window: xcb_window_t,
+    ) -> c_uint;
+    pub fn xcb_shape_query_extents_reply(
+        c: *mut xcb_connection_t,
+        cookie: c_uint,
+        e: *mut *mut xcb_generic_event_t,
+    ) -> *mut xcb_shape_query_extents_reply_t;
+}

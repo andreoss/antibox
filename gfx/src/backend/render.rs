@@ -90,7 +90,7 @@ pub trait WindowHandle: std::any::Any + Send + Sync {
         Ok(())
     }
 
-    fn combine_shape(&self, _src: u32, _op: ShapeOp) -> Result<()> {
+    fn combine_shape(&self, _src: u32, _offset: (i16, i16), _op: ShapeOp) -> Result<()> {
         Ok(())
     }
 
