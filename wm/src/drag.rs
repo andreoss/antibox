@@ -234,7 +234,7 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
                 let mut menu =
                     crate::winmenu::WindowActionMenu::for_focused_client_opts(
                         ws_count,
-                        &tc,
+                        tc.menu_bg,
                         &join,
                         wm.focused_shaded(),
                     );
@@ -264,7 +264,7 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
                 let mut menu =
                     crate::winmenu::WindowActionMenu::for_focused_client_opts(
                         ws_count,
-                        &tc,
+                        tc.menu_bg,
                         &join,
                         wm.focused_shaded(),
                     );
@@ -851,7 +851,7 @@ fn open_window_menu<H: DisplayBackend + 'static + ?Sized>(
     let join = wm.join_candidates();
     let mut menu = crate::winmenu::WindowActionMenu::for_focused_client_opts(
         wm.config.workspace_count,
-        &wm.theme_colours,
+        wm.theme_colours.menu_bg,
         &join,
         wm.focused_shaded(),
     );

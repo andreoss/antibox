@@ -53,7 +53,7 @@ impl<T> FlatRow<T> {
 }
 
 fn norm(title: &str) -> String {
-    crate::render::parse_mnemonic(title).0.to_lowercase()
+    crate::menurender::parse_mnemonic(title).0.to_lowercase()
 }
 
 impl<T: Clone> MenuNode<T> {

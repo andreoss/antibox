@@ -17,7 +17,7 @@ fn shown(conn: &MockDisplay) -> ListView<u32> {
 
 fn with_bar(conn: &MockDisplay, view: &mut ListView<u32>) {
     let rb: Arc<dyn RenderBackend> = Arc::new(MockDisplay::new(1280, 800, 24));
-    let bar = antibox_ui::searchbar::SearchBar::new(&rb, view.window_id(), 0, 0, 100, 20).unwrap();
+    let bar = crate::searchbar::SearchBar::new(&rb, view.window_id(), 0, 0, 100, 20).unwrap();
     view.set_bar(bar);
     let _ = conn;
 }

@@ -1,6 +1,5 @@
  use antibox_core::error::Result;
-mod menu;
-pub use self::menu::{
+pub use antibox_ui::menurender::{
     draw_menu_border, draw_menu_frame, draw_menu_row_rule, draw_menu_separator, draw_text_mnemonic,
     draw_text_underline, fill_menu_selection, hot_char_at, menu_clamp_pos, menu_content_width,
     menu_destroy_window, menu_hot_match, menu_item_at, mnemonic_key, parse_mnemonic,
@@ -730,7 +729,7 @@ fn draw_button_glyph(
     Ok(())
 }
 
-fn draw_border(
+pub(crate) fn draw_border(
     g: &dyn GraphicsContext,
     focused: bool,
     top: i16,

@@ -25,7 +25,7 @@ pub fn mnemonic_key(label: &str) -> Option<char> {
 pub fn menu_content_width<'a>(labels: impl Iterator<Item = &'a str>) -> u16 {
     let spec = FontSpec::role_styled(
         antibox_core::backend::FontRole::Menu,
-        antibox_ui::metrics::font_pt(),
+        crate::metrics::font_pt(),
         false,
         false,
     );
@@ -60,7 +60,7 @@ pub fn draw_menu_border(
     h: u16,
     face: antibox_core::colour::Colour,
 ) -> (u32, u32) {
-    antibox_ui::theme::menu_border(g, w, h, face)
+    crate::theme::menu_border(g, w, h, face)
 }
 
 pub fn fill_menu_selection(
@@ -71,11 +71,11 @@ pub fn fill_menu_selection(
     h: u16,
     sel_bg: antibox_core::colour::Colour,
 ) {
-    antibox_ui::theme::menu_selection(g, x, y, w, h, sel_bg);
+    crate::theme::menu_selection(g, x, y, w, h, sel_bg);
 }
 
 pub fn draw_menu_row_rule(g: &dyn GraphicsContext, x: i16, y: i16, w: u16) {
-    antibox_ui::theme::menu_row_rule(g, x, y, w);
+    crate::theme::menu_row_rule(g, x, y, w);
 }
 
 pub fn draw_menu_separator(
@@ -222,3 +222,55 @@ pub fn menu_item_at(
 #[cfg(test)]
 #[path = "menu_triangle_tests.rs"]
 mod triangle_tests;
+
+pub fn bevel_light(face: antibox_core::colour::Colour) -> u32 {
+    antibox_core::colour::tint(face, 0.6)
+}
+
+pub fn draw_submenu_arrow(
+    g: &dyn GraphicsContext,
+    x: i16,
+    cy: i16,
+    size: i16,
+    colour: antibox_core::colour::Colour,
+) {
+    crate::theme::submenu_indicator(g, x, cy, size, colour);
+}
+
+pub fn draw_button_bevel(
+    g: &dyn GraphicsContext,
+    x: i16,
+    y: i16,
+    w: u16,
+    h: u16,
+    face: antibox_core::colour::Colour,
+    sunken: bool,
+) -> antibox_core::error::Result<()> {
+    if w < 2 || h < 2 {
+        return Ok(());
+    }
+    let white = antibox_core::colour::tint(face, 0.9);
+    let light = antibox_core::colour::tint(face, 0.4);
+    let shadow = antibox_core::colour::scale(face, 0.5);
+    let black = antibox_core::colour::scale(face, 0.8);
+    let (tl_out, tl_in, br_in, br_out) = if sunken {
+        (shadow, black, light, white)
+    } else {
+        (white, light, shadow, black)
+    };
+    let x1 = x + w as i16 - 1;
+    let y1 = y + h as i16 - 1;
+    g.set_foreground(tl_out)?;
+    g.draw_line(x, y, x1, y)?;
+    g.draw_line(x, y, x, y1)?;
+    g.set_foreground(br_out)?;
+    g.draw_line(x, y1, x1, y1)?;
+    g.draw_line(x1, y, x1, y1)?;
+    g.set_foreground(tl_in)?;
+    g.draw_line(x + 1, y + 1, x1 - 1, y + 1)?;
+    g.draw_line(x + 1, y + 1, x + 1, y1 - 1)?;
+    g.set_foreground(br_in)?;
+    g.draw_line(x + 1, y1 - 1, x1 - 1, y1 - 1)?;
+    g.draw_line(x1 - 1, y + 1, x1 - 1, y1 - 1)?;
+    Ok(())
+}

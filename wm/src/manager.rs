@@ -764,7 +764,7 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
                 let join = self.join_candidates();
                 let mut menu = crate::winmenu::WindowActionMenu::for_focused_client_opts(
                     ws_count,
-                    &self.theme_colours,
+                    self.theme_colours.menu_bg,
                     &join,
                     self.focused_shaded(),
                 );

@@ -500,7 +500,7 @@ impl App {
                         let join = self.wm.join_candidates();
                         let mut menu = crate::winmenu::WindowActionMenu::for_focused_client_opts(
                             ws_count,
-                            &self.wm.theme_colours,
+                            self.wm.theme_colours.menu_bg,
                             &join,
                             self.wm.focused_shaded(),
                             );
@@ -1147,7 +1147,7 @@ impl App {
                         let join = self.wm.join_candidates();
                         let mut menu = crate::winmenu::WindowActionMenu::for_focused_client_opts(
                             ws_count,
-                            &self.wm.theme_colours,
+                            self.wm.theme_colours.menu_bg,
                             &join,
                             self.wm.focused_shaded(),
                             );

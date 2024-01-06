@@ -772,11 +772,13 @@ impl Omni {
         let mon = self.monitor_for_pointer(conn, &wm.monitors);
         self.panel_w = panel_w_for(mon.w);
         self.max_rows = rows_for(mon.h);
+        self.view.set_window_frame();
         let w = self.width();
-        let cap = pad() as i32 * 3 + bar_h() as i32 + self.max_rows as i32 * row_h() as i32;
+        let extra = 2 * self.view.chrome_extra() as i32;
+        let cap = pad() as i32 * 3 + bar_h() as i32 + self.max_rows as i32 * row_h() as i32 + extra;
         let nodes = self.current_nodes();
         let rows = crate::menu_tree::flatten_nodes(&nodes).len() as i32;
-        let want = pad() as i32 * 3 + bar_h() as i32 + rows * row_h() as i32;
+        let want = pad() as i32 * 3 + bar_h() as i32 + rows * row_h() as i32 + extra;
         let h = want.clamp(scaled(120), cap.max(scaled(120))) as u16;
         let pos = self.place(mon, w, h);
         self.view.show_with(conn.as_ref(), nodes, Place::At(pos), w, cap, true, |_, _| {});

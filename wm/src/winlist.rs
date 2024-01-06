@@ -165,8 +165,12 @@ impl WinListMenu {
         if rows == 0 {
             return;
         }
+        if switcher {
+            self.view.set_window_frame();
+        }
         let w = scaled(280) as u16;
-        let want = pad() as i32 * 3 + bar_h() as i32 + rows as i32 * row_h() as i32;
+        let extra = 2 * self.view.chrome_extra() as i32;
+        let want = pad() as i32 * 3 + bar_h() as i32 + rows as i32 * row_h() as i32 + extra;
         let h = if switcher {
             let max_h = (conn.screen_height() as i32 * 3 / 4).max(scaled(120));
             want.clamp(scaled(120), max_h) as u16

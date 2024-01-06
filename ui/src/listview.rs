@@ -1,28 +1,28 @@
 use crate::menu_tree::{self, FlatEntry, FlatRow, MenuNode};
-use crate::render;
+use crate::menurender as render;
 use antibox_core::backend::*;
 use antibox_core::point::Point;
 use antibox_core::rect::Rect;
 use antibox_core::scale::scaled;
 use std::sync::Arc;
 
-pub(crate) fn row_h() -> i16 {
-    antibox_ui::metrics::menu_item_height() as i16
+pub fn row_h() -> i16 {
+    crate::metrics::menu_item_height() as i16
 }
 
-pub(crate) fn row_icon_px() -> u16 {
-    antibox_ui::metrics::icon().min(row_h() as i32 - 2).max(8) as u16
+pub fn row_icon_px() -> u16 {
+    crate::metrics::icon().min(row_h() as i32 - 2).max(8) as u16
 }
 
-pub(crate) fn bar_h() -> i16 {
-    (antibox_ui::metrics::field_height() + antibox_ui::metrics::gap()) as i16
+pub fn bar_h() -> i16 {
+    (crate::metrics::field_height() + crate::metrics::gap()) as i16
 }
 
-pub(crate) fn pad() -> i16 {
-    antibox_ui::metrics::pad() as i16
+pub fn pad() -> i16 {
+    crate::metrics::pad() as i16
 }
 
-pub(crate) fn sb_w() -> i16 {
+pub fn sb_w() -> i16 {
     scaled(16) as i16
 }
 
@@ -50,7 +50,7 @@ pub struct ListView<T> {
     pub window: Option<Box<dyn WindowHandle>>,
     pub items: Vec<FlatRow<T>>,
     tree: Vec<MenuNode<T>>,
-    bar: Option<antibox_ui::searchbar::SearchBar>,
+    bar: Option<crate::searchbar::SearchBar>,
     pub visible: bool,
     pub selected: Option<usize>,
     pub offset: i16,
@@ -64,6 +64,7 @@ pub struct ListView<T> {
     fixed: bool,
     managed: bool,
     cap: i32,
+    frame_chrome: bool,
 }
 
 impl<T: Clone> Default for ListView<T> {
@@ -92,6 +93,19 @@ impl<T: Clone> ListView<T> {
             fixed: false,
             managed: false,
             cap: 0,
+            frame_chrome: false,
+        }
+    }
+
+    pub fn set_window_frame(&mut self) {
+        self.frame_chrome = true;
+    }
+
+    pub fn chrome_extra(&self) -> i16 {
+        if self.frame_chrome {
+            (scaled(crate::theme::border_base() as i32) as i16 - 2).max(0)
+        } else {
+            0
         }
     }
 
@@ -104,7 +118,7 @@ impl<T: Clone> ListView<T> {
     }
 
     pub fn list_top(&self) -> i16 {
-        self.bar_off()
+        self.bar_off() + self.chrome_extra()
     }
 
     pub fn total_rows(&self) -> i16 {
@@ -112,7 +126,7 @@ impl<T: Clone> ListView<T> {
     }
 
     pub fn vis_rows(&self) -> i16 {
-        ((self.h as i16 - self.list_top() - TOP_PAD) / row_h()).max(1)
+        ((self.h as i16 - self.list_top() - TOP_PAD - self.chrome_extra()) / row_h()).max(1)
     }
 
     pub fn needs_sb(&self) -> bool {
@@ -132,15 +146,19 @@ impl<T: Clone> ListView<T> {
     }
 
     pub fn sb_x(&self) -> i16 {
-        self.list_w()
+        self.list_w() - 2 - self.chrome_extra()
     }
 
     pub fn sb_top(&self) -> i16 {
         self.list_top()
     }
 
+    pub fn sb_bottom(&self) -> i16 {
+        self.h as i16 - 2 - self.chrome_extra()
+    }
+
     pub fn trough_h(&self) -> i16 {
-        (self.h as i16 - self.sb_top() - 2 * sb_w()).max(1)
+        (self.sb_bottom() - self.sb_top() - 2 * sb_w()).max(1)
     }
 
     pub fn thumb(&self) -> (i16, i16) {
@@ -170,9 +188,10 @@ impl<T: Clone> ListView<T> {
 
     fn sync_bar_rect(&mut self) {
         let w = self.w;
+        let e = self.chrome_extra();
         if let Some(bar) = self.bar.as_mut() {
-            let bw = (w as i16 - pad() * 2).max(1) as u16;
-            bar.set_rect(pad(), pad(), bw, bar_h() as u16);
+            let bw = (w as i16 - pad() * 2 - e * 2).max(1) as u16;
+            bar.set_rect(pad() + e, pad() + e, bw, bar_h() as u16);
         }
     }
 
@@ -211,7 +230,7 @@ impl<T: Clone> ListView<T> {
 
     pub fn desired_height(&self) -> i32 {
         let rows = self.total_rows().max(1) as i32 * row_h() as i32;
-        pad() as i32 * 3 + bar_h() as i32 + rows
+        pad() as i32 * 3 + bar_h() as i32 + rows + 2 * self.chrome_extra() as i32
     }
 
     pub fn needle(&self) -> String {
@@ -327,15 +346,15 @@ impl<T: Clone> ListView<T> {
         self.sync_geometry(conn);
     }
 
-    pub fn set_bar(&mut self, bar: antibox_ui::searchbar::SearchBar) {
+    pub fn set_bar(&mut self, bar: crate::searchbar::SearchBar) {
         self.bar = Some(bar);
     }
 
-    pub fn bar(&self) -> Option<&antibox_ui::searchbar::SearchBar> {
+    pub fn bar(&self) -> Option<&crate::searchbar::SearchBar> {
         self.bar.as_ref()
     }
 
-    pub fn bar_mut(&mut self) -> Option<&mut antibox_ui::searchbar::SearchBar> {
+    pub fn bar_mut(&mut self) -> Option<&mut crate::searchbar::SearchBar> {
         self.bar.as_mut()
     }
 
@@ -351,10 +370,16 @@ impl<T: Clone> ListView<T> {
         if self.bar.is_some() {
             return;
         }
-        let bw = (self.w as i16 - pad() * 2).max(1) as u16;
-        if let Ok(mut bar) =
-            antibox_ui::searchbar::SearchBar::new(rb, win_id, pad(), pad(), bw, bar_h() as u16)
-        {
+        let e = self.chrome_extra();
+        let bw = (self.w as i16 - pad() * 2 - e * 2).max(1) as u16;
+        if let Ok(mut bar) = crate::searchbar::SearchBar::new(
+            rb,
+            win_id,
+            pad() + e,
+            pad() + e,
+            bw,
+            bar_h() as u16,
+        ) {
             bar.set_focus(true);
             bar.show();
             self.bar = Some(bar);
@@ -563,7 +588,7 @@ impl<T: Clone> ListView<T> {
         p: Point,
         button: u8,
     ) -> bool {
-        use antibox_ui::searchbar::SearchEvent;
+        use crate::searchbar::SearchEvent;
         let bar = match self.bar.as_mut() {
             Some(bar) => bar,
             None => return false,
@@ -678,7 +703,7 @@ impl<T: Clone> ListView<T> {
     }
 
     pub fn bar_key(&mut self, keycode: u32, state: u16, mapping: &KeyboardMapping) -> u8 {
-        use antibox_ui::searchbar::SearchEvent;
+        use crate::searchbar::SearchEvent;
         let bar = match self.bar.as_mut() {
             Some(bar) => bar,
             None => return 0,
@@ -714,18 +739,37 @@ impl<T: Clone> ListView<T> {
         let c = self.colours;
         let _ = g.set_font(&FontSpec::role(
             FontRole::Menu,
-            antibox_ui::metrics::font_pt(),
+            crate::metrics::font_pt(),
         ));
         let (light, dark) = render::draw_menu_frame(g, w, h, c.bg);
-        let field = antibox_ui::theme::field();
+        let e = self.chrome_extra();
+        if self.frame_chrome {
+            crate::theme::window_frame(
+                g,
+                0,
+                antibox_core::point::Dimension::px(w, h),
+                crate::theme::face(),
+                crate::theme::face(),
+                0,
+                true,
+            );
+        }
+        let field = crate::theme::field();
         let top = self.list_top();
         let _ = g.set_foreground(field);
         let _ = g.fill_rect(
-            2,
+            2 + e,
             top,
-            (w as i16 - 4).max(1) as u16,
-            (h as i16 - top - 2).max(0) as u16,
+            (w as i16 - 4 - 2 * e).max(1) as u16,
+            (h as i16 - top - 2 - e).max(0) as u16,
         );
+        let clip = Rect::new(
+            (2 + e) as i32,
+            top as i32,
+            (self.list_w() - 4 - 2 * e).max(1) as i32,
+            (self.h as i16 - top - 2 - e).max(0) as i32,
+        );
+        let _ = g.push_clip(&clip);
         let vis = self.vis_rows();
         for v in 0..vis {
             let idx = (self.offset + v) as usize;
@@ -734,13 +778,13 @@ impl<T: Clone> ListView<T> {
                 None => break,
             };
             let y = top + v * row_h();
-            let x0 = 4 + row.depth as i16 * indent_w();
+            let x0 = 4 + e + row.depth as i16 * indent_w();
             if row.is_separator() {
                 render::draw_menu_separator(
                     g,
-                    4,
+                    4 + e,
                     y + row_h() / 2,
-                    (self.list_w() - 8).max(1) as u16,
+                    (self.list_w() - 8 - 2 * e).max(1) as u16,
                     light,
                     dark,
                 );
@@ -749,17 +793,27 @@ impl<T: Clone> ListView<T> {
             let is_group = matches!(row.entry, FlatEntry::Group { .. });
             if is_group {
                 let _ = g.set_foreground(c.bg);
-                let _ = g.fill_rect(2, y, (self.list_w() - 4).max(1) as u16, row_h() as u16);
-                let _ = g.set_foreground(antibox_ui::theme::shadow());
-                let _ = g.draw_line(2, y + row_h() - 1, self.list_w() - 2, y + row_h() - 1);
+                let _ = g.fill_rect(
+                    2 + e,
+                    y,
+                    (self.list_w() - 4 - 2 * e).max(1) as u16,
+                    row_h() as u16,
+                );
+                let _ = g.set_foreground(crate::theme::shadow());
+                let _ = g.draw_line(
+                    2 + e,
+                    y + row_h() - 1,
+                    self.list_w() - 2 - e,
+                    y + row_h() - 1,
+                );
             }
             let sel = self.selected == Some(idx);
             if sel {
                 render::fill_menu_selection(
                     g,
-                    2,
+                    2 + e,
                     y,
-                    (self.list_w() - 4).max(1) as u16,
+                    (self.list_w() - 4 - 2 * e).max(1) as u16,
                     row_h() as u16,
                     c.sel_bg,
                 );
@@ -775,22 +829,23 @@ impl<T: Clone> ListView<T> {
             let mut tx = x0;
             if let FlatEntry::Group { expanded, .. } = &row.entry {
                 draw_expander(g, x0, y, *expanded, fg);
-                tx += expander_w() + antibox_ui::metrics::gap() as i16;
+                tx += expander_w() + crate::metrics::gap() as i16;
             }
             if let Some(ref ico) = row.icon {
                 let _ = g.draw_pixmap(tx, y + (row_h() - ico.height as i16) / 2, ico);
-                tx += ico.width as i16 + antibox_ui::metrics::gap() as i16;
+                tx += ico.width as i16 + crate::metrics::gap() as i16;
             }
             render::draw_text_mnemonic(
                 g,
                 tx,
-                antibox_ui::metrics::baseline(y as i32, row_h() as i32) as i16,
+                crate::metrics::baseline(y as i32, row_h() as i32) as i16,
                 &row.title,
                 fg,
             );
         }
+        let _ = g.pop_clip();
         if self.needs_sb() {
-            draw_scrollbar(g, self.sb_x(), self.sb_top(), self.h as i16, self.thumb());
+            draw_scrollbar(g, self.sb_x(), self.sb_top(), self.sb_bottom(), self.thumb());
         }
     }
 }
@@ -819,34 +874,34 @@ pub(crate) fn draw_scrollbar(
     bottom: i16,
     thumb: (i16, i16),
 ) {
-    let face = antibox_ui::theme::face();
+    let face = crate::theme::face();
     let bwid = sb_w();
     let w = bwid as u16;
 
-    let _ = g.set_foreground(crate::render::bevel_light(face));
+    let _ = g.set_foreground(crate::menurender::bevel_light(face));
     let _ = g.fill_rect(x, top + bwid, w, (bottom - top - 2 * bwid).max(0) as u16);
 
     let _ = g.set_foreground(face);
     let _ = g.fill_rect(x, top, w, bwid as u16);
-    let _ = crate::render::draw_button_bevel(g, x, top, w, bwid as u16, face, false);
+    let _ = crate::menurender::draw_button_bevel(g, x, top, w, bwid as u16, face, false);
     sb_arrow(g, x, top, bwid, true);
 
     let _ = g.set_foreground(face);
     let _ = g.fill_rect(x, bottom - bwid, w, bwid as u16);
-    let _ = crate::render::draw_button_bevel(g, x, bottom - bwid, w, bwid as u16, face, false);
+    let _ = crate::menurender::draw_button_bevel(g, x, bottom - bwid, w, bwid as u16, face, false);
     sb_arrow(g, x, bottom - bwid, bwid, false);
 
     let (ty, tht) = thumb;
     let _ = g.set_foreground(face);
     let _ = g.fill_rect(x, ty, w, tht as u16);
-    let _ = crate::render::draw_button_bevel(g, x, ty, w, tht as u16, face, false);
+    let _ = crate::menurender::draw_button_bevel(g, x, ty, w, tht as u16, face, false);
 }
 
 fn sb_arrow(g: &dyn GraphicsContext, x: i16, y: i16, bwid: i16, up: bool) {
     let cx = x + bwid / 2;
     let cy = y + bwid / 2;
     let r = (bwid / 4).max(2);
-    let _ = g.set_foreground(antibox_ui::theme::text());
+    let _ = g.set_foreground(crate::theme::text());
     if up {
         let _ = g.fill_polygon(&[(cx, cy - r), (cx - r, cy + r), (cx + r, cy + r)]);
     } else {

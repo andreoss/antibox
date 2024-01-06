@@ -1,7 +1,7 @@
     use super::*;
 
-    fn tc() -> crate::render::ThemeColors {
-        crate::render::ThemeColors::default()
+    fn tc() -> antibox_core::colour::Colour {
+        crate::theme::menu_bg()
     }
 
     fn children_of<'a>(nodes: &'a [MenuNode<Action>], title: &str) -> &'a [MenuNode<Action>] {
@@ -25,11 +25,11 @@
 
     #[test]
     fn test_for_focused_client() {
-        let m = WindowActionMenu::for_focused_client(4, &tc(), false);
+        let m = WindowActionMenu::for_focused_client(4, tc(), false);
         assert!(!m.visible());
         assert!(!m.nodes.is_empty());
         assert_eq!(m.nodes[0].title(), "_Restore");
-        assert_eq!(crate::render::mnemonic_key(m.nodes[0].title()), Some('R'));
+        assert_eq!(crate::menurender::mnemonic_key(m.nodes[0].title()), Some('R'));
         assert!(matches!(m.nodes[4], MenuNode::Group { .. }));
         assert_eq!(children_of(&m.nodes, "_Tile").len(), 8);
         assert!(children_of(&m.nodes, "Ma_ximize")
@@ -40,7 +40,7 @@
 
     #[test]
     fn test_groups_expand_in_place_when_toggled() {
-        let m = WindowActionMenu::for_focused_client(2, &tc(), false);
+        let m = WindowActionMenu::for_focused_client(2, tc(), false);
         let mut nodes = m.nodes.clone();
         let flat = crate::menu_tree::flatten_nodes(&nodes);
         let idx = flat
@@ -65,7 +65,7 @@
         use antibox_core::mock::MockDisplay;
         use antibox_core::point::Point;
         let conn = MockDisplay::new(1280, 800, 24);
-        let mut m = WindowActionMenu::for_focused_client(4, &tc(), false);
+        let mut m = WindowActionMenu::for_focused_client(4, tc(), false);
         m.show(&conn, Point::new(10, 10));
         assert!(m.visible());
         for button in [4u8, 5u8] {
@@ -87,7 +87,7 @@
         use antibox_core::mock::MockDisplay;
         use antibox_core::point::Point;
         let conn = MockDisplay::new(1280, 800, 24);
-        let mut m = WindowActionMenu::for_focused_client(4, &tc(), false);
+        let mut m = WindowActionMenu::for_focused_client(4, tc(), false);
         m.show(&conn, Point::new(10, 10));
         let ev = BackendEvent::ButtonPress {
             window: 1,
