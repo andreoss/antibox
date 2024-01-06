@@ -3,7 +3,9 @@
 use antibox_core::libc;
 use super::bindings::*;
 use super::connection::XcbConnection;
-use antibox_core::backend::{DisplayBackend, EventMask, PropMode, RenderBackend, StackMode, WindowHandle};
+use antibox_core::backend::{
+    DisplayBackend, EventMask, PropMode, RenderBackend, ShapeOp, StackMode, WindowHandle,
+};
 use antibox_core::point::Point;
 use antibox_core::rect::Rect;
 use std::sync::Arc;
@@ -205,5 +207,85 @@ impl WindowHandle for XcbWindow {
         let y = unsafe { (*r).dst_y };
         unsafe { libc::free(r as *mut libc::c_void) };
         Ok(Point::new(x as i32, y as i32))
+    }
+
+    fn select_shape_input(&self) -> Result<()> {
+        if self.conn.shape_event_base() == 0 {
+            return Ok(());
+        }
+        unsafe { xcb_shape_select_input(self.conn.raw(), self.id, 1) };
+        Ok(())
+    }
+
+    fn set_shape_rectangles(&self, rects: &[(i16, i16, u16, u16)], op: ShapeOp) -> Result<()> {
+        if self.conn.shape_event_base() == 0 {
+            return Ok(());
+        }
+        let xrects: Vec<xcb_rectangle_t> = rects
+            .iter()
+            .map(|&(x, y, width, height)| xcb_rectangle_t {
+                x,
+                y,
+                width,
+                height,
+            })
+            .collect();
+        unsafe {
+            xcb_shape_rectangles(
+                self.conn.raw(),
+                shape_so(op),
+                XCB_SHAPE_SK_BOUNDING,
+                0,
+                self.id,
+                0,
+                0,
+                xrects.len() as u32,
+                xrects.as_ptr(),
+            )
+        };
+        Ok(())
+    }
+
+    fn combine_shape(&self, src: u32, offset: (i16, i16), op: ShapeOp) -> Result<()> {
+        if self.conn.shape_event_base() == 0 {
+            return Ok(());
+        }
+        unsafe {
+            xcb_shape_combine(
+                self.conn.raw(),
+                shape_so(op),
+                XCB_SHAPE_SK_BOUNDING,
+                XCB_SHAPE_SK_BOUNDING,
+                self.id,
+                offset.0,
+                offset.1,
+                src,
+            )
+        };
+        Ok(())
+    }
+
+    fn query_shaped(&self) -> Result<bool> {
+        if self.conn.shape_event_base() == 0 {
+            return Ok(false);
+        }
+        let cookie = unsafe { xcb_shape_query_extents(self.conn.raw(), self.id) };
+        let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        let r = unsafe { xcb_shape_query_extents_reply(self.conn.raw(), cookie, &mut e) };
+        if r.is_null() {
+            return Ok(false);
+        }
+        let shaped = unsafe { (*r).bounding_shaped != 0 };
+        unsafe { libc::free(r as *mut libc::c_void) };
+        Ok(shaped)
+    }
+}
+
+const fn shape_so(op: ShapeOp) -> u8 {
+    match op {
+        ShapeOp::Set => XCB_SHAPE_SO_SET,
+        ShapeOp::Union => XCB_SHAPE_SO_UNION,
+        ShapeOp::Intersect => XCB_SHAPE_SO_INTERSECT,
+        ShapeOp::Subtract => XCB_SHAPE_SO_SUBTRACT,
     }
 }

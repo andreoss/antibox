@@ -20,6 +20,7 @@ pub struct XcbConnection {
     keycode_max: u8,
     cursor_font: u32,
     xkb_event_base: u8,
+    shape_event_base: u8,
     render_a8: u32,
     render_rgb24: u32,
     render_argb32: u32,
@@ -147,6 +148,7 @@ impl XcbConnection {
             xcb_open_font(conn, cursor_font, font_name.len() as u16, font_name.as_ptr() as *const _)
         };
         let xkb_event_base = super::xkb::init(conn);
+        let shape_event_base = shape_init(conn);
         let (render_a8, render_rgb24, render_argb32) = render_init(conn);
         Ok(Arc::new(XcbConnection {
             conn,
@@ -157,6 +159,7 @@ impl XcbConnection {
             keycode_max,
             cursor_font,
             xkb_event_base,
+            shape_event_base,
             render_a8,
             render_rgb24,
             render_argb32,
@@ -172,6 +175,10 @@ impl XcbConnection {
 
     pub(crate) fn xkb_event_base(&self) -> u8 {
         self.xkb_event_base
+    }
+
+    pub(crate) fn shape_event_base(&self) -> u8 {
+        self.shape_event_base
     }
 
     pub(crate) fn xkb_group_changed(&self, group: u32) -> bool {
@@ -227,6 +234,24 @@ impl XcbConnection {
 
     fn alloc_id(&self) -> u32 {
         unsafe { xcb_generate_id(self.conn) }
+    }
+}
+
+fn shape_init(conn: *mut xcb_connection_t) -> u8 {
+    let name = b"SHAPE";
+    let cookie = unsafe { xcb_query_extension(conn, name.len() as u16, name.as_ptr() as *const _) };
+    let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+    let r = unsafe { xcb_query_extension_reply(conn, cookie, &mut e) };
+    if r.is_null() {
+        return 0;
+    }
+    let present = unsafe { (*r).present != 0 };
+    let first_event = unsafe { (*r).first_event };
+    unsafe { libc::free(r as *mut libc::c_void) };
+    if present {
+        first_event
+    } else {
+        0
     }
 }
 

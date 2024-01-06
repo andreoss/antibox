@@ -41,6 +41,15 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
         }
         return None;
     }
+    if conn.shape_event_base() != 0 && code == conn.shape_event_base() + XCB_SHAPE_NOTIFY {
+        let e = unsafe {
+            &*(ev as *const xcb_generic_event_t as *const xcb_shape_notify_event_t)
+        };
+        return Some(BackendEvent::ShapeNotify {
+            window: e.affected_window,
+            shaped: e.shaped != 0,
+        });
+    }
     match code {
         XCB_MAP_REQUEST => {
             let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_map_request_event_t) };
