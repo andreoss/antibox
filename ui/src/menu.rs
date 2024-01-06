@@ -14,27 +14,27 @@ pub struct MenuColors {
 impl Default for MenuColors {
     fn default() -> MenuColors {
         MenuColors {
-            bg: antibox_ui::theme::menu_bg(),
-            fg: antibox_ui::theme::text(),
-            sel_bg: antibox_ui::theme::menu_sel_bg(),
-            sel_fg: antibox_ui::theme::menu_sel_fg(),
+            bg: crate::theme::menu_bg(),
+            fg: crate::theme::text(),
+            sel_bg: crate::theme::menu_sel_bg(),
+            sel_fg: crate::theme::menu_sel_fg(),
         }
     }
 }
 
 impl MenuColors {
-    pub fn from_theme(tc: &crate::render::ThemeColors) -> MenuColors {
+    pub fn with_bg(bg: antibox_core::colour::Colour) -> MenuColors {
         MenuColors {
-            bg: tc.menu_bg,
-            fg: antibox_ui::theme::contrast(0x000000, tc.menu_bg),
-            sel_bg: antibox_ui::theme::menu_sel_bg(),
-            sel_fg: antibox_ui::theme::menu_sel_fg(),
+            bg,
+            fg: crate::theme::contrast(0x000000, bg),
+            sel_bg: crate::theme::menu_sel_bg(),
+            sel_fg: crate::theme::menu_sel_fg(),
         }
     }
 }
 
 pub fn item_h() -> u16 {
-    antibox_ui::metrics::menu_item_height() as u16
+    crate::metrics::menu_item_height() as u16
 }
 
 fn band_h() -> i32 {
@@ -63,7 +63,7 @@ pub struct MenuView<T> {
     window: Option<Box<dyn WindowHandle>>,
     items: Vec<MenuNode<T>>,
     all: Vec<MenuNode<T>>,
-    bar: Option<antibox_ui::searchbar::SearchBar>,
+    bar: Option<crate::searchbar::SearchBar>,
     pos: Point,
     anchor: Point,
     last_pointer: Option<Point>,
@@ -83,7 +83,7 @@ impl<T: Clone> Default for MenuView<T> {
 }
 
 fn bar_h() -> i16 {
-    antibox_ui::metrics::field_height() as i16
+    crate::metrics::field_height() as i16
 }
 
 impl<T: Clone> MenuView<T> {
@@ -120,7 +120,7 @@ impl<T: Clone> MenuView<T> {
 
     fn bar_off(&self) -> i16 {
         if self.bar.is_some() {
-            bar_h() + antibox_ui::metrics::pad() as i16
+            bar_h() + crate::metrics::pad() as i16
         } else {
             0
         }
@@ -135,10 +135,10 @@ impl<T: Clone> MenuView<T> {
             return;
         }
         let w = self.menu_w();
-        let m = antibox_ui::metrics::pad() as i16;
+        let m = crate::metrics::pad() as i16;
         let bw = (w as i16 - m * 2).max(1) as u16;
         if let Ok(mut bar) =
-            antibox_ui::searchbar::SearchBar::new(rb, win_id, m, m, bw, bar_h() as u16)
+            crate::searchbar::SearchBar::new(rb, win_id, m, m, bw, bar_h() as u16)
         {
             bar.set_focus(true);
             bar.show();
@@ -176,7 +176,7 @@ impl<T: Clone> MenuView<T> {
         };
         let ph = self.height().max(1);
         let pos =
-            crate::render::menu_clamp_pos(self.anchor, self.menu_w() as i32, ph, sw, sh, true);
+            crate::menurender::menu_clamp_pos(self.anchor, self.menu_w() as i32, ph, sw, sh, true);
         let _ = win.configure(Some(pos.x), Some(pos.y), None, Some(ph as u16));
         self.pos = pos;
     }
@@ -185,7 +185,7 @@ impl<T: Clone> MenuView<T> {
         let keep = self.selected.and_then(|s| {
             self.items
                 .get(s)
-                .map(|it| crate::render::parse_mnemonic(it.title()).0)
+                .map(|it| crate::menurender::parse_mnemonic(it.title()).0)
         });
         self.items = if needle.is_empty() {
             self.all.clone()
@@ -199,7 +199,7 @@ impl<T: Clone> MenuView<T> {
             .and_then(|k| {
                 self.items
                     .iter()
-                    .position(|it| crate::render::parse_mnemonic(it.title()).0 == k)
+                    .position(|it| crate::menurender::parse_mnemonic(it.title()).0 == k)
             })
             .or_else(|| self.next_selectable(None, 1));
     }
@@ -237,7 +237,7 @@ impl<T: Clone> MenuView<T> {
         mapping: &KeyboardMapping,
         ks: u32,
     ) -> MenuNav<T> {
-        use antibox_ui::searchbar::SearchEvent;
+        use crate::searchbar::SearchEvent;
         let bar = match self.bar.as_mut() {
             Some(bar) => bar,
             None => return self.handle_key(conn, ks),
@@ -266,7 +266,7 @@ impl<T: Clone> MenuView<T> {
         p: Point,
         button: u8,
     ) -> bool {
-        use antibox_ui::searchbar::SearchEvent;
+        use crate::searchbar::SearchEvent;
         let bar = match self.bar.as_mut() {
             Some(bar) => bar,
             None => return false,
@@ -284,7 +284,7 @@ impl<T: Clone> MenuView<T> {
 
     fn icon_col(&self) -> i16 {
         if self.items.iter().any(|it| it.icon().is_some()) {
-            (crate::listview::row_icon_px() + antibox_ui::metrics::gap() as u16) as i16
+            (crate::listview::row_icon_px() + crate::metrics::gap() as u16) as i16
         } else {
             0
         }
@@ -296,7 +296,7 @@ impl<T: Clone> MenuView<T> {
         } else {
             &self.all
         };
-        crate::render::menu_content_width(
+        crate::menurender::menu_content_width(
             labels
                 .iter()
                 .filter(|it| !it.is_separator())
@@ -333,7 +333,7 @@ impl<T: Clone> MenuView<T> {
         let sh = conn.screen_height() as i32;
         self.fit_rows(sh);
         let ph = self.height();
-        let pos = crate::render::menu_clamp_pos(pos, self.menu_w() as i32, ph, sw, sh, true);
+        let pos = crate::menurender::menu_clamp_pos(pos, self.menu_w() as i32, ph, sw, sh, true);
         let mask = EventMask::BUTTON_PRESS
             | EventMask::EXPOSURE
             | EventMask::POINTER_MOTION
@@ -463,7 +463,7 @@ impl<T: Clone> MenuView<T> {
             sub.hide(conn);
             self.submenu = None;
         }
-        crate::render::menu_destroy_window(&mut self.window, &mut self.visible);
+        crate::menurender::menu_destroy_window(&mut self.window, &mut self.visible);
         self.bar = None;
         self.selected = None;
         self.offset = 0;
@@ -483,7 +483,7 @@ impl<T: Clone> MenuView<T> {
         let new_sel = self.item_at(root);
         if new_sel != self.selected {
             if let (Some(p), Some(sub)) = (prev, self.submenu.as_ref()) {
-                if crate::render::toward_submenu(
+                if crate::menurender::toward_submenu(
                     p,
                     root,
                     sub.pos,
@@ -693,11 +693,11 @@ impl<T: Clone> MenuView<T> {
                             if it.is_separator() {
                                 None
                             } else {
-                                crate::render::mnemonic_key(it.title())
+                                crate::menurender::mnemonic_key(it.title())
                             }
                         })
                         .collect();
-                    match crate::render::menu_hot_match(&hots, d.selected, key) {
+                    match crate::menurender::menu_hot_match(&hots, d.selected, key) {
                         Some((idx, count)) => {
                             d.selected = Some(idx);
                             d.ensure_visible();
@@ -786,8 +786,8 @@ impl<T: Clone> MenuView<T> {
                 MenuNav::Handled
             }
             BackendEvent::KeyPress { keycode, state, .. } => {
-                let ks = crate::bindings::keysym_for_keycode(conn, *keycode);
-                let nav = match crate::bindings::keymap(conn) {
+                let ks = crate::keymap::keysym_for_keycode(conn, *keycode);
+                let nav = match crate::keymap::keymap(conn) {
                     Some(m) => self.handle_key_input(conn, *keycode, *state, &m, ks),
                     None => self.handle_key(conn, ks),
                 };
@@ -841,9 +841,9 @@ impl<T: Clone> MenuView<T> {
         };
         let _ = g.set_font(&FontSpec::role(
             FontRole::Menu,
-            antibox_ui::metrics::font_pt(),
+            crate::metrics::font_pt(),
         ));
-        let (light, dark) = crate::render::draw_menu_frame(&*g, w, h, c.bg);
+        let (light, dark) = crate::menurender::draw_menu_frame(&*g, w, h, c.bg);
         let ih = item_h();
         let icon_col = self.icon_col();
         let top = self.rows_top() as i16;
@@ -856,7 +856,7 @@ impl<T: Clone> MenuView<T> {
             let idx = self.offset + v;
             let y = top + (v as i16) * ih as i16;
             if item.is_separator() {
-                crate::render::draw_menu_separator(
+                crate::menurender::draw_menu_separator(
                     &*g,
                     frame_pad() as i16,
                     y + (ih / 2) as i16 - 1,
@@ -868,7 +868,7 @@ impl<T: Clone> MenuView<T> {
             }
             let sel = self.selected == Some(idx);
             if sel {
-                crate::render::fill_menu_selection(&*g, 2, y, w - 4, ih, c.sel_bg);
+                crate::menurender::fill_menu_selection(&*g, 2, y, w - 4, ih, c.sel_bg);
             }
             let fg = if sel { c.sel_fg } else { c.fg };
             let _ = g.set_background(if sel { c.sel_bg } else { c.bg });
@@ -877,15 +877,15 @@ impl<T: Clone> MenuView<T> {
                 let _ = g.draw_pixmap(tx, y + (ih as i16 - ico.height as i16) / 2, ico);
             }
             tx += icon_col;
-            crate::render::draw_text_mnemonic(
+            crate::menurender::draw_text_mnemonic(
                 &*g,
                 tx,
-                antibox_ui::metrics::baseline(y as i32, ih as i32) as i16,
+                crate::metrics::baseline(y as i32, ih as i32) as i16,
                 item.title(),
                 fg,
             );
             if item.children().is_some() {
-                crate::render::draw_submenu_arrow(
+                crate::menurender::draw_submenu_arrow(
                     &*g,
                     w as i16 - antibox_core::scale::scaled(12) as i16,
                     y + ih as i16 / 2,
@@ -919,13 +919,13 @@ impl<T: Clone> MenuView<T> {
         let asz = antibox_core::scale::scaled(7).max(5) as i16;
         let can_up = self.offset > 0;
         let can_down = self.offset + self.vis_rows < self.items.len();
-        let arrow = |y: i32, dir: antibox_ui::theme::Arrow, on: bool| {
+        let arrow = |y: i32, dir: crate::theme::Arrow, on: bool| {
             let colour = if on {
                 c.fg
             } else {
-                antibox_ui::theme::shadow()
+                crate::theme::shadow()
             };
-            antibox_ui::theme::arrow_glyph(
+            crate::theme::arrow_glyph(
                 g,
                 cx,
                 (y + bh / 2) as i16,
@@ -934,8 +934,8 @@ impl<T: Clone> MenuView<T> {
                 colour,
             );
         };
-        arrow(top_y, antibox_ui::theme::Arrow::Up, can_up);
-        arrow(bot_y, antibox_ui::theme::Arrow::Down, can_down);
+        arrow(top_y, crate::theme::Arrow::Up, can_up);
+        arrow(bot_y, crate::theme::Arrow::Down, can_down);
     }
 }
 

@@ -151,3 +151,38 @@ fn test_power_volume_and_mic_share_the_same_outlined_style() {
         assert!(last_fill.unwrap() < first_stroke.unwrap());
     }
 }
+
+fn opaque_pixels(data: &[u8]) -> usize {
+    data.chunks_exact(4).filter(|p| p[3] == 255).count()
+}
+
+#[test]
+fn test_rasterize_fills_polygons_not_just_rectangles() {
+    const TRI: [(f32, f32); 3] = [(0.0, 0.5), (1.0, 0.0), (1.0, 1.0)];
+    const SHAPES: [Shape; 1] = [Shape::Poly(&TRI)];
+    let icon = Icon(&SHAPES);
+    let data = icon.rasterize(16, 0, &[0xFFFFFF]);
+    assert!(
+        opaque_pixels(&data) > 40,
+        "a triangle covering half the box must paint pixels"
+    );
+}
+
+#[test]
+fn test_rasterize_draws_lines() {
+    const SHAPES: [Shape; 1] = [Shape::Line(0.1, 0.5, 0.9, 0.5, 0.2)];
+    let icon = Icon(&SHAPES);
+    let data = icon.rasterize(16, 0, &[0xFFFFFF]);
+    assert!(opaque_pixels(&data) > 10, "a thick line must paint pixels");
+}
+
+#[test]
+fn test_the_back_arrow_has_a_head_and_a_shaft() {
+    let data = BACK_ARROW_ICON.rasterize(16, 0, &[0xFFFFFF]);
+    let s = 16usize;
+    let column = |x: usize| (0..s).filter(|&y| data[(y * s + x) * 4 + 3] == 255).count();
+    let head = (1..s / 2).map(column).max().unwrap_or(0);
+    let shaft = (s / 2..s - 1).map(column).max().unwrap_or(0);
+    assert!(head > shaft, "the head ({head}) flares wider than the shaft ({shaft})");
+    assert!(shaft > 0, "the shaft reaches the right side");
+}

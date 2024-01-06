@@ -30,6 +30,8 @@ pub struct FlatRow<T> {
     pub icon: Option<PixmapData>,
     pub depth: u16,
     pub entry: FlatEntry<T>,
+    pub marker: Option<PixmapData>,
+    pub marker_sel: Option<PixmapData>,
 }
 
 impl<T> FlatRow<T> {
@@ -54,7 +56,7 @@ impl<T> FlatRow<T> {
 }
 
 fn norm(title: &str) -> String {
-    crate::render::parse_mnemonic(title).0.to_lowercase()
+    crate::menurender::parse_mnemonic(title).0.to_lowercase()
 }
 
 impl<T: Clone> MenuNode<T> {
@@ -201,12 +203,16 @@ fn flatten_into<T: Clone>(
                 icon: icon.clone(),
                 depth,
                 entry: FlatEntry::Leaf(payload.clone()),
+                marker: None,
+                marker_sel: None,
             }),
             MenuNode::Separator => out.push(FlatRow {
                 title: String::new(),
                 icon: None,
                 depth,
                 entry: FlatEntry::Separator,
+                marker: None,
+                marker_sel: None,
             }),
             MenuNode::Group {
                 title,
@@ -223,6 +229,8 @@ fn flatten_into<T: Clone>(
                         expanded: *expanded,
                         path: path.clone(),
                     },
+                    marker: None,
+                    marker_sel: None,
                 });
                 if *expanded {
                     flatten_into(children, depth + 1, path, out);

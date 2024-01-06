@@ -120,7 +120,7 @@ impl TaskBar {
     pub(crate) fn apply_theme_colours(&mut self, tc: &crate::render::ThemeColors, gradients: bool) {
         self.gradients_enabled = gradients;
         self.set_taskbar_colour(tc.task_bar_colour);
-        self.menu_colours = crate::menu::MenuColors::from_theme(tc);
+        self.menu_colours = crate::menu::MenuColors::with_bg(tc.menu_bg);
     }
 
     fn applet_geom(&self, applet: &dyn Applet) -> Option<(u16, u16)> {

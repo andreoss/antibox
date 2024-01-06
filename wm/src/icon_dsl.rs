@@ -168,21 +168,35 @@ impl Icon {
             px[3] = 0;
         }
         for (i, shape) in self.0.iter().enumerate() {
-            if let Shape::Rect(nx, ny, nw, nh) = *shape {
-                let colour = colours[i % colours.len().max(1)];
-                let x0 = (nx * size as f32).round() as usize;
-                let y0 = (ny * size as f32).round() as usize;
-                let x1 = ((nx + nw) * size as f32).round() as usize;
-                let y1 = ((ny + nh) * size as f32).round() as usize;
-                fill_rect_px(
-                    &mut data,
-                    s,
-                    x0,
-                    y0,
-                    x1.saturating_sub(x0).max(1),
-                    y1.saturating_sub(y0).max(1),
-                    colour,
-                );
+            let colour = colours[i % colours.len().max(1)];
+            match *shape {
+                Shape::Poly(pts) => fill_poly_px(&mut data, s, size, pts, colour),
+                Shape::Line(x1, y1, x2, y2, t) => {
+                    let px = |n: f32| n * size as f32;
+                    let quad = thick_line(
+                        px(x1).round() as i16,
+                        px(y1).round() as i16,
+                        px(x2).round() as i16,
+                        px(y2).round() as i16,
+                        (t * size as f32).round().max(1.0) as i16,
+                    );
+                    fill_quad_px(&mut data, s, &quad, colour);
+                }
+                Shape::Rect(nx, ny, nw, nh) => {
+                    let x0 = (nx * size as f32).round() as usize;
+                    let y0 = (ny * size as f32).round() as usize;
+                    let x1 = ((nx + nw) * size as f32).round() as usize;
+                    let y1 = ((ny + nh) * size as f32).round() as usize;
+                    fill_rect_px(
+                        &mut data,
+                        s,
+                        x0,
+                        y0,
+                        x1.saturating_sub(x0).max(1),
+                        y1.saturating_sub(y0).max(1),
+                        colour,
+                    );
+                }
             }
         }
         data
@@ -259,3 +273,55 @@ pub const WINDOW_ICON: Icon = Icon(&[
 #[cfg(test)]
 #[path = "icon_dsl_tests.rs"]
 mod tests;
+
+const BACK_ARROW_HEAD: [(f32, f32); 3] = [(0.05, 0.5), (0.45, 0.18), (0.45, 0.82)];
+
+pub const BACK_ARROW_ICON: Icon = Icon(&[
+    Shape::Poly(&BACK_ARROW_HEAD),
+    Shape::Rect(0.42, 0.40, 0.53, 0.20),
+]);
+
+fn fill_scanlines_px(data: &mut [u8], s: usize, pts: &[(f32, f32)], colour: Colour) {
+    if pts.len() < 3 {
+        return;
+    }
+    let (mut top, mut bot) = (f32::MAX, f32::MIN);
+    for &(_, y) in pts {
+        top = top.min(y);
+        bot = bot.max(y);
+    }
+    let y0 = top.floor().max(0.0) as usize;
+    let y1 = (bot.ceil() as usize).min(s);
+    for y in y0..y1 {
+        let cy = y as f32 + 0.5;
+        let mut xs: Vec<f32> = Vec::new();
+        for i in 0..pts.len() {
+            let (ax, ay) = pts[i];
+            let (bx, by) = pts[(i + 1) % pts.len()];
+            if (ay <= cy && by > cy) || (by <= cy && ay > cy) {
+                xs.push(ax + (cy - ay) / (by - ay) * (bx - ax));
+            }
+        }
+        xs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        for pair in xs.chunks_exact(2) {
+            let sx = pair[0].round().max(0.0) as usize;
+            let ex = (pair[1].round().max(0.0) as usize).min(s);
+            if ex > sx {
+                fill_rect_px(data, s, sx, y, ex - sx, 1, colour);
+            }
+        }
+    }
+}
+
+fn fill_poly_px(data: &mut [u8], s: usize, size: u16, pts: &[(f32, f32)], colour: Colour) {
+    let scaled: Vec<(f32, f32)> = pts
+        .iter()
+        .map(|&(x, y)| (x * size as f32, y * size as f32))
+        .collect();
+    fill_scanlines_px(data, s, &scaled, colour);
+}
+
+fn fill_quad_px(data: &mut [u8], s: usize, quad: &[(i16, i16); 4], colour: Colour) {
+    let pts: Vec<(f32, f32)> = quad.iter().map(|&(x, y)| (x as f32, y as f32)).collect();
+    fill_scanlines_px(data, s, &pts, colour);
+}

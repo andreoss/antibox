@@ -35,6 +35,8 @@ pub struct WinListMenu {
     pub visible: bool,
     pub switcher: bool,
     active_ws: u32,
+    switch_order: Vec<u32>,
+    switch_pos: usize,
 }
 
 impl Default for WinListMenu {
@@ -51,6 +53,8 @@ impl WinListMenu {
             visible: false,
             switcher: false,
             active_ws: 0,
+            switch_order: Vec::new(),
+            switch_pos: 0,
         }
     }
 
@@ -124,6 +128,7 @@ impl WinListMenu {
         self.view.selected = keep
             .and_then(|id| self.row_of_client(id))
             .or_else(|| self.view.next_leaf(None, 1));
+        self.mark_previous_focus(wm);
     }
 
     pub fn refresh(
@@ -165,8 +170,12 @@ impl WinListMenu {
         if rows == 0 {
             return;
         }
+        if switcher {
+            self.view.set_window_frame();
+        }
         let w = scaled(280) as u16;
-        let want = pad() as i32 * 3 + bar_h() as i32 + rows as i32 * row_h() as i32;
+        let extra = 2 * self.view.chrome_extra() as i32;
+        let want = pad() as i32 * 3 + bar_h() as i32 + rows as i32 * row_h() as i32 + extra;
         let h = if switcher {
             let max_h = (conn.screen_height() as i32 * 3 / 4).max(scaled(120));
             want.clamp(scaled(120), max_h) as u16
@@ -232,10 +241,89 @@ impl WinListMenu {
         self.switcher = switcher;
         self.client_id = self.view.window_id();
         self.visible = self.view.visible;
+        self.mark_previous_focus(wm);
         if switcher {
+            self.build_switch_order(wm);
             self.view.selected = self.selection_from_focus(wm, forward);
+            self.switch_pos = self
+                .selected_client_id()
+                .and_then(|x| self.switch_order.iter().position(|&o| o == x))
+                .unwrap_or(0);
         } else {
             self.view.selected = self.view.next_leaf(None, 1);
+        }
+        self.paint(conn);
+    }
+
+    fn mark_previous_focus(&mut self, wm: &WindowManager<dyn DisplayBackend>) {
+        for row in &mut self.view.items {
+            row.marker = None;
+            row.marker_sel = None;
+        }
+        let Some(prev) = wm.previous_focus() else { return };
+        let xid = wm.xid_index.xid_of(prev);
+        let Some(row) = self.row_of_client(xid) else { return };
+        let sz = row_icon_px();
+        self.view.items[row].marker =
+            Some(crate::icon_render::back_marker(sz, theme::field(), theme::title_active()));
+        self.view.items[row].marker_sel = Some(crate::icon_render::back_marker(
+            sz,
+            self.view.colours.sel_bg,
+            self.view.colours.sel_fg,
+        ));
+    }
+
+    fn build_switch_order(&mut self, wm: &WindowManager<dyn DisplayBackend>) {
+        self.switch_order = wm
+            .focus_order()
+            .into_iter()
+            .map(|id| wm.xid_index.xid_of(id))
+            .filter(|&x| self.row_of_client(x).is_some())
+            .collect();
+        for r in 0..self.view.items.len() {
+            if let Some(x) = self.view.items[r].payload().map(|p| p.client_id) {
+                if !self.switch_order.contains(&x) {
+                    self.switch_order.push(x);
+                }
+            }
+        }
+    }
+
+    pub fn cycle_recent(&mut self, conn: &Arc<dyn DisplayBackend>, forward: bool) {
+        if self.switch_order.is_empty() {
+            self.cycle(conn, forward);
+            return;
+        }
+        let n = self.switch_order.len();
+        self.switch_pos = if forward {
+            (self.switch_pos + 1) % n
+        } else {
+            (self.switch_pos + n - 1) % n
+        };
+        if let Some(row) = self.row_of_client(self.switch_order[self.switch_pos]) {
+            self.view.selected = Some(row);
+            self.view.scroll_to_selected();
+        }
+        self.paint(conn);
+    }
+
+    pub fn step_history(
+        &mut self,
+        conn: &Arc<dyn DisplayBackend>,
+        wm: &WindowManager<dyn DisplayBackend>,
+        back: bool,
+    ) {
+        let cur = self
+            .selected_client_id()
+            .and_then(|x| wm.cid_for_xid(x))
+            .or(wm.focused_window());
+        let Some(next) = wm.focus_step(cur, back) else { return };
+        let xid = wm.xid_index.xid_of(next);
+        let Some(row) = self.row_of_client(xid) else { return };
+        self.view.selected = Some(row);
+        self.view.scroll_to_selected();
+        if let Some(p) = self.switch_order.iter().position(|&o| o == xid) {
+            self.switch_pos = p;
         }
         self.paint(conn);
     }
@@ -312,7 +400,8 @@ impl WinListMenu {
         let fid = wm.focused_window().map(|f| wm.xid_index.xid_of(f));
         if forward {
             let prev = wm
-                .last_focused_window
+                .previous_focus()
+                .or(wm.last_focused_window)
                 .map(|p| wm.xid_index.xid_of(p))
                 .filter(|p| Some(*p) != fid)
                 .and_then(|p| self.row_of_client(p));

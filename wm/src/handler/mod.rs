@@ -305,6 +305,7 @@ pub fn map_request_ex<H: DisplayBackend + 'static + ?Sized>(
         if !skip_focus {
             let prev = wm.focused_window;
             wm.focused_window = Some(cid);
+            wm.note_focus(cid);
             if prev != Some(cid) {
                 wm.last_focused_window = prev;
             }
@@ -542,6 +543,7 @@ fn drop_hidden_tab<H: DisplayBackend + 'static + ?Sized>(
         fw.tab_titles.borrow_mut().remove(&w);
     }
     if let Some(cid) = wm.cid_for_xid(w) {
+        wm.forget_focus(cid);
         wm.xid_index.remove(cid);
         wm.drop_from_orders(cid);
     }
@@ -628,6 +630,7 @@ pub fn destroy<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, 
     if let Some(cid) = wm.cid_for_xid(w) {
         remove_from_transient_chain(&mut wm.frames, cid);
         if let Some(mut fw) = wm.frames.remove(&cid) {
+            wm.forget_focus(cid);
             wm.xid_index.remove(cid);
             if let Some(conn) = wm.backend() {
                 fw.destroy_pointer_windows(conn);
@@ -635,6 +638,7 @@ pub fn destroy<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, 
                 let _ = conn.flush();
             }
         } else {
+            wm.forget_focus(cid);
             wm.xid_index.remove(cid);
         }
         wm.insertion_order.retain(|&id| id != cid);

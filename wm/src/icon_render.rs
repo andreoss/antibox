@@ -77,3 +77,16 @@ pub fn resolve_client_icon(
 #[cfg(test)]
 #[path = "icon_render_tests.rs"]
 mod tests;
+
+pub fn back_marker(
+    size: u16,
+    bg: antibox_core::colour::Colour,
+    fg: antibox_core::colour::Colour,
+) -> PixmapData {
+    let s = size.max(6);
+    let colours = [fg];
+    let data = crate::icon_dsl::BACK_ARROW_ICON.rasterize(s, bg, &colours);
+    let mut pm = PixmapData::new(s, s, data);
+    pm.mask_from_alpha();
+    pm
+}

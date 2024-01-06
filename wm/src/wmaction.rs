@@ -1721,6 +1721,7 @@ pub(crate) fn tab_select<H: DisplayBackend + 'static + ?Sized>(
     wm.frames.insert(target, frame);
     wm.rekey_orders(active, target);
     wm.focused_window = Some(target);
+    wm.note_focus(target);
     let _ = backend.set_input_focus(1, target_xid, 0);
     crate::ewmh::set_active_window_prop(backend.as_ref(), &wm.atoms, target_xid);
     crate::handler::redraw_frame_decor(wm, target);

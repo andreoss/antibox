@@ -57,6 +57,7 @@ pub fn focus_window<H: DisplayBackend + 'static + ?Sized>(
     let client_id = modal_redirect(wm, client_id);
     let backend = wm.backend.clone();
     let prev = wm.focused_window.replace(client_id);
+    wm.note_focus(client_id);
     let changed = prev != Some(client_id);
     if changed {
         wm.last_focused_window = prev;
@@ -135,7 +136,9 @@ pub fn activate_window<H: DisplayBackend + 'static + ?Sized>(
     let ws = wm.frame(w).map(super::frame::FrameWindow::workspace);
     if let Some(ws) = ws {
         if ws != !0 && ws != wm.active_workspace() {
+            wm.pause_focus_history();
             wm.activate_workspace(ws);
+            wm.resume_focus_history();
         }
     }
     let was_min = wm.frames.get(&w).map_or(false, |f| f.state().minimized);
@@ -147,6 +150,7 @@ pub fn activate_window<H: DisplayBackend + 'static + ?Sized>(
         crate::wmaction::set_transients_minimized(wm, w, false);
     }
     let prev = wm.focused_window.replace(w);
+    wm.note_focus(w);
     wm.raise_to_top(w);
     crate::placement::restack_windows(wm);
     if let Some(backend) = wm.backend() {
@@ -239,11 +243,15 @@ pub fn cycle_focus<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<
     if wm.frames.is_empty() {
         return;
     }
-    let ids: Vec<ClientId> = wm
-        .insertion_order
-        .iter()
-        .filter(|id| wm.frames.contains_key(id)).cloned()
-        .collect();
+    let mut ids = wm.focus_order();
+    if ids.is_empty() {
+        ids = wm
+            .insertion_order
+            .iter()
+            .filter(|id| wm.frames.contains_key(id))
+            .cloned()
+            .collect();
+    }
     if ids.is_empty() {
         return;
     }
@@ -258,6 +266,7 @@ pub fn cycle_focus<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<
     let new_focus = ids[next];
     let backend = wm.backend.clone();
     let prev = wm.focused_window.replace(new_focus);
+    wm.note_focus(new_focus);
     wm.last_focused_window = prev;
     if let Some(b) = backend.as_ref().map(|v| v.as_ref()) {
         if let Some(fw) = wm.frame(new_focus) {

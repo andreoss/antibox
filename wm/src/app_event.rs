@@ -500,7 +500,7 @@ impl App {
                         let join = self.wm.join_candidates();
                         let mut menu = crate::winmenu::WindowActionMenu::for_focused_client_opts(
                             ws_count,
-                            &self.wm.theme_colours,
+                            self.wm.theme_colours.menu_bg,
                             &join,
                             self.wm.focused_shaded(),
                             );
@@ -662,7 +662,9 @@ impl App {
             BackendEvent::KeyPress { keycode, state, .. } => {
                 let ks = self.lookup_keysym(*keycode);
                 if ks == 0xFF09 {
-                    self.winlist.cycle(&self.backend, (*state & 0x01) == 0);
+                    self.winlist.cycle_recent(&self.backend, (*state & 0x01) == 0);
+                } else if ks == 0xFF08 {
+                    self.winlist.step_history(&self.backend, &self.wm, true);
                 } else if MODIFIERS.contains(&ks) {
                 } else {
                     self.handle_winlist_event(event);
@@ -1147,7 +1149,7 @@ impl App {
                         let join = self.wm.join_candidates();
                         let mut menu = crate::winmenu::WindowActionMenu::for_focused_client_opts(
                             ws_count,
-                            &self.wm.theme_colours,
+                            self.wm.theme_colours.menu_bg,
                             &join,
                             self.wm.focused_shaded(),
                             );

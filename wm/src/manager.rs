@@ -61,6 +61,8 @@ pub struct WindowManager<H: DisplayBackend + 'static + ?Sized> {
     pub(crate) active_workspace: u32,
     pub focused_window: Option<ClientId>,
     pub(crate) last_focused_window: Option<ClientId>,
+    pub(crate) focus_history: crate::focus_history::FocusHistory,
+    pub(crate) focus_history_paused: u32,
     pub(crate) workspace_names: Vec<String>,
     pub(crate) workspace_layouts: Vec<crate::layout::Layout>,
     pub(crate) backend: Option<Arc<H>>,
@@ -162,6 +164,8 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
             active_workspace: 0,
             focused_window: None,
             last_focused_window: None,
+            focus_history: crate::focus_history::FocusHistory::new(),
+            focus_history_paused: 0,
             workspace_names,
             workspace_layouts: Vec::new(),
             backend: Some(Arc::clone(backend)),
@@ -211,6 +215,8 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
             active_workspace: 0,
             focused_window: None,
             last_focused_window: None,
+            focus_history: crate::focus_history::FocusHistory::new(),
+            focus_history_paused: 0,
             workspace_names: vec![],
             workspace_layouts: Vec::new(),
             backend: None,
@@ -764,7 +770,7 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
                 let join = self.join_candidates();
                 let mut menu = crate::winmenu::WindowActionMenu::for_focused_client_opts(
                     ws_count,
-                    &self.theme_colours,
+                    self.theme_colours.menu_bg,
                     &join,
                     self.focused_shaded(),
                 );
@@ -792,6 +798,37 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
     }
     pub fn focused_window(&self) -> Option<ClientId> {
         self.focused_window
+    }
+    pub(crate) fn note_focus(&mut self, id: ClientId) {
+        if self.focus_history_paused == 0 {
+            self.focus_history.note(id);
+        }
+    }
+
+    pub(crate) fn pause_focus_history(&mut self) {
+        self.focus_history_paused += 1;
+    }
+
+    pub(crate) fn resume_focus_history(&mut self) {
+        self.focus_history_paused = self.focus_history_paused.saturating_sub(1);
+    }
+    pub(crate) fn forget_focus(&mut self, id: ClientId) {
+        self.focus_history.forget(id);
+    }
+    pub fn focus_order(&self) -> Vec<ClientId> {
+        self.focus_history
+            .order(self.focused_window, |id| self.frames.contains_key(&id))
+    }
+    pub fn previous_focus(&self) -> Option<ClientId> {
+        self.focus_order().get(1).copied()
+    }
+    pub fn focus_step(&self, from: Option<ClientId>, back: bool) -> Option<ClientId> {
+        let live = |id: ClientId| self.frames.contains_key(&id);
+        if back {
+            self.focus_history.step_back(from, live)
+        } else {
+            self.focus_history.step_forward(from, live)
+        }
     }
     pub(crate) fn focused_shaded(&self) -> bool {
         self.focused_window

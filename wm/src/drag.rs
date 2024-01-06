@@ -234,7 +234,7 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
                 let mut menu =
                     crate::winmenu::WindowActionMenu::for_focused_client_opts(
                         ws_count,
-                        &tc,
+                        tc.menu_bg,
                         &join,
                         wm.focused_shaded(),
                     );
@@ -264,7 +264,7 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
                 let mut menu =
                     crate::winmenu::WindowActionMenu::for_focused_client_opts(
                         ws_count,
-                        &tc,
+                        tc.menu_bg,
                         &join,
                         wm.focused_shaded(),
                     );
@@ -359,6 +359,7 @@ fn focus_frame<H: DisplayBackend + 'static + ?Sized>(
     let focus_changed = wm.focused_window != Some(cid);
     wm.raise_to_top(cid);
     wm.focused_window = Some(cid);
+    wm.note_focus(cid);
     let backend = wm.backend.clone();
     if let Some(ref backend_arc) = backend {
         let b = backend_arc.as_ref();
@@ -851,7 +852,7 @@ fn open_window_menu<H: DisplayBackend + 'static + ?Sized>(
     let join = wm.join_candidates();
     let mut menu = crate::winmenu::WindowActionMenu::for_focused_client_opts(
         wm.config.workspace_count,
-        &wm.theme_colours,
+        wm.theme_colours.menu_bg,
         &join,
         wm.focused_shaded(),
     );

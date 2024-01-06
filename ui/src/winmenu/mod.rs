@@ -28,20 +28,20 @@ impl WindowActionMenu {
 
     pub fn for_focused_client(
         workspace_count: u32,
-        tc: &crate::render::ThemeColors,
+        menu_bg: antibox_core::colour::Colour,
         shaded: bool,
     ) -> Self {
-        Self::for_focused_client_opts(workspace_count, tc, &[], shaded)
+        Self::for_focused_client_opts(workspace_count, menu_bg, &[], shaded)
     }
 
     pub fn for_focused_client_opts(
         workspace_count: u32,
-        tc: &crate::render::ThemeColors,
+        menu_bg: antibox_core::colour::Colour,
         join: &[(u32, String)],
         shaded: bool,
     ) -> Self {
         let mut m = Self::new();
-        m.view.colours = crate::menu::MenuColors::from_theme(tc);
+        m.view.colours = crate::menu::MenuColors::with_bg(menu_bg);
         m.nodes = Self::action_nodes(workspace_count, join, shaded);
         m
     }

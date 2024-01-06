@@ -141,6 +141,7 @@ pub struct Omni {
     pub run_mode: bool,
     in_ops: bool,
     ops_target: u32,
+    prev_focus_xid: u32,
     saved_query: String,
     sort: OmniSort,
     group_override: Option<bool>,
@@ -254,6 +255,7 @@ impl Omni {
             run_mode: false,
             in_ops: false,
             ops_target: 0,
+            prev_focus_xid: 0,
             saved_query: String::new(),
             sort: OmniSort::default(),
             group_override: None,
@@ -460,9 +462,35 @@ impl Omni {
             .or_else(|| self.view.next_selectable(None, 1));
     }
 
+    fn mark_previous(&mut self) {
+        for row in &mut self.view.items {
+            row.marker = None;
+            row.marker_sel = None;
+        }
+        if self.prev_focus_xid == 0 {
+            return;
+        }
+        let want = self.prev_focus_xid;
+        let Some(row) = self.view.items.iter().position(|r| {
+            matches!(r.payload(), Some(OmniAct::Window(x)) if *x == want)
+        }) else { return };
+        let sz = crate::listview::row_icon_px();
+        self.view.items[row].marker = Some(crate::icon_render::back_marker(
+            sz,
+            antibox_ui::theme::field(),
+            antibox_ui::theme::title_active(),
+        ));
+        self.view.items[row].marker_sel = Some(crate::icon_render::back_marker(
+            sz,
+            self.view.colours.sel_bg,
+            self.view.colours.sel_fg,
+        ));
+    }
+
     fn reload(&mut self, conn: &Arc<dyn DisplayBackend>) {
         let nodes = self.current_nodes();
         self.view.set_tree(nodes);
+        self.mark_previous();
         self.view.offset = 0;
         self.reselect();
         self.view.sync_geometry(conn.as_ref());
@@ -472,6 +500,7 @@ impl Omni {
     fn reload_keep_row(&mut self, conn: &Arc<dyn DisplayBackend>, title_prefix: &str) {
         let nodes = self.current_nodes();
         self.view.set_tree(nodes);
+        self.mark_previous();
         self.view.selected = self
             .view
             .items
@@ -656,6 +685,7 @@ impl Omni {
         if self.visible() {
             return;
         }
+        self.prev_focus_xid = wm.previous_focus().map_or(0, |p| wm.xid_index.xid_of(p));
         let isz = icon_size();
         let grouping = self.grouping_enabled();
 
@@ -773,11 +803,13 @@ impl Omni {
         let mon = self.monitor_for_pointer(conn, &wm.monitors);
         self.panel_w = panel_w_for(mon.w);
         self.max_rows = rows_for(mon.h);
+        self.view.set_window_frame();
         let w = self.width();
-        let cap = pad() as i32 * 3 + bar_h() as i32 + self.max_rows as i32 * row_h() as i32;
+        let extra = 2 * self.view.chrome_extra() as i32;
+        let cap = pad() as i32 * 3 + bar_h() as i32 + self.max_rows as i32 * row_h() as i32 + extra;
         let nodes = self.current_nodes();
         let rows = crate::menu_tree::flatten_nodes(&nodes).len() as i32;
-        let want = pad() as i32 * 3 + bar_h() as i32 + rows * row_h() as i32;
+        let want = pad() as i32 * 3 + bar_h() as i32 + rows * row_h() as i32 + extra;
         let h = want.clamp(scaled(120), cap.max(scaled(120))) as u16;
         let pos = self.place(mon, w, h);
         self.view.show_with(conn.as_ref(), nodes, Place::At(pos), w, cap, true, |_, _| {});
