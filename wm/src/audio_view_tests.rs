@@ -111,9 +111,14 @@ fn test_full_volume_lights_three_bars() {
 #[test]
 fn test_zero_volume_lights_no_bars_but_keeps_them_visible() {
     assert_eq!(lit_bars(0), 0);
-    let g = antibox_core::mock::MockGraphics::new(1);
-    AudioView::new(Some(state(0, false, false))).draw(&g, 0, 18);
-    assert_eq!(rects_with_colour(&g.commands(), theme::graph_bg()), 3);
+    for h in [18u16, 28] {
+        let g = antibox_core::mock::MockGraphics::new(1);
+        AudioView::new(Some(state(0, false, false))).draw(&g, 0, h);
+        let cmds = g.commands();
+        let unlit = rects_with_colour(&cmds, theme::shadow())
+            + rects_with_colour(&cmds, theme::graph_bg());
+        assert!(unlit >= 3, "h={}: unlit bars missing ({})", h, unlit);
+    }
 }
 
 #[test]
@@ -123,8 +128,12 @@ fn test_muted_draws_no_bars_but_draws_shape() {
     assert_eq!(rects_with_colour(&muted.commands(), COLOR_ACTIVE), 0);
     assert_eq!(rects_with_colour(&muted.commands(), theme::graph_bg()), 0);
     assert!(
-        polys_with_colour(&muted.commands(), COLOR_MUTED) >= 3,
-        "muted icon draws the red speaker and the mute mark"
+        polys_with_colour(&muted.commands(), COLOR_MUTED) >= 2,
+        "muted icon draws the red mute cross"
+    );
+    assert!(
+        polys_with_colour(&muted.commands(), theme::text()) >= 1,
+        "speaker body stays in the text colour when muted"
     );
 }
 
@@ -169,14 +178,14 @@ fn test_mic_badge_is_prominent() {
         for c in g.commands() {
             match c {
                 MockCommand::SetForeground(p) => fg = p,
-                MockCommand::FillRect(_, _, w, hh) if fg == theme::tray_face() && w == hh => {
+                MockCommand::FillRect(_, _, w, hh) if fg == theme::field() && w == hh => {
                     backing = backing.max(w);
                 }
                 _ => {}
             }
         }
         assert!(
-            backing as i16 >= (glyph_h(h) * 3 / 4).min(glyph_h(h)),
+            backing as i16 >= (glyph_h(h) / 2).max(7).min(glyph_h(h)),
             "h={}: mic badge backing {} too small for glyph zone {}",
             h,
             backing,

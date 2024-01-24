@@ -306,9 +306,9 @@ impl BatteryView {
         if self.is_critical() {
             self.draw_exclamation(g, ix, iy, iw, ih as u16, COLOR_CRITICAL);
         } else if self.combined_charging() {
-            let bw2 = (gw * 3 / 5).max(3);
-            let bh2 = (ih * 3 / 4).max(5);
-            let bx2 = gx + (gw - bw2) / 2;
+            let bw2 = (iw as i16 * 4 / 5).max(4);
+            let bh2 = (ih * 4 / 5).max(6);
+            let bx2 = ix + (iw as i16 - bw2) / 2;
             let by2 = iy + (ih - bh2) / 2;
             if bw2 >= 8 {
                 POWER_ICON.draw_outlined(
@@ -321,7 +321,7 @@ impl BatteryView {
                     theme::text(),
                 );
             } else {
-                POWER_ICON.draw(g, bx2, by2, bw2 as u16, bh2 as u16, theme::text());
+                POWER_ICON.draw(g, bx2, by2, bw2 as u16, bh2 as u16, theme::light());
             }
         }
     }
