@@ -93,30 +93,35 @@ impl AudioView {
         if !state.source_muted && state.readers.is_empty() {
             return;
         }
-        let badge = (glyph_h(h) * 3 / 4).max(8);
+        let badge = (glyph_h(h) / 2).max(7);
         let bx = x0 + h as i16 - margin() - badge;
         let by = (icon_dsl::glyph_top() + glyph_h(h) - badge).max(0);
         let colour = if state.source_muted {
-            COLOR_MUTED
+            theme::text()
         } else {
             COLOR_ACTIVE
         };
-        let _ = g.set_foreground(theme::tray_face());
+        let _ = g.set_foreground(theme::field());
         let _ = g.fill_rect(bx, by, badge as u16, badge as u16);
         icon_dsl::stroke_rect(g, bx, by, badge as u16, badge as u16, theme::shadow());
-        icon_dsl::MIC_ICON.draw_outlined(
+        icon_dsl::MIC_ICON.draw(
             g,
-            bx,
-            by,
-            badge as u16,
-            badge as u16,
+            bx + 1,
+            by + 1,
+            (badge - 2).max(3) as u16,
+            (badge - 2).max(3) as u16,
             colour,
-            theme::shadow(),
         );
         if state.source_muted {
-            let t = (badge / 3).max(2);
-            let _ = g.set_foreground(theme::text());
-            let _ = g.fill_polygon(&thick_line(bx, by + badge, bx + badge, by, t));
+            let t = (badge / 4).max(2);
+            let _ = g.set_foreground(COLOR_MUTED);
+            let _ = g.fill_polygon(&thick_line(
+                bx + 1,
+                by + badge - 1,
+                bx + badge - 1,
+                by + 1,
+                t,
+            ));
         }
     }
 
@@ -126,7 +131,7 @@ impl AudioView {
             None => return,
         };
         let muted = state.sink_muted;
-        let shape_colour = if muted { COLOR_MUTED } else { theme::text() };
+        let shape_colour = theme::text();
         let outline = theme::shadow();
 
         let gh = glyph_h(h);
@@ -153,18 +158,23 @@ impl AudioView {
         } else {
             let lit = wave_count(state.volume);
             let bw = bar_w(h);
+            let gap = (bw / 3).max(1);
             for i in 0..3i16 {
                 let bh = (gh * (2 + i) / 4).max(3);
-                let bx = bx0 + i * (bw + 1);
+                let bx = bx0 + i * (bw + gap);
                 let by = gy + gh - bh;
                 let colour = if i < lit {
                     COLOR_ACTIVE
-                } else {
+                } else if bw >= 5 {
                     theme::graph_bg()
+                } else {
+                    theme::shadow()
                 };
                 let _ = g.set_foreground(colour);
                 let _ = g.fill_rect(bx, by, bw as u16, bh as u16);
-                icon_dsl::stroke_rect(g, bx, by, bw as u16, bh as u16, outline);
+                if bw >= 5 {
+                    icon_dsl::stroke_rect(g, bx, by, bw as u16, bh as u16, outline);
+                }
             }
         }
 
