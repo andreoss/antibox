@@ -599,6 +599,14 @@ impl TaskBar {
     }
 
     pub fn update_power_audio(&mut self) -> Vec<u32> {
+        self.pump_power_audio(false)
+    }
+
+    pub fn update_power_audio_battery(&mut self) -> Vec<u32> {
+        self.pump_power_audio(true)
+    }
+
+    fn pump_power_audio(&mut self, battery_only: bool) -> Vec<u32> {
         let mut relayout = false;
         let mut changed = Vec::new();
         for applet in &mut self.applets {
@@ -609,11 +617,16 @@ impl TaskBar {
                 Some(pa) => pa,
                 None => continue,
             };
-            let was_present = pa.preferred_width() > 0;
-            if guard_applet("update", || pa.update()).unwrap_or(false) {
+            let was_w = pa.preferred_width();
+            let dirty = if battery_only {
+                guard_applet("update", || pa.update_battery())
+            } else {
+                guard_applet("update", || pa.update())
+            };
+            if dirty.unwrap_or(false) {
                 changed.push(pa.window().id());
             }
-            if (pa.preferred_width() > 0) != was_present {
+            if pa.preferred_width() != was_w {
                 relayout = true;
             }
         }

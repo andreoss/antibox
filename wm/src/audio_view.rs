@@ -47,9 +47,14 @@ fn wave_count(volume: i32) -> i16 {
 
 fn draw_mute_x(g: &dyn GraphicsContext, x: i16, y: i16, w: i16, h: i16, colour: u32) {
     let t = (w.min(h) / 4).max(2);
+    let m = (t + 2) / 2;
+    let (x0, x1) = (x + m, x + w - m);
+    let _ = g.set_foreground(theme::light());
+    let _ = g.fill_polygon(&thick_line(x0, y, x1, y + h, t + 2));
+    let _ = g.fill_polygon(&thick_line(x0, y + h, x1, y, t + 2));
     let _ = g.set_foreground(colour);
-    let _ = g.fill_polygon(&thick_line(x, y, x + w, y + h, t));
-    let _ = g.fill_polygon(&thick_line(x, y + h, x + w, y, t));
+    let _ = g.fill_polygon(&thick_line(x0, y, x1, y + h, t));
+    let _ = g.fill_polygon(&thick_line(x0, y + h, x1, y, t));
 }
 
 pub struct AudioView {
@@ -74,54 +79,10 @@ impl AudioView {
             Some(s) => s,
             None => return String::new(),
         };
-        let mut s = String::new();
         if state.sink_muted {
-            s.push_str("Muted");
+            "Muted".to_string()
         } else {
-            s.push_str(&format!("Volume: {}%", state.volume));
-        }
-        if state.source_muted {
-            s.push_str("\nMic: muted");
-        }
-        if !state.readers.is_empty() {
-            s.push_str(&format!("\nRecording: {}", state.readers.join(", ")));
-        }
-        s
-    }
-
-    fn draw_mic_badge(&self, g: &dyn GraphicsContext, x0: i16, h: u16, state: &AudioState) {
-        if !state.source_muted && state.readers.is_empty() {
-            return;
-        }
-        let badge = (glyph_h(h) / 2).max(7);
-        let bx = x0 + h as i16 - margin() - badge;
-        let by = (icon_dsl::glyph_top() + glyph_h(h) - badge).max(0);
-        let colour = if state.source_muted {
-            theme::text()
-        } else {
-            COLOR_ACTIVE
-        };
-        let _ = g.set_foreground(theme::field());
-        let _ = g.fill_rect(bx, by, badge as u16, badge as u16);
-        icon_dsl::stroke_rect(g, bx, by, badge as u16, badge as u16, theme::shadow());
-        icon_dsl::MIC_ICON.draw(
-            g,
-            bx + 1,
-            by + 1,
-            (badge - 2).max(3) as u16,
-            (badge - 2).max(3) as u16,
-            colour,
-        );
-        if state.source_muted {
-            let t = (badge / 4).max(2);
-            let _ = g.set_foreground(COLOR_MUTED);
-            let _ = g.fill_polygon(&thick_line(
-                bx + 1,
-                by + badge - 1,
-                bx + badge - 1,
-                by + 1,
-                t,
-            ));
+            format!("Volume: {}%", state.volume)
         }
     }
 
@@ -150,11 +111,10 @@ impl AudioView {
         );
 
         let bx0 = sx + sw + inner_gap(h);
-        let zone = bar_zone_w(h);
 
         if muted {
-            let mh = (gh * 3 / 4).max(5);
-            draw_mute_x(g, bx0, gy + (gh - mh) / 2, zone, mh, COLOR_MUTED);
+            let cw = content_w(h);
+            draw_mute_x(g, sx, gy, cw, gh, COLOR_MUTED);
         } else {
             let lit = wave_count(state.volume);
             let bw = bar_w(h);
@@ -177,8 +137,67 @@ impl AudioView {
                 }
             }
         }
+    }
+}
 
-        self.draw_mic_badge(g, x0, h, state);
+pub struct MicView {
+    pub state: Option<AudioState>,
+}
+
+impl MicView {
+    pub fn new(state: Option<AudioState>) -> Self {
+        Self { state }
+    }
+
+    pub fn present(&self) -> bool {
+        self.state.as_ref().map_or(false, |s| !s.readers.is_empty())
+    }
+
+    pub fn natural_width(h: u16) -> u16 {
+        h
+    }
+
+    pub fn tooltip(&self) -> String {
+        let state = match &self.state {
+            Some(s) => s,
+            None => return String::new(),
+        };
+        let mut s = format!("Recording: {}", state.readers.join(", "));
+        if state.source_muted {
+            s.push_str("\nMic: muted");
+        }
+        s
+    }
+
+    pub fn draw(&self, g: &dyn GraphicsContext, x0: i16, h: u16) {
+        let state = match &self.state {
+            Some(s) => s,
+            None => return,
+        };
+        if state.readers.is_empty() {
+            return;
+        }
+        let gh = glyph_h(h);
+        let gy = icon_dsl::glyph_top();
+        let gw = gh.min(content_w(h)).max(6);
+        let gx = x0 + (h as i16 - gw) / 2;
+        let colour = if state.source_muted {
+            theme::text()
+        } else {
+            COLOR_ACTIVE
+        };
+        if gw >= 8 {
+            icon_dsl::MIC_ICON.draw_outlined(g, gx, gy, gw as u16, gh as u16, colour, theme::shadow());
+        } else {
+            icon_dsl::MIC_ICON.draw(g, gx, gy, gw as u16, gh as u16, colour);
+        }
+        if state.source_muted {
+            let t = (gw / 5).max(2);
+            let _ = g.set_foreground(theme::light());
+            let _ = g.fill_polygon(&thick_line(gx, gy + gh, gx + gw, gy, t + 2));
+            let _ = g.set_foreground(COLOR_MUTED);
+            let _ = g.fill_polygon(&thick_line(gx, gy + gh, gx + gw, gy, t));
+        }
     }
 }
 

@@ -2,7 +2,7 @@ use antibox_core::backend::*;
 use antibox_core::rect::Rect;
 use antibox_ui::theme;
 use antibox_wm::audio::AudioState;
-use antibox_wm::audio_view::AudioView;
+use antibox_wm::audio_view::{AudioView, MicView};
 use antibox_wm::battery_view::BatteryView;
 use antibox_wm::power::{BatteryInfo, PowerStatus};
 use std::sync::Arc;
@@ -38,9 +38,19 @@ fn audio(vol: i32, muted: bool, mic: bool, rec: bool) -> AudioView {
     }))
 }
 
+fn mic(muted: bool) -> MicView {
+    MicView::new(Some(AudioState {
+        sink_muted: false,
+        volume: 50,
+        source_muted: muted,
+        readers: vec!["cap".to_string()],
+    }))
+}
+
 enum Slot {
     Bat(BatteryView),
     Aud(AudioView),
+    Mic(MicView),
 }
 
 fn main() {
@@ -78,8 +88,8 @@ fn main() {
             Slot::Aud(audio(10, false, false, false)),
             Slot::Aud(audio(0, false, false, false)),
             Slot::Aud(audio(70, true, false, false)),
-            Slot::Aud(audio(70, false, true, false)),
-            Slot::Aud(audio(70, false, false, true)),
+            Slot::Mic(mic(false)),
+            Slot::Mic(mic(true)),
         ];
         for s in make {
             let w = conn
@@ -112,6 +122,7 @@ fn main() {
                 match s {
                     Slot::Bat(v) => v.draw(&*g, 0, 0, *h, *h),
                     Slot::Aud(v) => v.draw(&*g, 0, *h),
+                    Slot::Mic(v) => v.draw(&*g, 0, *h),
                 }
             }
         }
