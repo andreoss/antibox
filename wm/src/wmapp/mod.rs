@@ -60,7 +60,13 @@ impl AppletTick {
             AppletTick::Cpu => tb.update_cpu(),
             AppletTick::Mem => tb.update_mem(),
             AppletTick::Net => tb.update_net(),
-            AppletTick::PowerAudio => tb.update_power_audio(),
+            AppletTick::PowerAudio => {
+                if crate::audio_events::active() {
+                    tb.update_power_audio_battery()
+                } else {
+                    tb.update_power_audio()
+                }
+            }
             AppletTick::Keyboard => tb.update_keyboard(),
             AppletTick::Ticker => Vec::new(),
         }
@@ -393,6 +399,9 @@ impl App {
         if let Some(wfd) = crate::config_watch::init_watch() {
             event_loop.add_fd(wfd, Box::new(move || crate::config_watch::drain(wfd)));
         }
+        if let Some(afd) = crate::audio_events::init() {
+            event_loop.add_fd(afd, Box::new(move || crate::audio_events::drain(afd)));
+        }
         let sw = b.screen_width();
         let sh = b.screen_height();
         let (mm_w, mm_h) = b.screen_size_mm();
@@ -662,6 +671,11 @@ impl App {
             Some(ref mut tb) => tb,
             None => return,
         };
+        if crate::audio_events::take_changed() {
+            for wid in tb.update_power_audio() {
+                work.repaint_applets.push(wid);
+            }
+        }
         let ws = self.wm.active_workspace();
         tb.set_active_workspace(ws);
         match tb.sync_task_pane(&self.wm) {

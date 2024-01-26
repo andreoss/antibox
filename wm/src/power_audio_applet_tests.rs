@@ -164,6 +164,7 @@ fn test_wheel_over_audio_half_nudges_volume() {
     let (mut applet, calls) = applet_with_fake_audio();
     let ax = applet.audio_x() as i32;
     applet.handle_click(ax + 2, 0, 4);
+    let ax = applet.audio_x() as i32;
     applet.handle_click(ax + 2, 0, 5);
     assert_eq!(calls.lock().unwrap().as_slice(), ["sink+5", "sink-5"]);
 }
@@ -244,7 +245,7 @@ fn test_hover_battery_half_tracks_battery_not_audio() {
     applet.battery = battery_present();
     applet.audio = audio_present();
     applet.handle_motion(0, 0);
-    assert_eq!(applet.hovered, Some(false));
+    assert_eq!(applet.hovered, Some(0));
 }
 
 #[test]
@@ -254,7 +255,7 @@ fn test_hover_audio_half_tracks_audio_not_battery() {
     applet.audio = audio_present();
     let audio_x = applet.audio_x() as i32;
     applet.handle_motion(audio_x + 1, 0);
-    assert_eq!(applet.hovered, Some(true));
+    assert_eq!(applet.hovered, Some(1));
 }
 
 #[test]
@@ -263,10 +264,10 @@ fn test_hover_switches_when_crossing_into_the_other_half() {
     applet.battery = battery_present();
     applet.audio = audio_present();
     applet.handle_motion(0, 0);
-    assert_eq!(applet.hovered, Some(false));
+    assert_eq!(applet.hovered, Some(0));
     let audio_x = applet.audio_x() as i32;
     applet.handle_motion(audio_x + 1, 0);
-    assert_eq!(applet.hovered, Some(true));
+    assert_eq!(applet.hovered, Some(1));
 }
 
 #[test]

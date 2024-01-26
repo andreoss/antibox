@@ -1,21 +1,26 @@
  use antibox_core::error::Result;
 use crate::applet::Applet;
 use crate::audio::{detect, AudioSystem};
-use crate::audio_view::AudioView;
+use crate::audio_view::{AudioView, MicView};
 use crate::battery_view::BatteryView;
 use antibox_core::backend::*;
 use antibox_core::rect::Rect;
 use antibox_ui::theme;
 use std::sync::Arc;
 
+const SLOT_BATTERY: usize = 0;
+const SLOT_AUDIO: usize = 1;
+const SLOT_MIC: usize = 2;
+
 pub struct PowerAudioApplet {
     conn: Arc<dyn DisplayBackend>,
     pub(crate) window: Box<dyn WindowHandle>,
     tooltip: Option<crate::tooltip::ToolTip>,
-    hovered: Option<bool>,
+    hovered: Option<usize>,
     battery: BatteryView,
     audio_system: Box<dyn AudioSystem>,
     audio: AudioView,
+    mic: MicView,
     bg: antibox_core::colour::Colour,
     w: u16,
     h: u16,
@@ -29,13 +34,15 @@ impl PowerAudioApplet {
         let h = crate::status_graph::pref_h() as u16;
         let battery = BatteryView::new(true);
         let audio_system = detect();
-        let audio = AudioView::new(audio_system.read());
+        let state = audio_system.read();
+        let audio = AudioView::new(state.clone());
+        let mic = MicView::new(state);
         let slot = Self::slot_w(h);
-        let w = match (battery.present(), audio.present()) {
-            (false, false) => slot,
-            (true, true) => slot * 2,
-            _ => slot,
-        };
+        let present = [battery.present(), audio.present(), mic.present()]
+            .iter()
+            .filter(|p| **p)
+            .count() as u16;
+        let w = slot * present.max(1);
         let window = conn.create_window(
             parent,
             Rect::new(0, 0, w as i32, h as i32),
@@ -55,30 +62,72 @@ impl PowerAudioApplet {
             battery,
             audio_system,
             audio,
+            mic,
             bg: theme::tray_face(),
             w,
             h,
         })
     }
 
-    fn audio_x(&self) -> i16 {
-        if self.battery.present() {
-            Self::slot_w(self.h) as i16
-        } else {
-            0
-        }
-    }
-
     fn slot_w(h: u16) -> u16 {
         h
     }
 
+    #[cfg(test)]
+    pub(crate) fn audio_x(&self) -> i16 {
+        self.slot_x(SLOT_AUDIO)
+    }
+
+    fn presents(&self) -> [bool; 3] {
+        [
+            self.battery.present(),
+            self.audio.present(),
+            self.mic.present(),
+        ]
+    }
+
+    fn slot_x(&self, idx: usize) -> i16 {
+        let slot = Self::slot_w(self.h) as i16;
+        let presents = self.presents();
+        let mut x = 0i16;
+        for (i, p) in presents.iter().enumerate() {
+            if i == idx {
+                break;
+            }
+            if *p {
+                x += slot;
+            }
+        }
+        x
+    }
+
+    fn slot_at(&self, x: i16) -> Option<usize> {
+        let slot = Self::slot_w(self.h) as i16;
+        let mut edge = 0i16;
+        for (i, p) in self.presents().iter().enumerate() {
+            if !*p {
+                continue;
+            }
+            if x >= edge && x < edge + slot {
+                return Some(i);
+            }
+            edge += slot;
+        }
+        None
+    }
+
     fn wanted_width(&self) -> u32 {
         let slot = Self::slot_w(self.h) as u32;
-        match (self.battery.present(), self.audio.present()) {
-            (false, false) => 0,
-            (true, true) => slot * 2,
-            _ => slot,
+        let present = self.presents().iter().filter(|p| **p).count() as u32;
+        slot * present
+    }
+
+    fn slot_tooltip(&self, idx: usize) -> String {
+        match idx {
+            SLOT_BATTERY => self.battery.tooltip(),
+            SLOT_AUDIO => self.audio.tooltip(),
+            SLOT_MIC => self.mic.tooltip(),
+            _ => String::new(),
         }
     }
 
@@ -87,7 +136,11 @@ impl PowerAudioApplet {
     }
 
     pub fn present(&self) -> bool {
-        self.battery.present() || self.audio.present()
+        self.presents().iter().any(|p| *p)
+    }
+
+    pub fn update_battery(&mut self) -> bool {
+        self.battery.update()
     }
 
     pub fn update(&mut self) -> bool {
@@ -95,6 +148,7 @@ impl PowerAudioApplet {
         let next_audio = self.audio_system.read();
         let audio_changed = next_audio != self.audio.state;
         if audio_changed {
+            self.mic.state = next_audio.clone();
             self.audio.state = next_audio;
         }
         battery_changed || audio_changed
@@ -102,11 +156,10 @@ impl PowerAudioApplet {
 
     pub fn tooltip(&self) -> String {
         let mut parts: Vec<String> = Vec::new();
-        if self.battery.present() {
-            parts.push(self.battery.tooltip());
-        }
-        if self.audio.present() {
-            parts.push(self.audio.tooltip());
+        for (i, p) in self.presents().iter().enumerate() {
+            if *p {
+                parts.push(self.slot_tooltip(i));
+            }
         }
         parts.join("\n\n")
     }
@@ -132,6 +185,10 @@ impl Applet for PowerAudioApplet {
         }
         if self.audio.present() {
             self.audio.draw(g, x, self.h);
+            x += slot;
+        }
+        if self.mic.present() {
+            self.mic.draw(g, x, self.h);
         }
     }
 
@@ -144,19 +201,22 @@ impl Applet for PowerAudioApplet {
     }
 
     fn handle_click(&mut self, x: i32, _y: i32, button: u8) -> Option<u32> {
-        if !self.audio.present() || (x as i16) < self.audio_x() {
-            return None;
-        }
-        match button {
-            1 => self.audio_system.toggle_sink_mute(),
-            2 => self.audio_system.toggle_source_mute(),
-            4 => self.audio_system.nudge_sink_volume(5),
-            5 => self.audio_system.nudge_sink_volume(-5),
+        let idx = match self.slot_at(x as i16) {
+            Some(idx) => idx,
+            None => return None,
+        };
+        match (idx, button) {
+            (SLOT_AUDIO, 1) => self.audio_system.toggle_sink_mute(),
+            (SLOT_AUDIO, 2) | (SLOT_MIC, 1) | (SLOT_MIC, 2) => {
+                self.audio_system.toggle_source_mute()
+            }
+            (SLOT_AUDIO, 4) => self.audio_system.nudge_sink_volume(5),
+            (SLOT_AUDIO, 5) => self.audio_system.nudge_sink_volume(-5),
             _ => return None,
         }
         self.update();
-        if self.hovered == Some(true) {
-            let text = self.audio.tooltip();
+        if self.hovered == Some(idx) {
+            let text = self.slot_tooltip(idx);
             crate::tooltip::show_window_tip(
                 &mut self.tooltip,
                 self.conn.as_ref(),
@@ -168,7 +228,7 @@ impl Applet for PowerAudioApplet {
     }
 
     fn handle_enter(&mut self) {
-        if self.battery.present() && self.audio.present() {
+        if self.presents().iter().filter(|p| **p).count() > 1 {
             return;
         }
         self.hovered = None;
@@ -182,24 +242,20 @@ impl Applet for PowerAudioApplet {
     }
 
     fn handle_motion(&mut self, x: i32, _y: i32) {
-        if !(self.battery.present() && self.audio.present()) {
+        if self.presents().iter().filter(|p| **p).count() <= 1 {
             return;
         }
-        let audio_half = (x as i16) >= self.audio_x();
-        if self.hovered == Some(audio_half) {
-            return;
-        }
-        self.hovered = Some(audio_half);
-        let slot = Self::slot_w(self.h) as i16;
-        let (rect, text) = if audio_half {
-            let ax = self.audio_x();
-            (
-                (ax, 0i16, (self.w as i16 - ax).max(0) as u16, self.h),
-                self.audio.tooltip(),
-            )
-        } else {
-            ((0i16, 0i16, slot as u16, self.h), self.battery.tooltip())
+        let idx = match self.slot_at(x as i16) {
+            Some(idx) => idx,
+            None => return,
         };
+        if self.hovered == Some(idx) {
+            return;
+        }
+        self.hovered = Some(idx);
+        let slot = Self::slot_w(self.h);
+        let rect = (self.slot_x(idx), 0i16, slot, self.h);
+        let text = self.slot_tooltip(idx);
         crate::tooltip::show_rect_tip(
             &mut self.tooltip,
             self.conn.as_ref(),

@@ -32,6 +32,7 @@ pub mod icon_dsl;
 pub mod icon_render;
 pub mod id;
 pub mod audio;
+pub mod audio_events;
 pub mod audio_view;
 pub mod battery_view;
 pub mod cpu_status_applet;
