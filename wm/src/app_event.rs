@@ -976,6 +976,10 @@ impl App {
             "Show Desktop",
             Action::Workspace(WorkspaceOp::ShowDesktop),
         ));
+        nodes.push(MenuNode::leaf(
+            "Se_ttings",
+            Action::Misc(crate::action::MiscOp::Command(settings_command())),
+        ));
         nodes
     }
 
@@ -1214,3 +1218,12 @@ impl App {
     }
 }
 
+
+fn settings_command() -> String {
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join("antibox-settings")))
+        .filter(|p| p.is_file())
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "antibox-settings".to_string())
+}

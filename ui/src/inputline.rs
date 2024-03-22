@@ -134,8 +134,21 @@ impl InputLine {
 
         if self.focused {
             let cx = text_x + width_of(&text[..self.edit.display_index(cursor)]);
-            let _ = g.set_foreground(theme::text());
-            let _ = g.fill_rect(cx, 2, 1, self.h - 4);
+            let t = antibox_gfx::scale::scaled(2).max(1) as i16;
+            let bar = if antibox_gfx::colour::is_dark(field_bg) {
+                0xFF3333
+            } else {
+                0x990000
+            };
+            let _ = g.set_foreground(bar);
+            let _ = g.fill_rect(cx, 2, t as u16, self.h - 4);
+            let _ = g.fill_rect(cx - t / 2, 2, (t * 2) as u16, t as u16);
+            let _ = g.fill_rect(
+                cx - t / 2,
+                self.h as i16 - 2 - t,
+                (t * 2) as u16,
+                t as u16,
+            );
         }
     }
 

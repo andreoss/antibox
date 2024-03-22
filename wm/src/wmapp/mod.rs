@@ -93,8 +93,18 @@ fn apply_graph_prefs(prefs: &wmconfig::Prefs) {
     );
 }
 
-fn apply_font_prefs(b: &Arc<dyn DisplayBackend>, prefs: &wmconfig::Prefs) {
-    antibox_core::backend::set_ui_font(&prefs.font.name);
+pub fn apply_font_prefs(b: &Arc<dyn DisplayBackend>, prefs: &wmconfig::Prefs) {
+    use antibox_core::backend::parse_font_desc;
+    let name = prefs.font.name.trim();
+    if let Some((family, size, _, _)) = parse_font_desc(name) {
+        antibox_core::backend::set_ui_font(&family);
+        if size > 0 {
+            antibox_ui::metrics::set_font_pt(size);
+            return;
+        }
+    } else {
+        antibox_core::backend::set_ui_font(name);
+    }
     if let Ok(g) = b.create_graphics(b.root().read_id()) {
         let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
         let (_, _, fh) = g.font_metrics();
