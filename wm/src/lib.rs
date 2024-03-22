@@ -66,6 +66,7 @@ pub mod power_audio_applet;
 pub mod preview;
 pub mod proc_reader;
 pub mod render;
+pub mod settings_io;
 pub mod resize_popup;
 pub mod snap;
 pub mod status_graph;

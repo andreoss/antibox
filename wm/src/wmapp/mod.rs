@@ -93,7 +93,7 @@ fn apply_graph_prefs(prefs: &wmconfig::Prefs) {
     );
 }
 
-fn apply_font_prefs(b: &Arc<dyn DisplayBackend>, prefs: &wmconfig::Prefs) {
+pub fn apply_font_prefs(b: &Arc<dyn DisplayBackend>, prefs: &wmconfig::Prefs) {
     antibox_core::backend::set_ui_font(&prefs.font.name);
     if let Ok(g) = b.create_graphics(b.root().read_id()) {
         let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
