@@ -46,21 +46,22 @@ pub(crate) fn parse_colour(s: &str, default: &str) -> u32 {
 
 impl Default for ThemeColors {
     fn default() -> ThemeColors {
-        let active_top = parse_colour("rgb:00/00/80", "rgb:00/00/80");
-        let active_bottom = active_top;
-        let inactive_top = parse_colour("rgb:80/80/80", "rgb:80/80/80");
-        let inactive_bottom = inactive_top;
-        let active_text = parse_colour("rgb:FF/FF/FF", "rgb:FF/FF/FF");
-        let inactive_text = parse_colour("rgb:C0/C0/C0", "rgb:C0/C0/C0");
-        let border_active = parse_colour("rgb:C0/C0/C0", "rgb:C0/C0/C0");
-        let border_inactive = parse_colour("rgb:C0/C0/C0", "rgb:C0/C0/C0");
-        let button_bg = parse_colour("rgb:C0/C0/C0", "rgb:C0/C0/C0");
-        let button_fg = parse_colour("rgb:00/00/00", "rgb:00/00/00");
-        let task_bar_colour = parse_colour("rgb:C0/C0/C0", "rgb:C0/C0/C0");
-        let ws_active_bg = parse_colour("rgb:00/00/80", "rgb:00/00/80");
-        let ws_active_fg = parse_colour("rgb:FF/FF/FF", "rgb:FF/FF/FF");
-        let ws_normal_bg = parse_colour("rgb:C0/C0/C0", "rgb:C0/C0/C0");
-        let ws_normal_fg = parse_colour("rgb:00/00/00", "rgb:00/00/00");
+        use antibox_ui::theme;
+        let active_top = theme::title_active();
+        let active_bottom = theme::title_gradient();
+        let inactive_top = theme::title_inactive();
+        let inactive_bottom = theme::title_gradient_inactive();
+        let active_text = theme::title_text();
+        let inactive_text = theme::title_text_inactive();
+        let border_active = theme::face();
+        let border_inactive = theme::face();
+        let button_bg = theme::button_face();
+        let button_fg = theme::text();
+        let task_bar_colour = theme::face();
+        let ws_active_bg = theme::sel_bg();
+        let ws_active_fg = theme::sel_fg();
+        let ws_normal_bg = theme::face();
+        let ws_normal_fg = theme::text();
         let urg_bg = parse_colour("rgb:C0/30/30", "rgb:C0/30/30");
         let urg_fg = parse_colour("rgb:FF/FF/FF", "rgb:FF/FF/FF");
         let bat_bg = parse_colour("rgb:FF/FF/00", "rgb:FF/FF/00");
@@ -79,7 +80,7 @@ impl Default for ThemeColors {
             button_bg,
             button_fg,
             task_bar_colour,
-            menu_bg: task_bar_colour,
+            menu_bg: antibox_ui::theme::menu_bg(),
             workspace_active_bg: ws_active_bg,
             workspace_active_fg: ws_active_fg,
             workspace_normal_bg: ws_normal_bg,

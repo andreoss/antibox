@@ -1,0 +1,118 @@
+name = "2k3"
+
+[colors]
+face = "D4D0C8"
+field = "FFFFFF"
+text = "000000"
+disabled = "808080"
+sel_bg = "0A246A"
+sel_fg = "FFFFFF"
+light = "FFFFFF"
+face_light = "D4D0C8"
+button_face = "D4D0C8"
+shadow = "808080"
+dark = "404040"
+tooltip_bg = "FFFFE1"
+tooltip_fg = "000000"
+sel_line = "0A246A"
+title_active = "0A246A"
+title_text = "FFFFFF"
+title_inactive = "808080"
+title_gradient = "A6CAF0"
+title_gradient_inactive = "C0C0C0"
+title_text_inactive = "D4D0C8"
+menu_sel_bg = "000000"
+menu_sel_fg = "000000"
+taskbar_face = "000000"
+tray_face = "000000"
+list_bg = "000000"
+menu_bg = "000000"
+arrow_colour = "000000"
+
+[metrics]
+corner_radius = 0
+frame_radius = 0
+button_radius = 0
+button_ring = 0
+title_inset = 0
+title_overlap = 0
+close_gap = 0
+pad = 4
+gap = 2
+item_gap = 2
+title_height = 17
+border = 4
+border_bottom = 4
+button_base = 16
+button_inset = 3
+title_button_inset = 0
+title_end_pad = 0
+title_justify = 0
+sunken_depth = 2
+taskbar_item_chars = 0
+taskbar_item_pct = 0
+
+[strings]
+title_buttons = "xmi"
+ui_font_name = ""
+taskbar_justify = "left"
+title_layout_left = "sp"
+title_layout_right = "xmir"
+title_side = "top"
+clock_format = ""
+
+[elements.panel]
+ops = [
+    { op = "fill", colour = "face" },
+]
+
+[elements.field]
+ops = [
+    { op = "fill", colour = "field" },
+    { op = "bevel", raised = false, light = "light", shadow = "shadow", depth = "s" },
+]
+
+[elements.well]
+ops = [
+    { op = "fill", colour = "field" },
+    { op = "bevel", raised = false, light = "shadow", shadow = "light", depth = "s" },
+]
+
+[elements.button]
+ops = [
+    { op = "fill", colour = "button_face" },
+    { op = "bevel", raised = true, light = "light", shadow = "shadow", depth = "s" },
+]
+
+[elements.button_pressed]
+ops = [
+    { op = "fill", colour = "button_face" },
+    { op = "bevel", raised = false, light = "light", shadow = "shadow", depth = "s" },
+]
+
+[elements.title_active]
+ops = [
+    { op = "fill", colour = "title_active" },
+]
+
+[elements.title_inactive]
+ops = [
+    { op = "fill", colour = "title_inactive" },
+]
+
+[elements.menu_sel]
+ops = [
+    { op = "fill", colour = "sel_bg" },
+]
+
+[elements.tooltip]
+ops = [
+    { op = "fill", colour = "tooltip_bg" },
+    { op = "outline", colour = "text", x = 0, y = 0, w = "w-1*s", h = "h-1*s" },
+]
+
+[elements.progress]
+ops = [
+    { op = "fill", colour = "field" },
+    { op = "bevel", raised = false, light = "shadow", shadow = "light", depth = "s" },
+]

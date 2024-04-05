@@ -14,10 +14,25 @@ use antibox_gfx::sync::atomic::LazyRwLock;
 static LOADED: LazyRwLock<Option<ThemeDef>> = LazyRwLock::new();
 
 pub const NT_THEME: &str = include_str!("../../../share/themes/nt.toml");
+pub const K3_THEME: &str = include_str!("../../../share/themes/2k3.toml");
 
 pub fn install(def: ThemeDef) {
     if let Ok(mut g) = LOADED.write() {
         *g = Some(def);
+    }
+}
+
+pub fn install_named(name: &str) -> bool {
+    let text = match name {
+        "2k3" => K3_THEME,
+        _ => NT_THEME,
+    };
+    match load::from_toml(text) {
+        Ok(def) => {
+            install(def);
+            true
+        }
+        Err(_) => false,
     }
 }
 
@@ -178,6 +193,26 @@ pub fn title_active() -> Colour {
 }
 pub fn title_inactive() -> Colour {
     colour_or("title_inactive", 0x808080)
+}
+pub fn title_gradient() -> Colour {
+    if colour_or("title_gradient", 0x0) != 0 {
+        colour_or("title_gradient", 0x0)
+    } else {
+        title_active()
+    }
+}
+pub fn title_gradient_inactive() -> Colour {
+    if colour_or("title_gradient_inactive", 0x0) != 0 {
+        colour_or("title_gradient_inactive", 0x0)
+    } else {
+        title_inactive()
+    }
+}
+pub fn title_text() -> Colour {
+    colour_or("title_text", 0xFFFFFF)
+}
+pub fn title_text_inactive() -> Colour {
+    colour_or("title_text_inactive", 0xC0C0C0)
 }
 
 pub fn title_inset_base() -> u16 {

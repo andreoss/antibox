@@ -16,7 +16,13 @@ pub struct Prefs {
     pub tabs: TabsPrefs,
     pub ticker: TickerPrefs,
     pub taskbar: TaskbarPrefs,
+    pub theme: ThemePrefs,
     pub keys: Vec<(String, String)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ThemePrefs {
+    pub name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -119,6 +125,9 @@ impl Default for Prefs {
                 position: "top".to_string(),
             },
             ticker: TickerPrefs { enabled: true },
+            theme: ThemePrefs {
+                name: "nt".to_string(),
+            },
             taskbar: TaskbarPrefs {
                 layout: DEFAULT_TASKBAR_LAYOUT.to_string(),
                 menu_on_super_tap: true,
@@ -313,6 +322,13 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                 ("ticker", "enabled") => {
                     if let Some(v) = value.as_bool() {
                         p.ticker.enabled = v;
+                    }
+                }
+                ("theme", "name") => {
+                    if let Some(v) = value.as_str() {
+                        if !v.trim().is_empty() {
+                            p.theme.name = v.trim().to_string();
+                        }
                     }
                 }
                 _ => {}
