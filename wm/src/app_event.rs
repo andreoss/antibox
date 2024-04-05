@@ -121,6 +121,18 @@ impl App {
     fn reload_config(&mut self) {
         let prefs = wmconfig::Config::load_prefs();
 
+        if antibox_ui::theme::current().map_or(true, |d| d.name != prefs.theme.name) {
+            antibox_ui::theme::install_named(&prefs.theme.name);
+            self.wm.theme_colours = crate::render::ThemeColors::default();
+            let tc = self.wm.theme_colours;
+            if let Some(tb) = self.taskbar.as_mut() {
+                for a in &mut tb.applets {
+                    a.set_theme_colours(&tc);
+                }
+            }
+            crate::handler::redraw_all_frames(&mut self.wm);
+        }
+
         apply_font_prefs(&self.backend, &prefs);
         apply_graph_prefs(&prefs);
 

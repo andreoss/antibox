@@ -39,6 +39,14 @@ fn fields(p: &wmconfig::Prefs) -> Vec<Field> {
         bar: None,
     };
     vec![
+        f(
+            "theme",
+            "name",
+            "Theme",
+            Kind::Choice(&["nt", "2k3"]),
+            p.theme.name.clone(),
+            false,
+        ),
         f("font", "name", "Font", Kind::Text, p.font.name.clone(), false),
         f(
             "workspace",
@@ -428,6 +436,7 @@ fn main() {
     antibox_core::scale::set_dpi(dpi);
 
     let prefs = wmconfig::Config::load_prefs();
+    antibox_ui::theme::install_named(&prefs.theme.name);
     antibox_wm::wmapp::apply_font_prefs(&conn, &prefs);
     let mut fields = fields(&prefs);
     let l = layout(fields.len());

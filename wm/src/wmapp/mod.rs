@@ -422,6 +422,7 @@ impl App {
         let _ = atom_manager.intern_all(&*b);
 
         let prefs = wmconfig::Config::load_prefs();
+        antibox_ui::theme::install_named(&prefs.theme.name);
         crate::fonts::apply_fonts();
         apply_font_prefs(&b, &prefs);
         apply_graph_prefs(&prefs);
