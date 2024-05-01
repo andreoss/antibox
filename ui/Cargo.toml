@@ -6,4 +6,4 @@ edition = "2021"
 [dependencies]
 antibox-gfx = { path = "../gfx" }
 antibox-core = { path = "../core" }
-toml = "=0.5.9"
+toml = "=0.8.12"
