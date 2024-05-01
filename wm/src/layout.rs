@@ -17,28 +17,28 @@ const TALL_NMASTER: usize = 1;
 const TALL_FRAC_PCT: i32 = 50;
 
 impl Layout {
-    pub const ALL: &'static [Self] = &[Layout::Floating, Layout::Tall, Layout::Wide];
+    pub const ALL: &'static [Self] = &[Self::Floating, Self::Tall, Self::Wide];
 
-    pub fn title(self) -> &'static str {
+    pub const fn title(self) -> &'static str {
         match self {
-            Layout::Floating => "Floating",
-            Layout::Tall => "Tall (tiled)",
-            Layout::Wide => "Wide (tiled)",
+            Self::Floating => "Floating",
+            Self::Tall => "Tall (tiled)",
+            Self::Wide => "Wide (tiled)",
         }
     }
 
-    pub fn is_tiled(self) -> bool {
+    pub const fn is_tiled(self) -> bool {
         match self {
-            Layout::Tall | Layout::Wide => true,
-            Layout::Floating => false,
+            Self::Tall | Self::Wide => true,
+            Self::Floating => false,
         }
     }
 
     pub fn parse(s: &str) -> Option<Self> {
         match s.trim().to_ascii_lowercase().as_str() {
-            "" | "floating" | "float" => Some(Layout::Floating),
-            "tall" | "tile" | "tiled" => Some(Layout::Tall),
-            "wide" | "mirror" | "wide-tiled" => Some(Layout::Wide),
+            "" | "floating" | "float" => Some(Self::Floating),
+            "tall" | "tile" | "tiled" => Some(Self::Tall),
+            "wide" | "mirror" | "wide-tiled" => Some(Self::Wide),
             _ => None,
         }
     }
@@ -67,8 +67,8 @@ impl Layout {
         wm: &WindowManager<impl DisplayBackend + ?Sized>,
     ) -> Point {
         match self {
-            Layout::Floating => crate::placement::smart_placement(w, h, wm),
-            Layout::Tall | Layout::Wide => {
+            Self::Floating => crate::placement::smart_placement(w, h, wm),
+            Self::Tall | Self::Wide => {
                 let wa = work_area(wm);
                 Point::new(wa.x, wa.y)
             }
@@ -77,7 +77,7 @@ impl Layout {
 
     pub fn arrange<H: DisplayBackend + 'static + ?Sized>(self, wm: &mut WindowManager<H>, ws: u32) {
         match self {
-            Layout::Floating => {
+            Self::Floating => {
                 let ids: Vec<ClientId> = wm
                     .frames
                     .iter()
@@ -91,10 +91,10 @@ impl Layout {
                     set_tile_slot(wm, id, None);
                 }
             }
-            Layout::Tall => {
+            Self::Tall => {
                 arrange_with(wm, ws, |area, n| tile(TALL_FRAC_PCT, area, TALL_NMASTER, n));
             }
-            Layout::Wide => arrange_with(wm, ws, |area, n| {
+            Self::Wide => arrange_with(wm, ws, |area, n| {
                 tile_wide(TALL_FRAC_PCT, area, TALL_NMASTER, n)
             }),
         }
@@ -152,7 +152,7 @@ pub fn tile(frac_pct: i32, r: Rect, nmaster: usize, n: usize) -> Vec<Rect> {
     out
 }
 
-fn mirror_rect(r: Rect) -> Rect {
+const fn mirror_rect(r: Rect) -> Rect {
     Rect::new(r.y, r.x, r.h, r.w)
 }
 
@@ -163,7 +163,7 @@ pub fn tile_wide(frac_pct: i32, r: Rect, nmaster: usize, n: usize) -> Vec<Rect> 
         .collect()
 }
 
-fn tileable(f: &crate::frame::FrameWindow, ws: u32) -> bool {
+const fn tileable(f: &crate::frame::FrameWindow, ws: u32) -> bool {
     let s = f.state();
     let w = f.workspace();
     (w == ws || w == !0) && f.decorated() && !s.minimized && !s.fullscreen && !s.skip_taskbar
@@ -177,8 +177,8 @@ where
     let mut ids: Vec<ClientId> = wm
         .map_order
         .iter()
-        .cloned()
-        .filter(|id| wm.frames.get(id).map_or(false, |f| tileable(f, ws)))
+        .copied()
+        .filter(|id| wm.frames.get(id).is_some_and(|f| tileable(f, ws)))
         .collect();
     for (id, f) in wm.frames.iter() {
         if !ids.contains(id) && tileable(f, ws) {
@@ -207,10 +207,7 @@ fn set_tile_slot<H: DisplayBackend + 'static + ?Sized>(
     if atom == 0 {
         return;
     }
-    let b = match wm.backend() {
-        Some(b) => b,
-        None => return,
-    };
+    let Some(b) = wm.backend() else { return };
     let cid_xid = wm.xid_index.xid_of(id);
     match slot {
         Some(s) => {

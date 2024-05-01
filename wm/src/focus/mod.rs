@@ -28,7 +28,7 @@ pub fn next_workspace_with_windows<H: DisplayBackend + 'static + ?Sized>(
     None
 }
 
-fn should_focus_on_enter<H: DisplayBackend + 'static + ?Sized>(
+const fn should_focus_on_enter<H: DisplayBackend + 'static + ?Sized>(
     wm: &WindowManager<H>,
 ) -> bool {
     if wm.config.focus_follows_mouse && !wm.config.click_to_focus {
@@ -41,7 +41,7 @@ fn should_focus_on_enter<H: DisplayBackend + 'static + ?Sized>(
     }
 }
 
-fn should_raise_on_focus<H: DisplayBackend + 'static + ?Sized>(
+const fn should_raise_on_focus<H: DisplayBackend + 'static + ?Sized>(
     wm: &WindowManager<H>,
 ) -> bool {
     !matches!(wm.config.focus_mode, 4 | 5)
@@ -62,7 +62,7 @@ pub fn focus_window<H: DisplayBackend + 'static + ?Sized>(
         wm.last_focused_window = prev;
     }
     let raise = should_raise_on_focus(wm);
-    if let Some(b) = backend.as_ref().map(|v| v.as_ref()) {
+    if let Some(b) = backend.as_ref().map(AsRef::as_ref) {
         if let Some(fw) = wm.frame(client_id) {
             give_input_focus(b, &wm.atoms, fw, wm.xid_index.xid_of(client_id));
             if changed {
@@ -87,7 +87,7 @@ pub fn focus_window<H: DisplayBackend + 'static + ?Sized>(
         }
     }
     if wm.config.mouse_follows_focus {
-        if let Some(b) = backend.as_ref().map(|v| v.as_ref()) {
+        if let Some(b) = backend.as_ref().map(AsRef::as_ref) {
             if let Some(fw) = wm.frame(client_id) {
                 let r = fw.frame_rect();
                 let _ = b.warp_pointer(
@@ -113,7 +113,7 @@ pub(crate) fn give_input_focus<H: DisplayBackend + 'static + ?Sized>(
 ) {
     let has_take_focus = atoms
         .get("WM_TAKE_FOCUS")
-        .map_or(false, |a| fw.client().has_protocol(a));
+        .is_some_and(|a| fw.client().has_protocol(a));
     let (set_input, send_take) = icccm_focus_actions(fw.client().wm_hints(), has_take_focus);
     if set_input {
         let _ = b.set_input_focus(1, client_id, 0);
@@ -138,7 +138,7 @@ pub fn activate_window<H: DisplayBackend + 'static + ?Sized>(
             wm.activate_workspace(ws);
         }
     }
-    let was_min = wm.frames.get(&w).map_or(false, |f| f.state().minimized);
+    let was_min = wm.frames.get(&w).is_some_and(|f| f.state().minimized);
     if was_min {
         if let Some(f) = wm.frame_mut(w) {
             f.state_mut().minimized = false;
@@ -164,13 +164,10 @@ pub fn demand_attention<H: DisplayBackend + 'static + ?Sized>(
     wm: &mut WindowManager<H>,
     w: ClientId,
 ) {
-    let attn = match wm.atoms.get("_NET_WM_STATE_DEMANDS_ATTENTION") {
-        Some(a) => a,
-        None => return,
-    };
+    let Some(attn) = wm.atoms.get("_NET_WM_STATE_DEMANDS_ATTENTION") else { return };
     let backend = wm.backend.clone();
     if let Some(fw) = wm.frames.get_mut(&w) {
-        if let Some(b) = backend.as_ref().map(|v| v.as_ref()) {
+        if let Some(b) = backend.as_ref().map(AsRef::as_ref) {
             fw.client_mut().net_state_request(b, &wm.atoms, 1, attn, 0);
         }
         fw.state_mut().urgent = true;
@@ -181,10 +178,7 @@ pub(crate) fn modal_redirect<H: DisplayBackend + 'static + ?Sized>(
     wm: &WindowManager<H>,
     w: ClientId,
 ) -> ClientId {
-    let modal = match wm.atoms.get("_NET_WM_STATE_MODAL") {
-        Some(m) => m,
-        None => return w,
-    };
+    let Some(modal) = wm.atoms.get("_NET_WM_STATE_MODAL") else { return w };
     let mut target = w;
     for _ in 0..64 {
         let child = wm.frames.iter().find_map(|(&id, f)| {
@@ -242,7 +236,7 @@ pub fn cycle_focus<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<
     let ids: Vec<ClientId> = wm
         .insertion_order
         .iter()
-        .filter(|id| wm.frames.contains_key(id)).cloned()
+        .filter(|id| wm.frames.contains_key(id)).copied()
         .collect();
     if ids.is_empty() {
         return;
@@ -259,7 +253,7 @@ pub fn cycle_focus<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<
     let backend = wm.backend.clone();
     let prev = wm.focused_window.replace(new_focus);
     wm.last_focused_window = prev;
-    if let Some(b) = backend.as_ref().map(|v| v.as_ref()) {
+    if let Some(b) = backend.as_ref().map(AsRef::as_ref) {
         if let Some(fw) = wm.frame(new_focus) {
             give_input_focus(b, &wm.atoms, fw, wm.xid_index.xid_of(new_focus));
         }
@@ -278,13 +272,13 @@ pub fn recover_focus<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManage
         if wm
             .frames
             .get(&focused)
-            .map_or(false, |f| f.workspace() == ws || f.workspace() == !0 || f.state().sticky)
+            .is_some_and(|f| f.workspace() == ws || f.workspace() == !0 || f.state().sticky)
         {
             return;
         }
     }
     let usable = |id: ClientId| {
-        wm.frames.get(&id).map_or(false, |f| {
+        wm.frames.get(&id).is_some_and(|f| {
             !f.state().minimized && (f.workspace() == ws || f.workspace() == !0 || f.state().sticky)
         })
     };
@@ -294,7 +288,7 @@ pub fn recover_focus<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManage
         .or_else(|| {
             wm.insertion_order
                 .iter()
-                .rev().cloned()
+                .rev().copied()
                 .find(|&id| usable(id))
         })
         .or_else(|| wm.frames.keys().find(|&id| usable(id)));

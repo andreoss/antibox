@@ -32,7 +32,7 @@ pub fn save_to(path: &Path, values: &[(&str, &str, SettingValue)]) -> std::io::R
         .unwrap_or_default();
     for (section, key, value) in values {
         let entry = root
-            .entry(section.to_string())
+            .entry((*section).to_string())
             .or_insert_with(|| toml::Value::Table(Default::default()));
         let table = match entry {
             toml::Value::Table(t) => t,
@@ -49,7 +49,7 @@ pub fn save_to(path: &Path, values: &[(&str, &str, SettingValue)]) -> std::io::R
             SettingValue::Int(i) => toml::Value::Integer(*i),
             SettingValue::Bool(b) => toml::Value::Boolean(*b),
         };
-        table.insert(key.to_string(), v);
+        table.insert((*key).to_string(), v);
     }
     let text = toml::to_string(&toml::Value::Table(root))
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;

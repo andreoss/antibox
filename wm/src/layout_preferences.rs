@@ -37,16 +37,16 @@ pub enum Widget {
 impl Widget {
     pub const COUNT: usize = 10;
     pub const ALL: [Self; Self::COUNT] = [
-        Widget::Menu,
-        Widget::Workspaces,
-        Widget::Windows,
-        Widget::Tray,
-        Widget::Cpu,
-        Widget::Mem,
-        Widget::Net,
-        Widget::PowerAudio,
-        Widget::Keyboard,
-        Widget::Clock,
+        Self::Menu,
+        Self::Workspaces,
+        Self::Windows,
+        Self::Tray,
+        Self::Cpu,
+        Self::Mem,
+        Self::Net,
+        Self::PowerAudio,
+        Self::Keyboard,
+        Self::Clock,
     ];
     const fn index(self) -> usize {
         self as usize
@@ -110,19 +110,8 @@ pub fn apply() {
     set_taskbar_wheel(true);
     set_pager_style(false, true);
     set_minimize_animation(false);
-    let present = |w: Widget| match w {
-        Widget::Menu => false,
-        Widget::Workspaces => true,
-        Widget::Windows => true,
-        Widget::Tray => true,
-        Widget::Cpu => true,
-        Widget::Mem => true,
-        Widget::Net => true,
-        Widget::PowerAudio => true,
-        Widget::Keyboard => true,
-        Widget::Clock => true,
-    };
-    for w in Widget::ALL.iter().cloned() {
+    let present = |w: Widget| !matches!(w, Widget::Menu);
+    for w in Widget::ALL.iter().copied() {
         SHOW.with(|s| s.borrow_mut()[w.index()] = present(w));
     }
 }

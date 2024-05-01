@@ -30,7 +30,7 @@
             Widget::Workspaces,
             Widget::Windows,
         ]));
-        assert!(l.contains(&PanelSlot::Clock), "left={:?} right={:?}", l, r);
+        assert!(l.contains(&PanelSlot::Clock), "left={l:?} right={r:?}");
         assert!(!r.contains(&PanelSlot::Clock));
     }
 

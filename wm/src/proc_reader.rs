@@ -9,7 +9,7 @@ pub fn pid_command(pid: u32) -> Option<String> {
     if pid == 0 {
         return None;
     }
-    let raw = std::fs::read(format!("/proc/{}/cmdline", pid)).ok()?;
+    let raw = std::fs::read(format!("/proc/{pid}/cmdline")).ok()?;
     let text = String::from_utf8_lossy(&raw).replace('\0', " ");
     let text = text.trim().to_string();
     if text.is_empty() {

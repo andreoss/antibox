@@ -11,7 +11,7 @@ pub fn net_wm_state_request<H: DisplayBackend + 'static + ?Sized>(
     a2: u32,
 ) {
     let backend = wm.backend.clone();
-    let cid = match wm.cid_for_xid(w) { Some(v) => v, None => return  };
+    let Some(cid) = wm.cid_for_xid(w) else { return };
     let a_maxv = wm.atoms.get("_NET_WM_STATE_MAXIMIZED_VERT");
     let a_maxh = wm.atoms.get("_NET_WM_STATE_MAXIMIZED_HORZ");
     let a_shade = wm.atoms.get("_NET_WM_STATE_SHADED");
@@ -27,7 +27,7 @@ pub fn net_wm_state_request<H: DisplayBackend + 'static + ?Sized>(
         ),
         None => return,
     };
-    let ws = wm.frame(cid).map_or(0, |f| f.workspace());
+    let ws = wm.frame(cid).map_or(0, super::super::frame::FrameWindow::workspace);
     let ws = if ws == !0 { wm.active_workspace } else { ws };
     let tiled = wm.layout_for(ws).is_tiled();
     let want = |cur: bool| match action {
@@ -37,7 +37,7 @@ pub fn net_wm_state_request<H: DisplayBackend + 'static + ?Sized>(
     };
     let (mut want_v, mut want_h) = (cur_v, cur_h);
     let (mut max_changed, mut do_shade, mut do_full) = (false, None, None);
-    for atom in [a1, a2].iter().cloned() {
+    for atom in [a1, a2].iter().copied() {
         if atom == 0 {
             continue;
         }
@@ -81,11 +81,11 @@ pub fn net_wm_state_request<H: DisplayBackend + 'static + ?Sized>(
     if let Some(want_shade) = do_shade {
         crate::wmaction::set_shaded(wm, cid, Some(want_shade));
     }
-    let was_sticky = wm.frame(cid).map_or(false, |f| f.state().sticky);
+    let was_sticky = wm.frame(cid).is_some_and(|f| f.state().sticky);
     if let Some(fw) = wm.frames.get_mut(&cid) {
         fw.sync_state_from_ewmh(&wm.atoms);
     }
-    let now_sticky = wm.frame(cid).map_or(false, |f| f.state().sticky);
+    let now_sticky = wm.frame(cid).is_some_and(|f| f.state().sticky);
     if now_sticky != was_sticky {
         wm.apply_workspace_visibility();
         crate::focus::recover_focus(wm);

@@ -31,9 +31,7 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
         .iter()
         .find(|(_, fw)| fw.frame().id() == w)
         .map(|(&id, _)| id);
-    let client_id = match found {
-        Some(cid) => cid,
-        None => {
+    let Some(client_id) = found else {
             if let Some(cid) = wm.cid_for_xid(w) {
                 focus_frame(wm, cid, prev_fid);
                 if let Some(b) = wm.backend() {
@@ -44,8 +42,7 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
                 crate::container::handle_click(wm, w);
             }
             return;
-        }
-    };
+        };
     if wm.dock_manager.is_dock_app(wm.xid_index.xid_of(client_id)) {
         if wm.dock_manager.is_collapsed() {
             wm.dock_manager.expand();
@@ -59,7 +56,7 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
             .handle_button(wm.xid_index.xid_of(client_id), button, state, p)
         {
             crate::dock::DockButtonResult::GrabPointer => {
-                if let Some(backend) = wm.backend.as_ref().map(|v| v.as_ref()) {
+                if let Some(backend) = wm.backend.as_ref().map(AsRef::as_ref) {
                     let (gx, gy) = wm.dock_manager.dragged_grid_pos(backend);
                     wm.dock_manager.set_drag_origin(gx, gy);
                     let _ = backend.grab_pointer(PointerGrab {
@@ -100,7 +97,7 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
                         .cid_for_xid(id)
                         .and_then(|cid| wm.frames.get(&cid))
                         .map_or_else(
-                            || format!("<{}>", id),
+                            || format!("<{id}>"),
                             |fw| {
                                 let ci = fw.client().class_instance();
                                 let title = fw.client().title();
@@ -130,9 +127,9 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
         let on_title = wm
             .frames
             .get(&cid)
-            .map_or(false, |fw| fw.title_bar_rect().contains(p));
+            .is_some_and(|fw| fw.title_bar_rect().contains(p));
         if on_title {
-            let shaded = wm.frames.get(&cid).map_or(false, |fw| fw.state().shaded);
+            let shaded = wm.frames.get(&cid).is_some_and(|fw| fw.state().shaded);
             if button == 4 && !shaded {
                 crate::wmaction::set_shaded(wm, cid, Some(true));
             } else if button == 5 && shaded {
@@ -190,7 +187,7 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
         return;
     }
     if edge != ResizeEdge::None {
-        if wm.frame(cid).map_or(false, |fw| fw.snap_zone.is_some()) {
+        if wm.frame(cid).is_some_and(|fw| fw.snap_zone.is_some()) {
             crate::snap::set_snap_zone(wm, cid, None);
             if let Some(fw) = wm.frame_mut(cid) {
                 fw.snap_saved = None;
@@ -280,13 +277,13 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
     let on_title = wm
         .frames
         .get(&cid)
-        .map_or(false, |fw| fw.title_bar_rect().contains(p));
+        .is_some_and(|fw| fw.title_bar_rect().contains(p));
     if on_title && button == 1 {
         let now = wm.backend().map_or(0, DisplayBackend::last_event_time);
         let dbl = is_double_click(wm.last_title_click, now, cid);
         if dbl {
             wm.last_title_click = None;
-            if wm.frames.get(&cid).map_or(false, |fw| fw.state().shaded) {
+            if wm.frames.get(&cid).is_some_and(|fw| fw.state().shaded) {
                 crate::wmaction::set_shaded(wm, cid, Some(false));
             } else if mwm_allows(wm, cid, mwm_func::MAXIMIZE) {
                 crate::wmaction::set_maximized(wm, cid);
@@ -300,7 +297,7 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
         let was_max = wm
             .frames
             .get(&cid)
-            .map_or(false, |fw| fw.state().max_vert || fw.state().max_horz);
+            .is_some_and(|fw| fw.state().max_vert || fw.state().max_horz);
         if was_max {
             let max_rect = wm
                 .frames
@@ -392,7 +389,7 @@ pub fn set_multi_click_ms(ms: u32) {
 
 pub fn is_double_click(last: Option<(u32, ClientId)>, now: u32, cid: ClientId) -> bool {
     let threshold = MULTI_CLICK_MS.load(Ordering::Relaxed);
-    last.map_or(false, |(t, win)| win == cid && now != 0 && now.wrapping_sub(t) <= threshold)
+    last.is_some_and(|(t, win)| win == cid && now != 0 && now.wrapping_sub(t) <= threshold)
 }
 
 pub fn compute_drag_rect(init_rect: Rect, dx: i32, dy: i32, edge: ResizeEdge) -> Rect {
@@ -426,7 +423,7 @@ pub fn compute_drag_rect(init_rect: Rect, dx: i32, dy: i32, edge: ResizeEdge) ->
     }
 }
 
-pub fn moveresize_edge(direction: u32) -> Option<ResizeEdge> {
+pub const fn moveresize_edge(direction: u32) -> Option<ResizeEdge> {
     Some(match direction {
         0 => ResizeEdge::TopLeft,
         1 => ResizeEdge::Top,
@@ -456,11 +453,8 @@ pub fn start_moveresize<H: DisplayBackend + 'static + ?Sized>(
         wm.drag_state = None;
         return;
     }
-    let edge = match moveresize_edge(direction) {
-        Some(e) => e,
-        None => return,
-    };
-    if edge != ResizeEdge::None && wm.frame(client_id).map_or(false, |fw| fw.state().shaded) {
+    let Some(edge) = moveresize_edge(direction) else { return };
+    if edge != ResizeEdge::None && wm.frame(client_id).is_some_and(|fw| fw.state().shaded) {
         return;
     }
     let keyboard = direction == 9 || direction == 10;
@@ -505,7 +499,7 @@ pub fn constrain_resize(
     if edge == ResizeEdge::None {
         return r;
     }
-    let h = match hints { Some(v) => v, None => return r  };
+    let Some(h) = hints else { return r };
     let dec_w = crate::frame::border_width() * 2;
     let dec_h = crate::frame::title_block_height() + crate::frame::bottom_border_width();
     let (cw, ch) = h.constrain(r.w - dec_w, r.h - dec_h);
@@ -590,10 +584,7 @@ pub fn motion_notify<H: DisplayBackend + 'static + ?Sized>(
     let dx = cur.x - start.x;
     let dy = cur.y - start.y;
     let new_rect = {
-        let fw = match wm.frames.values().find(|fw| fw.frame_id() == dw) {
-            Some(fw) => fw,
-            None => return,
-        };
+        let Some(fw) = wm.frames.values().find(|fw| fw.frame_id() == dw) else { return };
         let hints = fw.client().size_hints();
         constrain_resize(compute_drag_rect(init_rect, dx, dy, edge), edge, hints)
     };
@@ -672,7 +663,7 @@ pub(crate) fn apply_frame_rect<H: DisplayBackend + 'static + ?Sized>(
         }
         let resized = old.w != new_rect.w || old.h != new_rect.h;
         fw.set_frame_rect(new_rect);
-        if let Some(b) = backend.as_ref().map(|v| v.as_ref()) {
+        if let Some(b) = backend.as_ref().map(AsRef::as_ref) {
             let _ = b.configure_window(
                 frame_id.raw(),
                 &[
@@ -733,7 +724,7 @@ pub(crate) fn paint_frame_decorations<H: DisplayBackend + 'static + ?Sized>(
                     *cache = Some(g);
                 }
             }
-            if let Some(wg) = cache.as_ref().map(|v| v.as_ref()) {
+            if let Some(wg) = cache.as_ref().map(AsRef::as_ref) {
                 if fw.title_offset() {
                     let _ = wg.copy_from(pm, Rect::px(0, 0, w, h), Point::ZERO);
                 } else {
@@ -776,7 +767,7 @@ pub(crate) fn paint_frame_decorations<H: DisplayBackend + 'static + ?Sized>(
             *cache = Some(g);
         }
     }
-    if let Some(g) = cache.as_ref().map(|v| v.as_ref()) {
+    if let Some(g) = cache.as_ref().map(AsRef::as_ref) {
         let _ = crate::render::draw_frame(fw, g, focused, theme, gradients);
     }
 }
@@ -790,7 +781,7 @@ fn repaint_frame<H: DisplayBackend + 'static + ?Sized>(
     let theme = wm.theme_colours;
     let gradients = wm.config.gradients;
     if let Some(fw) = wm.frames.values_mut().find(|fw| fw.frame_id() == frame_id) {
-        if let Some(b) = backend.as_ref().map(|v| v.as_ref()) {
+        if let Some(b) = backend.as_ref().map(AsRef::as_ref) {
             let focused = focused_id == Some(fw.client_id());
             paint_frame_decorations(fw, b, focused, &theme, gradients);
             let _ = b.flush();
@@ -806,7 +797,7 @@ fn run_title_button<H: DisplayBackend + 'static + ?Sized>(
     match btn {
         2 if mwm_allows(wm, cid, mwm_func::CLOSE) => crate::wmaction::close_client(wm, cid),
         5 | 0 => {
-            let was_minimized = wm.frames.get(&cid).map_or(false, |fw| fw.state().minimized);
+            let was_minimized = wm.frames.get(&cid).is_some_and(|fw| fw.state().minimized);
             if !was_minimized && mwm_allows(wm, cid, mwm_func::MINIMIZE) {
                 if let Some(fw) = wm.frame_mut(cid) {
                     fw.state_mut().minimized = true;
@@ -817,7 +808,7 @@ fn run_title_button<H: DisplayBackend + 'static + ?Sized>(
         }
         4 if mwm_allows(wm, cid, mwm_func::MAXIMIZE) => crate::wmaction::set_maximized(wm, cid),
         1 => {
-            let maxed = wm.frames.get(&cid).map_or(false, |fw| fw.state().maximized);
+            let maxed = wm.frames.get(&cid).is_some_and(|fw| fw.state().maximized);
             if maxed {
                 crate::wmaction::set_maximized(wm, cid);
             }
@@ -835,7 +826,7 @@ fn open_window_menu<H: DisplayBackend + 'static + ?Sized>(
     wm: &mut WindowManager<H>,
     cid: ClientId,
 ) {
-    let pos = match wm.frame(cid).map(|fw| {
+    let Some(pos) = wm.frame(cid).map(|fw| {
         let r = fw.frame_rect();
         let btn_x = fw
             .title_button_layout()
@@ -844,10 +835,7 @@ fn open_window_menu<H: DisplayBackend + 'static + ?Sized>(
             .map_or(0, |(_, _, _, b)| b.x);
         let bar_bottom = fw.effective_border() + crate::frame::title_bar_height();
         Point::new(r.x + btn_x, r.y + bar_bottom)
-    }) {
-        Some(pos) => pos,
-        None => return,
-    };
+    }) else { return };
     let join = wm.join_candidates();
     let mut menu = crate::winmenu::WindowActionMenu::for_focused_client_opts(
         wm.config.workspace_count,
@@ -866,7 +854,7 @@ fn open_window_menu<H: DisplayBackend + 'static + ?Sized>(
 
 pub const KBD_DRAG_STEP: i32 = 16;
 
-pub fn arrow_delta(keysym: u32, step: i32) -> Option<(i32, i32)> {
+pub const fn arrow_delta(keysym: u32, step: i32) -> Option<(i32, i32)> {
     Some(match keysym {
         0xFF51 => (-step, 0),
         0xFF52 => (0, -step),
@@ -880,10 +868,7 @@ pub fn keyboard_drag<H: DisplayBackend + 'static + ?Sized>(
     wm: &mut WindowManager<H>,
     keysym: u32,
 ) -> bool {
-    let (frame_id, _start, edge, init_rect) = match wm.drag_state {
-        Some(s) => s,
-        None => return false,
-    };
+    let Some((frame_id, _start, edge, init_rect)) = wm.drag_state else { return false };
     match keysym {
         0xFF1B => {
             if wm.config.opaque_move {
@@ -903,15 +888,11 @@ pub fn keyboard_drag<H: DisplayBackend + 'static + ?Sized>(
             true
         }
         _ => {
-            let (dx, dy) = match arrow_delta(keysym, KBD_DRAG_STEP) {
-                Some(d) => d,
-                None => return false,
-            };
+            let Some((dx, dy)) = arrow_delta(keysym, KBD_DRAG_STEP) else { return false };
             let pending = wm.drag_pending;
             let computed = {
-                let fw = match wm.frames.values().find(|fw| fw.frame_id() == frame_id) {
-                    Some(fw) => fw,
-                    None => return false,
+                let Some(fw) = wm.frames.values().find(|fw| fw.frame_id() == frame_id) else {
+                    return false;
                 };
                 let cur = pending.unwrap_or_else(|| fw.frame_rect());
                 let hints = fw.client().size_hints();
@@ -983,7 +964,7 @@ pub fn button_release<H: DisplayBackend + 'static + ?Sized>(
             let _ = b.ungrab_pointer(0);
         }
         let backend = wm.backend.clone();
-        let drop_target = backend.as_ref().map(|v| v.as_ref()).and_then(|b| {
+        let drop_target = backend.as_ref().map(AsRef::as_ref).and_then(|b| {
             if let Ok(ptr) = b.query_pointer(b.root().read_id()) {
                 let sw = b.screen_width() as i32;
                 let sh = b.screen_height() as i32;
@@ -1003,16 +984,13 @@ pub fn button_release<H: DisplayBackend + 'static + ?Sized>(
     crate::resize_popup::hide(wm);
     crate::drag_outline::hide(wm);
     let pending = wm.drag_pending.take();
-    let (drag_frame_id, _start, _edge, _init_rect) = match prev_drag {
-        Some(d) => d,
-        None => {
+    let Some((drag_frame_id, _start, _edge, _init_rect)) = prev_drag else {
             if let Some(backend) = wm.backend() {
                 let _ = backend.ungrab_pointer(0);
                 let _ = backend.ungrab_keyboard(0);
             }
             return;
-        }
-    };
+        };
 
     if let Some(backend) = wm.backend() {
         let _ = backend.ungrab_pointer(0);
@@ -1031,7 +1009,7 @@ pub fn button_release<H: DisplayBackend + 'static + ?Sized>(
                 }
             }
             if let Some(cid) = cid_opt {
-                if wm.frame(cid).map_or(false, |f| f.state().shaded) {
+                if wm.frame(cid).is_some_and(|f| f.state().shaded) {
                     crate::wmaction::set_shaded(wm, cid, Some(false));
                 }
                 let needs_save = match wm.frame(cid) {

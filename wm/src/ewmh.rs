@@ -107,14 +107,8 @@ pub fn close_window<H: DisplayBackend + 'static + ?Sized>(
     atoms: &antibox_core::backend::AtomManager,
     window: u32,
 ) -> bool {
-    let wm_delete = match atoms.get("WM_DELETE_WINDOW") {
-        Some(a) => a,
-        None => return false,
-    };
-    let wm_protos = match atoms.get("WM_PROTOCOLS") {
-        Some(a) => a,
-        None => return false,
-    };
+    let Some(wm_delete) = atoms.get("WM_DELETE_WINDOW") else { return false };
+    let Some(wm_protos) = atoms.get("WM_PROTOCOLS") else { return false };
     let data = [wm_delete, backend.last_event_time(), 0, 0, 0];
     let _ = backend.send_event(false, window, 0, wm_protos, &data);
     let _ = backend.flush();
@@ -231,7 +225,7 @@ pub fn parse_desktop_names(data: &[u8]) -> Vec<String> {
         .split(|&b| b == 0)
         .map(|s| String::from_utf8_lossy(s).into_owned())
         .collect();
-    if parts.last().map_or(false, String::is_empty) {
+    if parts.last().is_some_and(String::is_empty) {
         parts.pop();
     }
     parts
@@ -339,7 +333,7 @@ pub fn update_allowed_actions<H: DisplayBackend + 'static + ?Sized>(
     size_hints: Option<&antibox_core::backend::SizeHints>,
     mwm: Option<&antibox_core::backend::MwmHints>,
 ) {
-    let resizable = !size_hints.map_or(false, antibox_core::SizeHints::is_fixed);
+    let resizable = !size_hints.is_some_and(antibox_core::SizeHints::is_fixed);
     let names = allowed_action_names(resizable, mwm);
     let action_atoms: Vec<u32> = names.iter().filter_map(|name| atoms.get(name)).collect();
     set_prop32(
@@ -386,10 +380,7 @@ pub fn update_window_opacity<H: DisplayBackend + 'static + ?Sized>(
     frame: u32,
     fallback: Option<u32>,
 ) {
-    let atom = match atoms.get("_NET_WM_WINDOW_OPACITY") {
-        Some(a) => a,
-        None => return,
-    };
+    let Some(atom) = atoms.get("_NET_WM_WINDOW_OPACITY") else { return };
     let opacity = backend
         .get_property(client, atom, 0, 0, 1)
         .ok()

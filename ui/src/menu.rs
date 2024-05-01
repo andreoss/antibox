@@ -12,8 +12,8 @@ pub struct MenuColors {
 }
 
 impl Default for MenuColors {
-    fn default() -> MenuColors {
-        MenuColors {
+    fn default() -> Self {
+        Self {
             bg: crate::theme::menu_bg(),
             fg: crate::theme::text(),
             sel_bg: crate::theme::menu_sel_bg(),
@@ -23,8 +23,8 @@ impl Default for MenuColors {
 }
 
 impl MenuColors {
-    pub fn with_bg(bg: antibox_core::colour::Colour) -> MenuColors {
-        MenuColors {
+    pub fn with_bg(bg: antibox_core::colour::Colour) -> Self {
+        Self {
             bg,
             fg: crate::theme::contrast(0x000000, bg),
             sel_bg: crate::theme::menu_sel_bg(),
@@ -41,7 +41,7 @@ fn band_h() -> i32 {
     (item_h() as i32) * 3 / 4
 }
 
-fn frame_pad() -> i32 {
+const fn frame_pad() -> i32 {
     4
 }
 
@@ -88,7 +88,7 @@ fn bar_h() -> i16 {
 
 impl<T: Clone> MenuView<T> {
     pub fn new() -> Self {
-        MenuView {
+        Self {
             window: None,
             items: Vec::new(),
             all: Vec::new(),
@@ -107,7 +107,7 @@ impl<T: Clone> MenuView<T> {
     }
 
     pub fn with_nodes(nodes: Vec<MenuNode<T>>) -> Self {
-        MenuView {
+        Self {
             items: nodes.clone(),
             all: nodes,
             ..Self::new()
@@ -127,10 +127,7 @@ impl<T: Clone> MenuView<T> {
     }
 
     pub fn enable_filter(&mut self, rb: &std::sync::Arc<dyn RenderBackend>) {
-        let win_id = match self.window.as_ref().map(|w| w.id()) {
-            Some(id) => id,
-            None => return,
-        };
+        let Some(win_id) = self.window.as_ref().map(|w| w.id()) else { return };
         if self.bar.is_some() {
             return;
         }
@@ -170,10 +167,7 @@ impl<T: Clone> MenuView<T> {
 
     fn reposition(&mut self, sw: i32, sh: i32) {
         self.fit_rows(sh);
-        let win = match self.window {
-            Some(ref w) => w,
-            None => return,
-        };
+        let Some(ref win) = self.window else { return };
         let ph = self.height().max(1);
         let pos =
             crate::menurender::menu_clamp_pos(self.anchor, self.menu_w() as i32, ph, sw, sh, true);
@@ -205,10 +199,7 @@ impl<T: Clone> MenuView<T> {
     }
 
     fn reset_filter<H: DisplayBackend + ?Sized>(&mut self, conn: &H) {
-        let bar = match self.bar.as_mut() {
-            Some(bar) => bar,
-            None => return,
-        };
+        let Some(bar) = self.bar.as_mut() else { return };
         if !bar.text().is_empty() {
             bar.set_text("");
         }
@@ -238,10 +229,7 @@ impl<T: Clone> MenuView<T> {
         ks: u32,
     ) -> MenuNav<T> {
         use crate::searchbar::SearchEvent;
-        let bar = match self.bar.as_mut() {
-            Some(bar) => bar,
-            None => return self.handle_key(conn, ks),
-        };
+        let Some(bar) = self.bar.as_mut() else { return self.handle_key(conn, ks) };
         if ks == 0xFF1B && !bar.text().is_empty() {
             bar.set_text("");
             self.refilter(conn);
@@ -267,10 +255,7 @@ impl<T: Clone> MenuView<T> {
         button: u8,
     ) -> bool {
         use crate::searchbar::SearchEvent;
-        let bar = match self.bar.as_mut() {
-            Some(bar) => bar,
-            None => return false,
-        };
+        let Some(bar) = self.bar.as_mut() else { return false };
         if !bar.owns_window(window) {
             return false;
         }
@@ -300,17 +285,17 @@ impl<T: Clone> MenuView<T> {
             labels
                 .iter()
                 .filter(|it| !it.is_separator())
-                .map(|it| it.title()),
+                .map(MenuNode::title),
         ) + self.icon_col() as u16
     }
 
     pub fn contains_window(&self, window: u32) -> bool {
-        self.window.as_ref().map_or(false, |w| w.id() == window)
-            || self.bar.as_ref().map_or(false, |b| b.owns_window(window))
+        self.window.as_ref().is_some_and(|w| w.id() == window)
+            || self.bar.as_ref().is_some_and(|b| b.owns_window(window))
             || self
                 .submenu
                 .as_ref()
-                .map_or(false, |s| s.contains_window(window))
+                .is_some_and(|s| s.contains_window(window))
     }
 
     pub fn show<H: DisplayBackend + ?Sized>(&mut self, conn: &H, pos: Point) {
@@ -378,7 +363,7 @@ impl<T: Clone> MenuView<T> {
             || self
                 .submenu
                 .as_ref()
-                .map_or(false, |s| s.tree_contains(root))
+                .is_some_and(|s| s.tree_contains(root))
     }
 
     fn rows_top(&self) -> i32 {
@@ -442,10 +427,7 @@ impl<T: Clone> MenuView<T> {
     }
 
     fn ensure_visible(&mut self) {
-        let s = match self.selected {
-            Some(s) => s,
-            None => return,
-        };
+        let Some(s) = self.selected else { return };
         if !self.scrollable {
             return;
         }
@@ -535,10 +517,7 @@ impl<T: Clone> MenuView<T> {
                 return sub.press_opens_submenu(conn, root);
             }
         }
-        let idx = match self.item_at(root) {
-            Some(idx) => idx,
-            None => return false,
-        };
+        let Some(idx) = self.item_at(root) else { return false };
         if self.items[idx].children().is_none() {
             return false;
         }
@@ -606,10 +585,7 @@ impl<T: Clone> MenuView<T> {
 
     fn open_selected_submenu<H: DisplayBackend + ?Sized>(&mut self, conn: &H) -> MenuNav<T> {
         let d = self.deepest();
-        let s = match d.selected {
-            Some(s) => s,
-            None => return MenuNav::Ignored,
-        };
+        let Some(s) = d.selected else { return MenuNav::Ignored };
         if d.items[s].children().is_none() {
             return MenuNav::Ignored;
         }
@@ -824,21 +800,12 @@ impl<T: Clone> MenuView<T> {
     }
 
     pub fn paint<H: DisplayBackend + ?Sized>(&self, conn: &H) {
-        let win = match &self.window {
-            Some(win) => win,
-            None => return,
-        };
+        let Some(win) = &self.window else { return };
         let c = self.colours;
         let w = self.menu_w();
         let h = self.height().max(1) as u16;
-        let pm = match conn.create_pixmap(w, h, conn.screen_depth()) {
-            Ok(pm) => pm,
-            Err(_) => return,
-        };
-        let g = match conn.create_graphics(pm) {
-            Ok(g) => g,
-            Err(_) => return,
-        };
+        let Ok(pm) = conn.create_pixmap(w, h, conn.screen_depth()) else { return };
+        let Ok(g) = conn.create_graphics(pm) else { return };
         let _ = g.set_font(&FontSpec::role(
             FontRole::Menu,
             crate::metrics::font_pt(),

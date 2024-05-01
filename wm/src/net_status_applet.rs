@@ -149,7 +149,7 @@ impl NetStatusApplet {
                 | EventMask::BUTTON_PRESS
                 | EventMask::BUTTON_RELEASE,
         )?;
-        Ok(NetStatusApplet {
+        Ok(Self {
             conn: Arc::clone(conn),
             window,
             tooltip: None,
@@ -165,10 +165,7 @@ impl NetStatusApplet {
     }
 
     pub fn update(&mut self) {
-        let cur = match read_net_counters() {
-            Some(cur) => cur,
-            None => return,
-        };
+        let Some(cur) = read_net_counters() else { return };
         if let Some(ref prev) = self.prev {
             let mut total_rx = 0u64;
             let mut total_tx = 0u64;
@@ -196,10 +193,7 @@ impl NetStatusApplet {
     }
 
     fn paint_graph(&self, g: &dyn GraphicsContext) {
-        let plot = match crate::status_graph::plot(self.w, self.h, self.samples.len()) {
-            Some(plot) => plot,
-            None => return,
-        };
+        let Some(plot) = crate::status_graph::plot(self.w, self.h, self.samples.len()) else { return };
         let n = plot.count();
         let (mut in_max, mut out_max) = (0u64, 0u64);
         for col in 0..n {
@@ -248,7 +242,7 @@ fn fmt_rate(bytes: f64) -> String {
     } else if bytes >= 1024.0 {
         format!("{:.0}K", bytes / 1024.0)
     } else {
-        format!("{:.0}B", bytes)
+        format!("{bytes:.0}B")
     }
 }
 

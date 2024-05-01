@@ -10,7 +10,7 @@ fn line_thickness() -> i16 {
 fn fmt_time(minutes: u64) -> String {
     let h = minutes / 60;
     let m = minutes % 60;
-    format!("{}:{:02}", h, m)
+    format!("{h}:{m:02}")
 }
 
 fn fmt_power(microwatts: u64) -> String {
@@ -19,7 +19,7 @@ fn fmt_power(microwatts: u64) -> String {
     } else if microwatts >= 1000 {
         format!("{}mW", microwatts / 1000)
     } else {
-        format!("{}uW", microwatts)
+        format!("{microwatts}uW")
     }
 }
 
@@ -148,7 +148,7 @@ impl BatteryView {
             } else {
                 "Full"
             };
-            s.push_str(&format!("Battery: {}% ({})", pct, state));
+            s.push_str(&format!("Battery: {pct}% ({state})"));
         }
         for (i, b) in self.batteries.iter().enumerate() {
             s.push_str(&format!("\nBAT{}: {}%", i, b.percent));

@@ -67,7 +67,7 @@ impl TrayApplet {
         let xembed_info_atom = atom_manager.get("_XEMBED_INFO").unwrap_or(0);
         let net_wm_name_atom = atom_manager.get("_NET_WM_NAME").unwrap_or(0);
 
-        let tray = TrayApplet {
+        let tray = Self {
             window,
             conn: Arc::clone(conn),
             tray_atom,
@@ -152,10 +152,7 @@ impl TrayApplet {
     }
 
     fn fetch_client_title(&self, window: u32) -> String {
-        let c = match self.tray {
-            Some(ref c) => c,
-            None => return String::new(),
-        };
+        let Some(ref c) = self.tray else { return String::new() };
         if self.net_wm_name_atom != 0 {
             if let Some(s) = c.get_text_property(window, self.net_wm_name_atom) {
                 return s;
@@ -218,17 +215,14 @@ impl TrayApplet {
     }
 
     pub fn handle_xembed_message(&mut self, msg_window: u32, data: &[u32; 5]) {
-        let idx = match self.embedded.iter().position(|e| e.window == msg_window) {
-            Some(idx) => idx,
-            None => return,
-        };
+        let Some(idx) = self.embedded.iter().position(|e| e.window == msg_window) else { return };
         let msg = data[1];
         match msg {
             XEMBED_REQUEST_FOCUS => {
                 let _ = self.conn.set_input_focus(0, msg_window, CURRENT_TIME);
             }
             _ => {
-                eprintln!("unhandled XEMBED message: {} window={}", msg, msg_window);
+                eprintln!("unhandled XEMBED message: {msg} window={msg_window}");
             }
         }
         self.embedded[idx].title = self.fetch_client_title(msg_window);

@@ -22,6 +22,6 @@ pub fn get_arc(conn: *mut xcb_connection_t) -> Arc<XcbConnection> {
         r.borrow()
             .get(&key)
             .map(Arc::clone)
-            .unwrap_or_else(|| panic!("xcb connection {:#x} not registered", key))
+            .unwrap_or_else(|| panic!("xcb connection {key:#x} not registered"))
     })
 }

@@ -8,7 +8,7 @@ use antibox_core::backend::{DisplayBackend, EventMask, GrabMode, PointerGrab};
 use antibox_core::point::Point;
 use antibox_core::rect::Rect;
 
-fn fid<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManager<H>) -> Option<ClientId> {
+const fn fid<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManager<H>) -> Option<ClientId> {
     wm.focused_window
 }
 
@@ -31,10 +31,7 @@ fn fullscreen_rect<H: DisplayBackend + 'static + ?Sized>(
 ) -> Rect {
     let (sw, sh) = dims(wm);
     let whole = Rect::new(0, 0, sw, sh);
-    let fw = match wm.frame(id) {
-        Some(fw) => fw,
-        None => return whole,
-    };
+    let Some(fw) = wm.frame(id) else { return whole };
     let mons = placement::monitors_for_screen(&wm.monitors, sw, sh);
     if let Some([t, b, l, r]) = fw.client().fullscreen_monitors {
         let m = |i: u32| mons.get(i as usize);
@@ -151,7 +148,6 @@ pub fn handle_wm_action<H: DisplayBackend + 'static + ?Sized>(
                 wm.set_layout(*ws, layout);
             }
         }
-        Action::Workspace(WorkspaceOp::WorkspaceMenu(_)) => {}
         Action::Focus(FocusOp::ClickToFocus) => set_focus_mode(wm, 1),
         Action::Focus(FocusOp::Explicit) => set_focus_mode(wm, 3),
         Action::Focus(FocusOp::MouseSloppy) => set_focus_mode(wm, 2),
@@ -177,7 +173,7 @@ fn maximize_axis<H: DisplayBackend + 'static + ?Sized>(
     vert: bool,
     horz: bool,
 ) {
-    let id = match fid(wm) { Some(v) => v, None => return };
+    let Some(id) = fid(wm) else { return };
     if !mwm_allows(wm, id, mwm_func::MAXIMIZE) {
         return;
     }
@@ -197,7 +193,7 @@ pub(crate) fn set_maximized<H: DisplayBackend + 'static + ?Sized>(
     let full = wm
         .frames
         .get(&id)
-        .map_or(false, |f| f.state().max_vert && f.state().max_horz);
+        .is_some_and(|f| f.state().max_vert && f.state().max_horz);
     set_max_state(wm, id, !full, !full);
 }
 
@@ -217,7 +213,7 @@ pub(crate) fn clear_max_state<H: DisplayBackend + 'static + ?Sized>(
     let maxed = wm
         .frames
         .get(&id)
-        .map_or(false, |f| f.state().max_vert || f.state().max_horz);
+        .is_some_and(|f| f.state().max_vert || f.state().max_horz);
     if maxed {
         set_max_state(wm, id, false, false);
     }
@@ -231,13 +227,13 @@ pub(crate) fn set_max_state_ext<H: DisplayBackend + 'static + ?Sized>(
     force: bool,
 ) {
     if want_vert || want_horz {
-        let ws = wm.frames.get(&id).map_or(0, |f| f.workspace());
+        let ws = wm.frames.get(&id).map_or(0, super::frame::FrameWindow::workspace);
         let ws = if ws == !0 { wm.active_workspace } else { ws };
         if wm.layout_for(ws).is_tiled() {
             return;
         }
     }
-    if (want_vert || want_horz) && wm.frame(id).map_or(false, |f| f.state().shaded) {
+    if (want_vert || want_horz) && wm.frame(id).is_some_and(|f| f.state().shaded) {
         set_shaded(wm, id, Some(false));
     }
     let (fr, cl, was_v, was_h, cur, hints, decorated) = match wm.frame(id) {
@@ -247,7 +243,7 @@ pub(crate) fn set_max_state_ext<H: DisplayBackend + 'static + ?Sized>(
             f.state().max_vert,
             f.state().max_horz,
             f.frame_rect(),
-            f.client().size_hints().cloned(),
+            f.client().size_hints().copied(),
             f.decorated(),
         ),
         None => return,
@@ -393,22 +389,22 @@ pub(crate) fn reapply_fullscreen<H: DisplayBackend + 'static + ?Sized>(
     wm: &mut WindowManager<H>,
     id: ClientId,
 ) {
-    let fs = wm.frames.get(&id).map_or(false, |f| f.state().fullscreen);
+    let fs = wm.frames.get(&id).is_some_and(|f| f.state().fullscreen);
     if fs {
         place_fullscreen(wm, id);
     }
 }
 
 fn minimize<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
-    let id = match fid(wm) { Some(v) => v, None => return };
+    let Some(id) = fid(wm) else { return };
     if !mwm_allows(wm, id, mwm_func::MINIMIZE) {
         return;
     }
-    let was = wm.frames.get(&id).map_or(false, |f| f.state().minimized);
+    let was = wm.frames.get(&id).is_some_and(|f| f.state().minimized);
     if let Some(fw) = wm.frame_mut(id) {
         fw.minimize();
     }
-    let now = wm.frames.get(&id).map_or(false, |f| f.state().minimized);
+    let now = wm.frames.get(&id).is_some_and(|f| f.state().minimized);
     if now && !was {
         set_minimized_visible(wm, id, true);
         placement::set_transients_minimized(&mut wm.frames, id, true);
@@ -419,15 +415,15 @@ fn minimize<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
 }
 
 fn restore<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
-    let id = match fid(wm) { Some(v) => v, None => return };
-    if wm.frames.get(&id).map_or(false, |f| f.state().shaded) {
+    let Some(id) = fid(wm) else { return };
+    if wm.frames.get(&id).is_some_and(|f| f.state().shaded) {
         set_shaded(wm, id, Some(false));
     }
-    if wm.frames.get(&id).map_or(false, |f| f.state().fullscreen) {
+    if wm.frames.get(&id).is_some_and(|f| f.state().fullscreen) {
         set_fullscreen(wm, id, false);
     }
     set_max_state(wm, id, false, false);
-    if wm.frames.get(&id).map_or(false, |f| f.state().minimized) {
+    if wm.frames.get(&id).is_some_and(|f| f.state().minimized) {
         if let Some(fw) = wm.frame_mut(id) {
             fw.state_mut().minimized = false;
         }
@@ -438,7 +434,7 @@ fn restore<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
 
 fn fullscreen<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
     if let Some(id) = fid(wm) {
-        let was = wm.frames.get(&id).map_or(false, |f| f.state().fullscreen);
+        let was = wm.frames.get(&id).is_some_and(|f| f.state().fullscreen);
         set_fullscreen(wm, id, !was);
     }
 }
@@ -455,7 +451,7 @@ pub(crate) fn set_fullscreen<H: DisplayBackend + 'static + ?Sized>(
     if want == was {
         return;
     }
-    if want && wm.frame(id).map_or(false, |f| f.state().shaded) {
+    if want && wm.frame(id).is_some_and(|f| f.state().shaded) {
         set_shaded(wm, id, Some(false));
     }
     let cur = match wm.frame(id) {
@@ -558,7 +554,7 @@ pub(crate) fn set_shaded<H: DisplayBackend + 'static + ?Sized>(
     }
     let title_h = crate::frame::title_block_height() + crate::frame::bottom_border_width();
     let new_h = {
-        let f = match wm.frame_mut(id) { Some(v) => v, None => return };
+        let Some(f) = wm.frame_mut(id) else { return };
         f.state_mut().shaded = target;
         if target {
             f.saved_shade_height = Some(cur.h);
@@ -599,7 +595,7 @@ pub(crate) fn set_shaded<H: DisplayBackend + 'static + ?Sized>(
 }
 
 fn hide<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
-    let id = match fid(wm) { Some(v) => v, None => return };
+    let Some(id) = fid(wm) else { return };
     if let Some(fw) = wm.frame_mut(id) {
         fw.state_mut().minimized = true;
     }
@@ -612,14 +608,10 @@ pub(crate) fn set_minimized_visible<H: DisplayBackend + 'static + ?Sized>(
     id: ClientId,
     minimized: bool,
 ) {
-    let (fr, cl) = match wm
+    let Some((fr, cl)) = wm
         .frames
         .get(&id)
-        .map(|f| (f.frame().id(), wm.xid_index.xid_of(id)))
-    {
-        Some(v) => v,
-        None => return,
-    };
+        .map(|f| (f.frame().id(), wm.xid_index.xid_of(id))) else { return };
     if minimized {
         wm.expect_client_unmap(cl);
     }
@@ -690,7 +682,7 @@ pub(crate) fn publish_net_wm_state<H: DisplayBackend + 'static + ?Sized>(
         .map(|f| {
             f.client()
                 .wm_state
-                .iter().cloned()
+                .iter().copied()
                 .filter(|atom| !managed.contains(atom))
                 .collect()
         })
@@ -777,7 +769,7 @@ pub(crate) fn close_client<H: DisplayBackend + 'static + ?Sized>(
 }
 
 fn kill<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
-    let id = match fid(wm) { Some(v) => v, None => return };
+    let Some(id) = fid(wm) else { return };
     kill_client_id(wm, id);
 }
 
@@ -819,7 +811,7 @@ pub(crate) fn kill_client_id<H: DisplayBackend + 'static + ?Sized>(
 }
 
 fn set_layer<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, n: i32) {
-    let id = match fid(wm) { Some(v) => v, None => return };
+    let Some(id) = fid(wm) else { return };
     if let Some(layer) = WinLayer::from_i32(n) {
         if let Some(fw) = wm.frame_mut(id) {
             fw.set_layer(layer);
@@ -829,19 +821,19 @@ fn set_layer<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, n:
 }
 
 fn raise<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
-    let id = match fid(wm) { Some(v) => v, None => return };
+    let Some(id) = fid(wm) else { return };
     wm.raise_to_top(id);
     placement::restack_windows(wm);
 }
 
 fn lower<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
-    let id = match fid(wm) { Some(v) => v, None => return };
+    let Some(id) = fid(wm) else { return };
     wm.lower_to_bottom(id);
     placement::restack_windows(wm);
 }
 
 fn depth<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
-    let id = match fid(wm) { Some(v) => v, None => return };
+    let Some(id) = fid(wm) else { return };
     if let Some(fw) = wm.frame_mut(id) {
         let new = match fw.layer() {
             WinLayer::Normal => WinLayer::Below,
@@ -854,7 +846,7 @@ fn depth<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
 }
 
 fn occupy_all<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
-    let id = match fid(wm) { Some(v) => v, None => return };
+    let Some(id) = fid(wm) else { return };
     toggle_occupy_all(wm, id);
 }
 
@@ -894,7 +886,7 @@ pub(crate) fn toggle_occupy_all<H: DisplayBackend + 'static + ?Sized>(
 }
 
 fn move_win<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
-    let id = match fid(wm) { Some(v) => v, None => return };
+    let Some(id) = fid(wm) else { return };
     if !mwm_allows(wm, id, mwm_func::MOVE) {
         return;
     }
@@ -929,11 +921,11 @@ fn move_win<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
 }
 
 fn resize_win<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
-    let id = match fid(wm) { Some(v) => v, None => return };
+    let Some(id) = fid(wm) else { return };
     if !mwm_allows(wm, id, mwm_func::RESIZE) {
         return;
     }
-    if wm.frame(id).map_or(false, |fw| fw.state().shaded) {
+    if wm.frame(id).is_some_and(|fw| fw.state().shaded) {
         return;
     }
     if let Some(fw) = wm.frame(id) {
@@ -965,7 +957,7 @@ fn resize_win<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
 }
 
 fn show<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
-    let id = match fid(wm) { Some(v) => v, None => return };
+    let Some(id) = fid(wm) else { return };
     if let Some(fw) = wm.frame_mut(id) {
         fw.state_mut().minimized = false;
     }
@@ -1011,7 +1003,7 @@ pub(crate) fn set_showing_desktop<H: DisplayBackend + 'static + ?Sized>(
         let mut hidden = Vec::new();
         let mut order: Vec<ClientId> = wm
             .insertion_order
-            .iter().cloned()
+            .iter().copied()
             .filter(|id| wm.frames.contains_key(id))
             .collect();
         for id in wm.frames.keys().collect::<Vec<_>>() {
@@ -1020,7 +1012,7 @@ pub(crate) fn set_showing_desktop<H: DisplayBackend + 'static + ?Sized>(
             }
         }
         for id in order {
-            let visible = wm.frames.get(&id).map_or(false, |f| {
+            let visible = wm.frames.get(&id).is_some_and(|f| {
                 crate::manager::workspace_visible(
                     f.workspace(),
                     f.state().sticky,
@@ -1065,7 +1057,7 @@ fn set_layer_named<H: DisplayBackend + 'static + ?Sized>(
     wm: &mut WindowManager<H>,
     layer: WinLayer,
 ) {
-    let id = match fid(wm) { Some(v) => v, None => return };
+    let Some(id) = fid(wm) else { return };
     if let Some(fw) = wm.frame_mut(id) {
         fw.set_layer(layer);
     }
@@ -1101,9 +1093,9 @@ fn cascade<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
     let ws = wm.active_workspace;
     let order: Vec<ClientId> = wm
         .insertion_order
-        .iter().cloned()
+        .iter().copied()
         .filter(|id| {
-            wm.frames.get(id).map_or(false, |f| {
+            wm.frames.get(id).is_some_and(|f| {
                 let s = f.state();
                 !s.minimized && !s.skip_taskbar && (f.workspace() == ws || f.workspace() == !0)
             })
@@ -1113,7 +1105,7 @@ fn cascade<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
         return;
     }
     for id in &order {
-        if wm.frame(*id).map_or(false, |f| f.state().shaded) {
+        if wm.frame(*id).is_some_and(|f| f.state().shaded) {
             set_shaded(wm, *id, Some(false));
         }
     }
@@ -1165,9 +1157,9 @@ fn cascade<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
 fn tileable_ids<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManager<H>) -> Vec<ClientId> {
     let ws = wm.active_workspace;
     wm.insertion_order
-        .iter().cloned()
+        .iter().copied()
         .filter(|id| {
-            wm.frames.get(id).map_or(false, |f| {
+            wm.frames.get(id).is_some_and(|f| {
                 let s = f.state();
                 !s.minimized && !s.skip_taskbar && (f.workspace() == ws || f.workspace() == !0)
             })
@@ -1181,7 +1173,7 @@ fn apply_tile_rects<H: DisplayBackend + 'static + ?Sized>(
 ) {
     let placed: Vec<(ClientId, Rect)> = placed.into_iter().collect();
     for (id, _) in &placed {
-        if wm.frame(*id).map_or(false, |f| f.state().shaded) {
+        if wm.frame(*id).is_some_and(|f| f.state().shaded) {
             set_shaded(wm, *id, Some(false));
         }
         clear_max_state(wm, *id);
@@ -1266,7 +1258,7 @@ fn tile_horizontal<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<
     apply_tile_rects(wm, placed);
 }
 
-pub fn compute_tile_directional_rect(
+pub const fn compute_tile_directional_rect(
     dir: u32,
     wa_x: i32,
     wa_y: i32,
@@ -1291,7 +1283,7 @@ pub fn compute_tile_directional_rect(
     }
 }
 
-pub fn compute_tile_center_rect(wa_w: i32, wa_h: i32) -> Rect {
+pub const fn compute_tile_center_rect(wa_w: i32, wa_h: i32) -> Rect {
     let cw = wa_w * 2 / 3;
     let ch = wa_h * 2 / 3;
     let cx = (wa_w - cw) / 2;
@@ -1300,19 +1292,13 @@ pub fn compute_tile_center_rect(wa_w: i32, wa_h: i32) -> Rect {
 }
 
 fn tile_directional<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, dir: u32) {
-    let id = match fid(wm) { Some(v) => v, None => return };
-    if wm.frame(id).map_or(false, |f| f.state().shaded) {
+    let Some(id) = fid(wm) else { return };
+    if wm.frame(id).is_some_and(|f| f.state().shaded) {
         set_shaded(wm, id, Some(false));
     }
     let (wa_x, wa_y, wa_w, wa_h) = workarea(wm);
-    let r = match compute_tile_directional_rect(dir, wa_x, wa_y, wa_w, wa_h) {
-        Some(r) => r,
-        None => return,
-    };
-    let frame_id = match wm.frame(id).map(super::frame::FrameWindow::frame_id) {
-        Some(fid) => fid,
-        None => return,
-    };
+    let Some(r) = compute_tile_directional_rect(dir, wa_x, wa_y, wa_w, wa_h) else { return };
+    let Some(frame_id) = wm.frame(id).map(super::frame::FrameWindow::frame_id) else { return };
     clear_max_state(wm, id);
     crate::drag::apply_frame_rect(wm, frame_id, r);
     wm.reposition_resize_handles(id);
@@ -1322,16 +1308,13 @@ fn tile_directional<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager
 }
 
 fn tile_center<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
-    let id = match fid(wm) { Some(v) => v, None => return };
-    if wm.frame(id).map_or(false, |f| f.state().shaded) {
+    let Some(id) = fid(wm) else { return };
+    if wm.frame(id).is_some_and(|f| f.state().shaded) {
         set_shaded(wm, id, Some(false));
     }
     let (_x, _y, wa_w, wa_h) = workarea(wm);
     let r = compute_tile_center_rect(wa_w, wa_h);
-    let frame_id = match wm.frame(id).map(super::frame::FrameWindow::frame_id) {
-        Some(fid) => fid,
-        None => return,
-    };
+    let Some(frame_id) = wm.frame(id).map(super::frame::FrameWindow::frame_id) else { return };
     clear_max_state(wm, id);
     crate::drag::apply_frame_rect(wm, frame_id, r);
     wm.reposition_resize_handles(id);
@@ -1353,14 +1336,11 @@ pub(crate) fn apply_tab_frame_size<H: DisplayBackend + 'static + ?Sized>(
     wm: &mut WindowManager<H>,
     id: ClientId,
 ) {
-    let backend = match wm.backend.clone() {
-        Some(b) => b,
-        None => return,
-    };
+    let Some(backend) = wm.backend.clone() else { return };
     if let Some(fw) = wm.frame_mut(id) {
         let cr = fw.client_rect();
         let [il, it, ir, ib] = fw.client_insets();
-        let fr = antibox_core::rect::Rect::new(
+        let fr = Rect::new(
             cr.x - il,
             cr.y - it,
             (cr.w + il + ir).max(1),
@@ -1381,10 +1361,7 @@ pub(crate) fn apply_tab_frame_size<H: DisplayBackend + 'static + ?Sized>(
 }
 
 fn untab_window<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
-    let focused = match wm.focused_window {
-        Some(f) => f,
-        None => return,
-    };
+    let Some(focused) = wm.focused_window else { return };
     let step = antibox_core::scale::scaled(24);
     let at = wm
         .frames
@@ -1406,22 +1383,16 @@ pub(crate) fn detach_tab<H: DisplayBackend + 'static + ?Sized>(
     use crate::client::ClientWindow;
     use crate::frame::{border_width, title_bar_height, top_for, FrameWindow};
 
-    let mut old_frame = match wm.frames.remove(&owner) {
-        Some(f) => f,
-        None => return,
-    };
-    let backend = match wm.backend.clone() {
-        Some(b) => b,
-        None => {
+    let Some(mut old_frame) = wm.frames.remove(&owner) else { return };
+    let Some(backend) = wm.backend.clone() else {
             wm.frames.insert(owner, old_frame);
             return;
-        }
-    };
+        };
     let bw = border_width();
     let th = title_bar_height();
     let size = old_frame.client_rect();
     let placed_client =
-        antibox_core::rect::Rect::new(at.x + bw, at.y + top_for(bw, th), size.w, size.h);
+        Rect::new(at.x + bw, at.y + top_for(bw, th), size.w, size.h);
     let frame_bg = wm.theme_colours.border_active;
     let layer = old_frame.layer();
     let workspace = old_frame.workspace();
@@ -1438,25 +1409,19 @@ pub(crate) fn detach_tab<H: DisplayBackend + 'static + ?Sized>(
         wm.expect_client_unmap(tab_xid);
         let created =
             FrameWindow::create_frame_ex(backend.as_ref(), tab_xid, placed_client, true, frame_bg);
-        let (new_frame, frame_rect) = match created {
-            Ok(v) => v,
-            Err(_) => {
+        let Ok((new_frame, frame_rect)) = created else {
                 wm.consume_expected_unmap(tab_xid);
                 old_frame.tabbed_clients.insert(0, new_active);
                 wm.frames.insert(owner, old_frame);
                 return;
-            }
-        };
-        let cw = match backend.wrap_window(tab_xid) {
-            Ok(cw) => cw,
-            Err(_) => {
+            };
+        let Ok(cw) = backend.wrap_window(tab_xid) else {
                 wm.consume_expected_unmap(tab_xid);
                 let _ = new_frame.destroy();
                 old_frame.tabbed_clients.insert(0, new_active);
                 wm.frames.insert(owner, old_frame);
                 return;
-            }
-        };
+            };
         let mut client = ClientWindow::new(cw);
         client.read_initial_properties(backend.as_ref(), &wm.atoms);
         client.id = tab;
@@ -1470,22 +1435,16 @@ pub(crate) fn detach_tab<H: DisplayBackend + 'static + ?Sized>(
         wm.xid_index.set_frame_xid(tab, detached.frame().id());
         wm.frames.insert(tab, detached);
 
-        let nac = match wm.cid_for_xid(new_active) {
-            Some(cid) => cid,
-            None => {
+        let Some(nac) = wm.cid_for_xid(new_active) else {
                 crate::focus::focus_window(wm, tab);
                 apply_tab_frame_size(wm, tab);
                 return;
-            }
-        };
-        let nw = match backend.wrap_window(new_active) {
-            Ok(nw) => nw,
-            Err(_) => {
+            };
+        let Ok(nw) = backend.wrap_window(new_active) else {
                 crate::focus::focus_window(wm, tab);
                 apply_tab_frame_size(wm, tab);
                 return;
-            }
-        };
+            };
         let mut new_client = ClientWindow::new(nw);
         new_client.read_initial_properties(backend.as_ref(), &wm.atoms);
         new_client.id = nac;
@@ -1499,13 +1458,10 @@ pub(crate) fn detach_tab<H: DisplayBackend + 'static + ?Sized>(
         apply_tab_frame_size(wm, tab);
     } else {
         let tab_xid = wm.xid_index.xid_of(tab);
-        let pos = match old_frame.tabbed_clients.iter().position(|&c| c == tab_xid) {
-            Some(p) => p,
-            None => {
+        let Some(pos) = old_frame.tabbed_clients.iter().position(|&c| c == tab_xid) else {
                 wm.frames.insert(owner, old_frame);
                 return;
-            }
-        };
+            };
         old_frame.tabbed_clients.remove(pos);
         old_frame.tab_order.retain(|&id| id != tab_xid);
         old_frame.tab_titles.borrow_mut().remove(&tab_xid);
@@ -1514,13 +1470,10 @@ pub(crate) fn detach_tab<H: DisplayBackend + 'static + ?Sized>(
         let created =
             FrameWindow::create_frame_ex(backend.as_ref(), tab_xid, placed_client, true, frame_bg);
         if let Ok((new_frame, frame_rect)) = created {
-            let cw = match backend.wrap_window(tab_xid) {
-                Ok(cw) => cw,
-                Err(_) => {
+            let Ok(cw) = backend.wrap_window(tab_xid) else {
                     let _ = new_frame.destroy();
                     return;
-                }
-            };
+                };
             let mut client = ClientWindow::new(cw);
             client.read_initial_properties(backend.as_ref(), &wm.atoms);
             client.id = tab;
@@ -1550,25 +1503,16 @@ pub(crate) fn tab_window<H: DisplayBackend + 'static + ?Sized>(
     if !wm.frames.contains_key(&source_id) || !wm.frames.contains_key(&target_id) {
         return;
     }
-    let backend = match wm.backend.clone() {
-        Some(b) => b,
-        None => return,
-    };
-    let mut source_frame = match wm.frames.remove(&source_id) {
-        Some(f) => f,
-        None => return,
-    };
+    let Some(backend) = wm.backend.clone() else { return };
+    let Some(mut source_frame) = wm.frames.remove(&source_id) else { return };
     let source_xid = wm.xid_index.xid_of(source_id);
     if !source_frame.state().minimized {
         wm.expect_client_unmap(source_xid);
     }
-    let target_frame = match wm.frame_mut(target_id) {
-        Some(f) => f,
-        None => {
+    let Some(target_frame) = wm.frame_mut(target_id) else {
             wm.frames.insert(source_id, source_frame);
             return;
-        }
-    };
+        };
     let _ = backend.reparent_window(source_xid, target_frame.frame.id(), Point::new(0, 0));
     let _ = backend.unmap_window(source_xid);
     target_frame.tab_order = target_frame.tab_order_synced();
@@ -1614,36 +1558,24 @@ pub(crate) fn tab_select<H: DisplayBackend + 'static + ?Sized>(
     if active_xid == target_xid {
         return;
     }
-    let mut frame = match wm.frames.remove(&active) {
-        Some(f) => f,
-        None => return,
-    };
-    let pos = match frame.tabbed_clients.iter().position(|&c| c == target_xid) {
-        Some(p) => p,
-        None => {
+    let Some(mut frame) = wm.frames.remove(&active) else { return };
+    let Some(pos) = frame.tabbed_clients.iter().position(|&c| c == target_xid) else {
             wm.frames.insert(active, frame);
             return;
-        }
-    };
-    let backend = match wm.backend.clone() {
-        Some(b) => b,
-        None => {
+        };
+    let Some(backend) = wm.backend.clone() else {
             wm.frames.insert(active, frame);
             return;
-        }
-    };
+        };
     if !frame.state().minimized {
         wm.expect_client_unmap(active_xid);
     }
     let _ = backend.unmap_window(active_xid);
-    let nw = match backend.wrap_window(target_xid) {
-        Ok(nw) => nw,
-        Err(_) => {
+    let Ok(nw) = backend.wrap_window(target_xid) else {
             let _ = backend.map_window(active_xid);
             wm.frames.insert(active, frame);
             return;
-        }
-    };
+        };
     frame.tabbed_clients.remove(pos);
     frame.tabbed_clients.push(active_xid);
     let target = wm.cid_for_xid(target_xid).unwrap_or(active);
@@ -1679,25 +1611,15 @@ pub(crate) fn tab_select<H: DisplayBackend + 'static + ?Sized>(
 }
 
 fn tab_step<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, dir: i32) {
-    let focused = match wm.focused_window {
-        Some(f) => f,
-        None => return,
-    };
-    let frame = match wm.frame(focused) {
-        Some(f) => f,
-        None => return,
-    };
+    let Some(focused) = wm.focused_window else { return };
+    let Some(frame) = wm.frame(focused) else { return };
     if frame.tabbed_clients.is_empty() {
         return;
     }
     let order = frame.tab_order_synced();
-    let pos = match order
+    let Some(pos) = order
         .iter()
-        .position(|&id| id == wm.xid_index.xid_of(focused))
-    {
-        Some(p) => p,
-        None => return,
-    };
+        .position(|&id| id == wm.xid_index.xid_of(focused)) else { return };
     let n = order.len() as i32;
     let target = order[((pos as i32 + dir + n) % n) as usize];
     tab_select(wm, focused, target);

@@ -121,7 +121,7 @@ pub enum Action {
     Misc(MiscOp),
 }
 
-fn window_name(op: &WindowOp) -> &'static str {
+const fn window_name(op: &WindowOp) -> &'static str {
     match op {
         WindowOp::Close => "Close",
         WindowOp::Kill => "Kill",
@@ -141,7 +141,7 @@ fn window_name(op: &WindowOp) -> &'static str {
     }
 }
 
-fn tile_name(op: &TileOp) -> &'static str {
+const fn tile_name(op: &TileOp) -> &'static str {
     match op {
         TileOp::Cascade => "Cascade",
         TileOp::Tile => "Tile",
@@ -165,7 +165,7 @@ fn tile_name(op: &TileOp) -> &'static str {
     }
 }
 
-fn workspace_name(op: &WorkspaceOp) -> &'static str {
+const fn workspace_name(op: &WorkspaceOp) -> &'static str {
     match op {
         WorkspaceOp::NextWorkspace => "Next Workspace",
         WorkspaceOp::PrevWorkspace => "Prev Workspace",
@@ -185,7 +185,7 @@ fn workspace_name(op: &WorkspaceOp) -> &'static str {
     }
 }
 
-fn focus_name(op: &FocusOp) -> &'static str {
+const fn focus_name(op: &FocusOp) -> &'static str {
     match op {
         FocusOp::Next => "Focus Next",
         FocusOp::Prev => "Focus Previous",
@@ -198,7 +198,7 @@ fn focus_name(op: &FocusOp) -> &'static str {
     }
 }
 
-fn layer_name(op: &LayerOp) -> &'static str {
+const fn layer_name(op: &LayerOp) -> &'static str {
     match op {
         LayerOp::Layer(_) => "Layer",
         LayerOp::AboveAll => "Layer Above All",
@@ -212,7 +212,7 @@ fn layer_name(op: &LayerOp) -> &'static str {
     }
 }
 
-fn menu_name(op: &MenuOp) -> &'static str {
+const fn menu_name(op: &MenuOp) -> &'static str {
     match op {
         MenuOp::WindowPickerList => "Window List",
         MenuOp::WindowActionMenu => "Window Menu",
@@ -222,7 +222,7 @@ fn menu_name(op: &MenuOp) -> &'static str {
     }
 }
 
-fn misc_name(op: &MiscOp) -> &'static str {
+const fn misc_name(op: &MiscOp) -> &'static str {
     match op {
         MiscOp::Command(_) => "Command",
         MiscOp::Show => "Show",
@@ -231,7 +231,7 @@ fn misc_name(op: &MiscOp) -> &'static str {
     }
 }
 
-pub fn action_name(action: &Action) -> &'static str {
+pub const fn action_name(action: &Action) -> &'static str {
     match action {
         Action::Window(op) => window_name(op),
         Action::Tile(op) => tile_name(op),

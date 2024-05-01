@@ -129,7 +129,7 @@ pub fn round_title_button_corners(
     fill_corner_arcs(g, x, y, w, h, surround, r);
 }
 
-pub fn press_colours(face: Colour, fg: Colour, _sunken: bool) -> (u32, u32) {
+pub const fn press_colours(face: Colour, fg: Colour, _sunken: bool) -> (u32, u32) {
     (face, fg)
 }
 
@@ -290,7 +290,7 @@ pub fn themed_combo_button(
     false
 }
 
-pub fn pressed_dither(sunken: bool) -> bool {
+pub const fn pressed_dither(sunken: bool) -> bool {
     sunken
 }
 
@@ -343,10 +343,7 @@ pub fn title_glyph_bitmap(
     w: u16,
     h: u16,
 ) -> bool {
-    let rows = match title_glyph(key) {
-        Some(r) => r,
-        None => return false,
-    };
+    let Some(rows) = title_glyph(key) else { return false };
     let s = hairline(w, h) as i16;
     let gsz = 10 * s;
     let ox = x + (w as i16 - gsz) / 2;
@@ -362,11 +359,11 @@ pub fn title_glyph_bitmap(
     };
     blit(rows);
 
-    if let Some(hi) = title_glyph(&format!("{}_hi", key)) {
+    if let Some(hi) = title_glyph(&format!("{key}_hi")) {
         let _ = g.set_foreground(face_light());
         blit(hi);
     }
-    if let Some(sh) = title_glyph(&format!("{}_sh", key)) {
+    if let Some(sh) = title_glyph(&format!("{key}_sh")) {
         let _ = g.set_foreground(shadow());
         blit(sh);
     }
@@ -447,7 +444,7 @@ pub fn panel_surface(g: &dyn GraphicsContext, w: u16, h: u16, fallback: Colour) 
     let _ = g.fill_rect(0, 0, w, h);
 }
 
-pub fn tray_edge_width() -> u16 {
+pub const fn tray_edge_width() -> u16 {
     0
 }
 

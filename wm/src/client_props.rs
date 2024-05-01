@@ -105,7 +105,7 @@ impl ClientWindow {
             self.pid = self.read_u32_prop(atom).unwrap_or(0);
             if !self.xpra_resolved && self.pid != 0 {
                 self.is_xpra = crate::proc_reader::pid_command(self.pid)
-                    .map_or(false, |cmd| cmd.to_ascii_lowercase().contains("xpra"));
+                    .is_some_and(|cmd| cmd.to_ascii_lowercase().contains("xpra"));
                 self.xpra_resolved = true;
             }
         }
@@ -170,7 +170,7 @@ impl ClientWindow {
                 let instance = parts[0].trim();
                 let class = parts[1].trim();
                 if !instance.is_empty() && !class.is_empty() {
-                    self.class_instance = Some(format!("{}.{}", instance, class));
+                    self.class_instance = Some(format!("{instance}.{class}"));
                 }
             } else if !raw.is_empty() {
                 self.class_instance = Some(raw);
@@ -217,10 +217,7 @@ impl ClientWindow {
         backend: &H,
         atoms: &AtomManager,
     ) {
-        let ut = match atoms.get("_NET_WM_USER_TIME") {
-            Some(ut) => ut,
-            None => return,
-        };
+        let Some(ut) = atoms.get("_NET_WM_USER_TIME") else { return };
         let time_window = atoms
             .get("_NET_WM_USER_TIME_WINDOW")
             .and_then(|a| self.read_u32_prop(a))

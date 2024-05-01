@@ -9,8 +9,8 @@ pub enum WmWindowClass {
 pub struct RootWindow(u32);
 
 impl RootWindow {
-    pub const fn new(xid: u32) -> RootWindow {
-        RootWindow(xid)
+    pub const fn new(xid: u32) -> Self {
+        Self(xid)
     }
 
     pub const fn as_parent(self) -> u32 {
@@ -57,8 +57,8 @@ pub struct PointerGrab {
 }
 
 impl PointerGrab {
-    pub const fn new(window: u32, event_mask: EventMask) -> PointerGrab {
-        PointerGrab {
+    pub const fn new(window: u32, event_mask: EventMask) -> Self {
+        Self {
             owner_events: false,
             window,
             event_mask,
@@ -88,21 +88,21 @@ pub struct ButtonGrabSpec {
 pub struct EventMask(u64);
 
 impl EventMask {
-    pub const NO_EVENT: Self = EventMask(0);
-    pub const KEY_PRESS: Self = EventMask(1 << 0);
-    pub const KEY_RELEASE: Self = EventMask(1 << 1);
-    pub const BUTTON_PRESS: Self = EventMask(1 << 2);
-    pub const BUTTON_RELEASE: Self = EventMask(1 << 3);
-    pub const POINTER_MOTION: Self = EventMask(1 << 6);
-    pub const ENTER_WINDOW: Self = EventMask(1 << 4);
-    pub const LEAVE_WINDOW: Self = EventMask(1 << 5);
-    pub const FOCUS_CHANGE: Self = EventMask(1 << 21);
-    pub const EXPOSURE: Self = EventMask(1 << 15);
-    pub const PROPERTY_CHANGE: Self = EventMask(1 << 22);
-    pub const BUTTON_MOTION: Self = EventMask(1 << 13);
-    pub const STRUCTURE_NOTIFY: Self = EventMask(1 << 17);
-    pub const SUBSTRUCTURE_NOTIFY: Self = EventMask(1 << 19);
-    pub const SUBSTRUCTURE_REDIRECT: Self = EventMask(1 << 20);
+    pub const NO_EVENT: Self = Self(0);
+    pub const KEY_PRESS: Self = Self(1 << 0);
+    pub const KEY_RELEASE: Self = Self(1 << 1);
+    pub const BUTTON_PRESS: Self = Self(1 << 2);
+    pub const BUTTON_RELEASE: Self = Self(1 << 3);
+    pub const POINTER_MOTION: Self = Self(1 << 6);
+    pub const ENTER_WINDOW: Self = Self(1 << 4);
+    pub const LEAVE_WINDOW: Self = Self(1 << 5);
+    pub const FOCUS_CHANGE: Self = Self(1 << 21);
+    pub const EXPOSURE: Self = Self(1 << 15);
+    pub const PROPERTY_CHANGE: Self = Self(1 << 22);
+    pub const BUTTON_MOTION: Self = Self(1 << 13);
+    pub const STRUCTURE_NOTIFY: Self = Self(1 << 17);
+    pub const SUBSTRUCTURE_NOTIFY: Self = Self(1 << 19);
+    pub const SUBSTRUCTURE_REDIRECT: Self = Self(1 << 20);
 
     pub const fn contains(&self, other: Self) -> bool {
         (self.0 & other.0) == other.0
@@ -115,15 +115,15 @@ impl EventMask {
 
 impl std::ops::BitOr for EventMask {
     type Output = Self;
-    fn bitor(self, rhs: Self) -> EventMask {
-        EventMask(self.0 | rhs.0)
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
     }
 }
 
 impl std::ops::BitAnd for EventMask {
     type Output = Self;
-    fn bitand(self, rhs: Self) -> EventMask {
-        EventMask(self.0 & rhs.0)
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
     }
 }
 
@@ -131,12 +131,12 @@ impl std::ops::BitAnd for EventMask {
 pub struct KeyButMask(pub u16);
 
 impl KeyButMask {
-    pub const MOD1: Self = KeyButMask(1 << 3);
-    pub const CONTROL: Self = KeyButMask(1 << 2);
-    pub const SHIFT: Self = KeyButMask(1 << 0);
+    pub const MOD1: Self = Self(1 << 3);
+    pub const CONTROL: Self = Self(1 << 2);
+    pub const SHIFT: Self = Self(1 << 0);
 
-    pub const fn new(bits: u16) -> KeyButMask {
-        KeyButMask(bits)
+    pub const fn new(bits: u16) -> Self {
+        Self(bits)
     }
 
     pub const fn intersects(self, other: Self) -> bool {
@@ -150,8 +150,8 @@ impl KeyButMask {
 
 impl std::ops::BitOr for KeyButMask {
     type Output = Self;
-    fn bitor(self, rhs: Self) -> KeyButMask {
-        KeyButMask(self.0 | rhs.0)
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
     }
 }
 
@@ -326,8 +326,8 @@ pub struct FontSpec {
 }
 
 impl FontSpec {
-    pub fn new(family: &str, size: u16) -> FontSpec {
-        FontSpec {
+    pub fn new(family: &str, size: u16) -> Self {
+        Self {
             family: family.to_string(),
             size,
             bold: false,
@@ -335,21 +335,21 @@ impl FontSpec {
         }
     }
 
-    pub fn ui(size: u16) -> FontSpec {
+    pub fn ui(size: u16) -> Self {
         let scaled = crate::scale::scaled(size as i32).clamp(1, 255) as u16;
         Self::new(&ui_font(), scaled)
     }
 
-    pub fn role(role: FontRole, size: u16) -> FontSpec {
+    pub fn role(role: FontRole, size: u16) -> Self {
         Self::role_styled(role, size, false, false)
     }
 
-    pub fn role_styled(role: FontRole, size: u16, bold: bool, italic: bool) -> FontSpec {
+    pub fn role_styled(role: FontRole, size: u16, bold: bool, italic: bool) -> Self {
         let overridden = ELEMENT_FONTS.with(|g| g.borrow()[role as usize].clone());
         if let Some(ef) = overridden {
             let pt = if ef.size > 0 { ef.size } else { size };
             let scaled = crate::scale::scaled(pt as i32).clamp(1, 255) as u16;
-            return FontSpec {
+            return Self {
                 family: ef.family.clone(),
                 size: scaled,
                 bold: ef.bold,
@@ -363,13 +363,13 @@ impl FontSpec {
     }
 
     #[must_use]
-    pub fn bold(mut self) -> FontSpec {
+    pub const fn bold(mut self) -> Self {
         self.bold = true;
         self
     }
 
     #[must_use]
-    pub fn italic(mut self) -> FontSpec {
+    pub const fn italic(mut self) -> Self {
         self.italic = true;
         self
     }

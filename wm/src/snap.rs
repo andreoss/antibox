@@ -31,11 +31,11 @@ pub enum SnapDir {
 }
 
 impl SnapZone {
-    pub fn is_none(&self) -> bool {
+    pub const fn is_none(&self) -> bool {
         self.h.is_none() && self.v.is_none()
     }
 
-    pub fn dir_index(&self) -> Option<u32> {
+    pub const fn dir_index(&self) -> Option<u32> {
         match (self.h, self.v) {
             (Some(Horz::Left), None) => Some(0),
             (Some(Horz::Right), None) => Some(1),
@@ -95,8 +95,8 @@ pub fn compose(cur: Option<SnapZone>, dir: SnapDir) -> Option<SnapZone> {
 }
 
 pub fn current_zone(fr: Rect, area: Rect) -> Option<SnapZone> {
-    for h in [None, Some(Horz::Left), Some(Horz::Right)].iter().cloned() {
-        for v in [None, Some(Vert::Top), Some(Vert::Bottom)].iter().cloned() {
+    for h in [None, Some(Horz::Left), Some(Horz::Right)].iter().copied() {
+        for v in [None, Some(Vert::Top), Some(Vert::Bottom)].iter().copied() {
             let z = SnapZone { h, v };
             if zone_rect(z, area) == Some(fr) {
                 return Some(z);
@@ -185,10 +185,7 @@ pub fn show_preview<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager
         }
     }
     clear_preview(wm);
-    let b = match wm.backend.clone() {
-        Some(b) => b,
-        None => return,
-    };
+    let Some(b) = wm.backend.clone() else { return };
     let t = antibox_core::scale::scaled(3).max(2) as u16;
     let w = rect.w.max(1) as u16;
     let h = rect.h.max(1) as u16;
@@ -200,9 +197,14 @@ pub fn show_preview<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager
             (sw as i32).max(1),
             (sh as i32).max(1),
         );
-        let win = match b.create_window(b.root().as_parent(), strip, WmWindowClass::InputOutput, true, EventMask::EXPOSURE) {
-            Ok(win) => win,
-            Err(_) => continue,
+        let Ok(win) = b.create_window(
+            b.root().as_parent(),
+            strip,
+            WmWindowClass::InputOutput,
+            true,
+            EventMask::EXPOSURE,
+        ) else {
+            continue;
         };
         let _ = win.map();
         let _ = win.raise();
@@ -248,10 +250,7 @@ pub fn monitor_at<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManager<H>, a
 
 pub fn snap_area<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManager<H>, at: Point) -> Rect {
     let mon = monitor_at(wm, at);
-    let wa = match wm.workareas.first().cloned() {
-        Some(wa) => wa,
-        None => return mon,
-    };
+    let Some(wa) = wm.workareas.first().copied() else { return mon };
     let x = mon.x.max(wa.x);
     let y = mon.y.max(wa.y);
     let x2 = (mon.x + mon.w).min(wa.x + wa.w);
@@ -267,23 +266,17 @@ pub fn keyboard_snap<H: DisplayBackend + 'static + ?Sized>(
     wm: &mut WindowManager<H>,
     dir: SnapDir,
 ) {
-    let id = match wm.focused_window { Some(v) => v, None => return };
-    if wm.frame(id).map_or(false, |f| f.state().shaded) {
+    let Some(id) = wm.focused_window else { return };
+    if wm.frame(id).is_some_and(|f| f.state().shaded) {
         crate::wmaction::set_shaded(wm, id, Some(false));
     }
     crate::wmaction::clear_max_state(wm, id);
-    let fr = match wm.frame(id).map(super::frame::FrameWindow::frame_rect) {
-        Some(fr) => fr,
-        None => return,
-    };
+    let Some(fr) = wm.frame(id).map(super::frame::FrameWindow::frame_rect) else { return };
     let center = crate::geom::center_of(fr);
     let area = snap_area(wm, center);
     let cur = current_zone(fr, area);
     if let Some(z) = compose(cur, dir) {
-        let target = match zone_rect(z, area) {
-            Some(t) => t,
-            None => return,
-        };
+        let Some(target) = zone_rect(z, area) else { return };
         if cur.is_none() {
             if let Some(fw) = wm.frame_mut(id) {
                 fw.snap_saved = Some(fr);
@@ -307,16 +300,13 @@ pub fn set_snap_zone<H: DisplayBackend + 'static + ?Sized>(
 ) {
     let atom = wm.atoms.get("_WM_SNAP_ZONE").unwrap_or(0);
     let backend = wm.backend.clone();
-    let fw = match wm.frame_mut(id) {
-        Some(fw) => fw,
-        None => return,
-    };
+    let Some(fw) = wm.frame_mut(id) else { return };
     fw.snap_zone = zone;
     let cid = fw.client_xid();
     if atom == 0 {
         return;
     }
-    if let Some(b) = backend.as_ref().map(|v| v.as_ref()) {
+    if let Some(b) = backend.as_ref().map(AsRef::as_ref) {
         match zone.and_then(|z| z.dir_index()) {
             Some(idx) => {
                 let _ = b.change_property32(
@@ -339,10 +329,7 @@ pub fn apply_snap_rect<H: DisplayBackend + 'static + ?Sized>(
     id: ClientId,
     r: Rect,
 ) {
-    let fwid = match wm.frame(id).map(super::frame::FrameWindow::frame_id) {
-        Some(fid) => fid,
-        None => return,
-    };
+    let Some(fwid) = wm.frame(id).map(super::frame::FrameWindow::frame_id) else { return };
     crate::drag::apply_frame_rect(wm, fwid, r);
     wm.reposition_resize_handles(id);
     if let Some(b) = wm.backend() {

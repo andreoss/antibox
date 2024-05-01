@@ -45,7 +45,7 @@ pub(crate) fn parse_colour(s: &str, default: &str) -> u32 {
 }
 
 impl Default for ThemeColors {
-    fn default() -> ThemeColors {
+    fn default() -> Self {
         use antibox_ui::theme;
         let active_top = theme::title_active();
         let active_bottom = theme::title_gradient();
@@ -67,7 +67,7 @@ impl Default for ThemeColors {
         let bat_bg = parse_colour("rgb:FF/FF/00", "rgb:FF/FF/00");
         let bat_fg = parse_colour("rgb:00/FF/00", "rgb:00/FF/00");
         let bat_line = parse_colour("rgb:00/FF/00", "rgb:00/FF/00");
-        ThemeColors {
+        Self {
             active_title_top: active_top,
             active_title_bottom: active_bottom,
             inactive_title_top: inactive_top,
@@ -80,7 +80,7 @@ impl Default for ThemeColors {
             button_bg,
             button_fg,
             task_bar_colour,
-            menu_bg: antibox_ui::theme::menu_bg(),
+            menu_bg: theme::menu_bg(),
             workspace_active_bg: ws_active_bg,
             workspace_active_fg: ws_active_fg,
             workspace_normal_bg: ws_normal_bg,
@@ -155,7 +155,7 @@ pub(crate) fn darken_colour(
     antibox_core::colour::scale(c, factor)
 }
 
-pub(crate) fn shift_colour(
+pub(crate) const fn shift_colour(
     c: antibox_core::colour::Colour,
     d: i32,
 ) -> antibox_core::colour::Colour {
@@ -228,12 +228,12 @@ pub(crate) fn draw_tab_strip(fw: &FrameWindow, g: &dyn GraphicsContext) {
     for (rect, (id, _)) in rects.iter().zip(pairs.iter()) {
         let (x, y, w, h) = *rect;
         hits.push((
-            antibox_core::rect::Rect::new(x as i32, y as i32, w as i32, h as i32),
+            Rect::new(x as i32, y as i32, w as i32, h as i32),
             *id,
         ));
         let (cx, cy, cw, ch) = antibox_ui::tabstrip::close_rect(*rect);
         close_hits.push((
-            antibox_core::rect::Rect::new(cx as i32, cy as i32, cw as i32, ch as i32),
+            Rect::new(cx as i32, cy as i32, cw as i32, ch as i32),
             *id,
         ));
     }
@@ -410,7 +410,7 @@ fn draw_title_text(
     match shift {
         Some(shift) => {
             let clip =
-                antibox_core::rect::Rect::new(tx as i32, bar_top, avail as i32, title_bar_height());
+                Rect::new(tx as i32, bar_top, avail as i32, title_bar_height());
             let _ = g.push_clip(&clip);
             g.draw_text_transparent(tx - shift as i16, baseline as i16, &title)?;
             let _ = g.pop_clip();

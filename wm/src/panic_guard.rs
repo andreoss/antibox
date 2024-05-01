@@ -7,7 +7,7 @@ pub fn install_hook() {
     let prev = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         if let Ok(mut g) = LAST_PANIC.lock() {
-            *g = Some(format!("{}", info));
+            *g = Some(format!("{info}"));
         }
         prev(info);
     }));
@@ -25,14 +25,11 @@ pub fn record(event: &str, detail: &str, path: &Path) -> std::io::Result<()> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    std::fs::write(path, format!("event: {}\n{}\n", event, detail))
+    std::fs::write(path, format!("event: {event}\n{detail}\n"))
 }
 
 pub fn report_previous() {
-    let path = match breadcrumb_path() {
-        Some(p) => p,
-        None => return,
-    };
+    let Some(path) = breadcrumb_path() else { return };
     if !path.is_file() {
         return;
     }

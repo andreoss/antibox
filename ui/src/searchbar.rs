@@ -171,10 +171,7 @@ impl SearchBar {
     }
 
     pub fn repaint(&self) {
-        let g = match self.conn.create_graphics(self.window.id()) {
-            Ok(g) => g,
-            Err(_) => return,
-        };
+        let Ok(g) = self.conn.create_graphics(self.window.id()) else { return };
         use crate::theme;
         theme::sunken_field(&*g, 0, 0, self.w, self.h);
         if !self.input.text().is_empty() {

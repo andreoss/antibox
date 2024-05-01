@@ -7,10 +7,10 @@ pub struct Point {
 }
 
 impl Point {
-    pub const ZERO: Self = Point { x: 0, y: 0 };
+    pub const ZERO: Self = Self { x: 0, y: 0 };
 
-    pub const fn new(x: i32, y: i32) -> Point {
-        Point { x, y }
+    pub const fn new(x: i32, y: i32) -> Self {
+        Self { x, y }
     }
 }
 
@@ -21,14 +21,14 @@ pub struct Dimension {
 }
 
 impl Dimension {
-    pub const ZERO: Self = Dimension { w: 0, h: 0 };
+    pub const ZERO: Self = Self { w: 0, h: 0 };
 
-    pub const fn new(w: i32, h: i32) -> Dimension {
-        Dimension { w, h }
+    pub const fn new(w: i32, h: i32) -> Self {
+        Self { w, h }
     }
 
-    pub const fn px(w: u16, h: u16) -> Dimension {
-        Dimension {
+    pub const fn px(w: u16, h: u16) -> Self {
+        Self {
             w: w as i32,
             h: h as i32,
         }

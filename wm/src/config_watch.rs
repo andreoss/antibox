@@ -39,10 +39,7 @@ pub fn init_watch() -> Option<RawFd> {
         if !d.is_dir() {
             continue;
         }
-        let path = match std::ffi::CString::new(d.to_string_lossy().into_owned()) {
-            Ok(p) => p,
-            Err(_) => continue,
-        };
+        let Ok(path) = std::ffi::CString::new(d.to_string_lossy().into_owned()) else { continue };
         if unsafe { libc::inotify_add_watch(fd, path.as_ptr(), WATCH_MASK) } >= 0 {
             any = true;
         }

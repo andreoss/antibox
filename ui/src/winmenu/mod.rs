@@ -20,7 +20,7 @@ impl Default for WindowActionMenu {
 
 impl WindowActionMenu {
     pub fn new() -> Self {
-        WindowActionMenu {
+        Self {
             view: MenuView::new(),
             nodes: Vec::new(),
         }
@@ -126,7 +126,7 @@ impl WindowActionMenu {
         items
     }
 
-    pub fn visible(&self) -> bool {
+    pub const fn visible(&self) -> bool {
         self.view.visible
     }
 

@@ -28,7 +28,7 @@ fn group_children<'a>(nodes: &'a [MenuNode<OmniAct>], title: &str) -> Option<&'a
     })
 }
 
-fn leaf_payload<T: Clone>(node: &MenuNode<T>) -> Option<&T> {
+const fn leaf_payload<T: Clone>(node: &MenuNode<T>) -> Option<&T> {
     match node {
         MenuNode::Leaf { payload, .. } => Some(payload),
         _ => None,

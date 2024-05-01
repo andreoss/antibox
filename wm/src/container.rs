@@ -4,10 +4,7 @@ pub fn handle_click<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager
     if wm.frames.values().any(|fw| fw.frame().id() == window) {
         return;
     }
-    let client_id = match wm.cid_for_xid(window) {
-        Some(cid) => cid,
-        None => return,
-    };
+    let Some(client_id) = wm.cid_for_xid(window) else { return };
     if wm.frames.contains_key(&client_id) {
         crate::focus::focus_window(wm, client_id);
     }

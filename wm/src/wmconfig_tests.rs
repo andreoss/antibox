@@ -132,9 +132,7 @@
         for (combo, action) in default_prefs().keys {
             assert!(
                 crate::keys_parser::parse_key_binding(&combo, &action).is_some(),
-                "{} = {}",
-                combo,
-                action
+                "{combo} = {action}"
             );
         }
     }

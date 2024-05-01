@@ -33,16 +33,16 @@ pub fn plot(w: u16, h: u16, count: usize) -> Option<Plot> {
 }
 
 impl Plot {
-    pub fn count(&self) -> usize {
+    pub const fn count(&self) -> usize {
         self.n
     }
-    pub fn top(&self) -> i16 {
+    pub const fn top(&self) -> i16 {
         self.inset
     }
-    pub fn bottom(&self) -> i16 {
+    pub const fn bottom(&self) -> i16 {
         self.inset + self.gh
     }
-    pub fn col_x(&self, col: usize) -> i16 {
+    pub const fn col_x(&self, col: usize) -> i16 {
         self.inset + ((self.cols - self.n + col) as u16 * self.cw) as i16
     }
 
@@ -126,7 +126,7 @@ impl<T: Copy + Default> Default for Samples<T> {
 
 impl<T: Copy + Default> Samples<T> {
     pub fn new() -> Self {
-        Samples {
+        Self {
             buf: [T::default(); MAX_SAMPLES],
             head: 0,
             count: 0,
@@ -141,15 +141,15 @@ impl<T: Copy + Default> Samples<T> {
         }
     }
 
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.count
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.count == 0
     }
 
-    pub fn latest(&self) -> Option<&T> {
+    pub const fn latest(&self) -> Option<&T> {
         if self.count == 0 {
             None
         } else {
@@ -157,7 +157,7 @@ impl<T: Copy + Default> Samples<T> {
         }
     }
 
-    pub fn at(&self, col: usize, n: usize) -> &T {
+    pub const fn at(&self, col: usize, n: usize) -> &T {
         &self.buf[(self.head + MAX_SAMPLES - n + col) % MAX_SAMPLES]
     }
 }

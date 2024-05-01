@@ -1,3 +1,32 @@
+#![deny(
+    elided_lifetimes_in_paths,
+    meta_variable_misuse,
+    unreachable_pub,
+    unused_lifetimes,
+    unused_qualifications
+)]
+#![deny(
+    clippy::cloned_instead_of_copied,
+    clippy::dbg_macro,
+    clippy::explicit_into_iter_loop,
+    clippy::explicit_iter_loop,
+    clippy::implicit_clone,
+    clippy::inefficient_to_string,
+    clippy::manual_let_else,
+    clippy::match_same_arms,
+    clippy::missing_const_for_fn,
+    clippy::needless_pass_by_value,
+    clippy::redundant_closure_for_method_calls,
+    clippy::redundant_else,
+    clippy::semicolon_if_nothing_returned,
+    clippy::todo,
+    clippy::too_many_arguments,
+    clippy::type_complexity,
+    clippy::unimplemented,
+    clippy::uninlined_format_args,
+    clippy::unnested_or_patterns,
+    clippy::use_self
+)]
 use antibox_core::backend::*;
 use antibox_core::point::Point;
 use antibox_core::rect::Rect;
@@ -191,11 +220,13 @@ fn layout(n: usize) -> Layout {
     }
 }
 
-fn row_y(l: &Layout, i: usize) -> i16 {
+const fn row_y(l: &Layout, i: usize) -> i16 {
     l.top + l.row_h * i as i16
 }
 
-fn cell_rect(l: &Layout, i: usize) -> (i16, i16, u16, u16) {
+type CellRect = (i16, i16, u16, u16);
+
+const fn cell_rect(l: &Layout, i: usize) -> CellRect {
     (
         l.pad + l.label_w,
         row_y(l, i),
@@ -204,7 +235,7 @@ fn cell_rect(l: &Layout, i: usize) -> (i16, i16, u16, u16) {
     )
 }
 
-fn button_rects(l: &Layout, _n: usize) -> ((i16, i16, u16, u16), (i16, i16, u16, u16)) {
+fn button_rects(l: &Layout, _n: usize) -> (CellRect, CellRect) {
     let bw = scaled(80) as u16;
     let bh = l.field_h;
     let y = l.h as i16 - l.pad - bh as i16;
@@ -304,16 +335,13 @@ impl App {
         }
         self.status = match settings_io::save(&values) {
             Ok(path) => format!("Saved to {}", path.display()),
-            Err(e) => format!("Save failed: {}", e),
+            Err(e) => format!("Save failed: {e}"),
         };
         self.paint();
     }
 
     fn paint(&self) {
-        let g = match self.conn.create_graphics(self.win.id()) {
-            Ok(g) => g,
-            Err(_) => return,
-        };
+        let Ok(g) = self.conn.create_graphics(self.win.id()) else { return };
         let _ = g.set_foreground(theme::face());
         let _ = g.fill_rect(0, 0, self.l.w, self.l.h);
         let _ = g.set_font(&FontSpec::ui(metrics::font_pt()));
@@ -377,7 +405,7 @@ impl App {
         }
         if !self.status.is_empty() {
             let (save, _) = button_rects(&self.l, n);
-            let clip = antibox_core::rect::Rect::new(
+            let clip = Rect::new(
                 self.l.pad as i32,
                 save.1 as i32,
                 (save.0 - self.l.pad - scaled(8) as i16).max(1) as i32,
@@ -410,7 +438,7 @@ impl App {
     }
 }
 
-fn in_rect(p: Point, r: (i16, i16, u16, u16)) -> bool {
+const fn in_rect(p: Point, r: CellRect) -> bool {
     p.x >= r.0 as i32
         && p.x < r.0 as i32 + r.2 as i32
         && p.y >= r.1 as i32
@@ -421,7 +449,7 @@ fn main() {
     let (conn, render, mut event_loop, _tray) = match antibox_x11::xcb::build_backend(None) {
         Ok(v) => v,
         Err(e) => {
-            eprintln!("antibox-settings: cannot open display: {}", e);
+            eprintln!("antibox-settings: cannot open display: {e}");
             std::process::exit(1);
         }
     };
@@ -436,7 +464,7 @@ fn main() {
     antibox_core::scale::set_dpi(dpi);
 
     let prefs = wmconfig::Config::load_prefs();
-    antibox_ui::theme::install_named(&prefs.theme.name);
+    theme::install_named(&prefs.theme.name);
     antibox_wm::wmapp::apply_font_prefs(&conn, &prefs);
     let mut fields = fields(&prefs);
     let l = layout(fields.len());

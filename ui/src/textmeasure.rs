@@ -48,7 +48,7 @@ fn push_word(
     let joined = if cur.is_empty() {
         word.to_string()
     } else {
-        format!("{} {}", cur, word)
+        format!("{cur} {word}")
     };
     if text_w(g, &joined) <= maxw {
         *cur = joined;

@@ -39,7 +39,7 @@ mod linux {
 
     const POWER_SUPPLY_DIR: &str = "/sys/class/power_supply";
 
-    pub fn read() -> PowerStatus {
+    pub(crate) fn read() -> PowerStatus {
         PowerStatus {
             ac_online: detect_ac(),
             batteries: scan_batteries(),
@@ -51,10 +51,7 @@ mod linux {
     }
 
     fn scan_batteries() -> Vec<BatteryInfo> {
-        let entries = match std::fs::read_dir(POWER_SUPPLY_DIR) {
-            Ok(e) => e,
-            Err(_) => return Vec::new(),
-        };
+        let Ok(entries) = std::fs::read_dir(POWER_SUPPLY_DIR) else { return Vec::new() };
         let mut names: Vec<String> = Vec::new();
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
@@ -66,17 +63,17 @@ mod linux {
         names.truncate(MAX_BATTERIES);
         let mut batteries: Vec<BatteryInfo> = Vec::new();
         for name in names {
-            let base = format!("{}/{}", POWER_SUPPLY_DIR, name);
-            let capacity = read_num::<i32>(&format!("{}/capacity", base));
-            let status = std::fs::read_to_string(format!("{}/status", base))
+            let base = format!("{POWER_SUPPLY_DIR}/{name}");
+            let capacity = read_num::<i32>(&format!("{base}/capacity"));
+            let status = std::fs::read_to_string(format!("{base}/status"))
                 .ok()
                 .map(|s| s.trim().to_string());
-            let energy_now = read_num::<u64>(&format!("{}/energy_now", base))
-                .or_else(|| read_num::<u64>(&format!("{}/charge_now", base)));
-            let energy_full = read_num::<u64>(&format!("{}/energy_full", base))
-                .or_else(|| read_num::<u64>(&format!("{}/charge_full", base)));
-            let power_now = read_num::<u64>(&format!("{}/power_now", base))
-                .or_else(|| read_num::<u64>(&format!("{}/current_now", base)));
+            let energy_now = read_num::<u64>(&format!("{base}/energy_now"))
+                .or_else(|| read_num::<u64>(&format!("{base}/charge_now")));
+            let energy_full = read_num::<u64>(&format!("{base}/energy_full"))
+                .or_else(|| read_num::<u64>(&format!("{base}/charge_full")));
+            let power_now = read_num::<u64>(&format!("{base}/power_now"))
+                .or_else(|| read_num::<u64>(&format!("{base}/current_now")));
             let charging = status.as_deref() == Some("Charging");
             let discharging = status.as_deref() == Some("Discharging");
             if let Some(cap) = capacity {
@@ -107,10 +104,7 @@ mod linux {
     }
 
     fn detect_ac() -> bool {
-        let entries = match std::fs::read_dir(POWER_SUPPLY_DIR) {
-            Ok(e) => e,
-            Err(_) => return false,
-        };
+        let Ok(entries) = std::fs::read_dir(POWER_SUPPLY_DIR) else { return false };
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
             if name.starts_with("AC") || name.starts_with("ADP") || name.starts_with("ACAD") {

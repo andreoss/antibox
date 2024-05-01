@@ -3,7 +3,7 @@
 use super::bindings::*;
 use super::connection::XcbConnection;
 use std::os::raw::{c_char, c_int, c_long, c_uint, c_ulong, c_ushort, c_void};
-use std::sync::{Mutex, Once};
+use std::sync::{Mutex, OnceLock};
 
 const FT_LOAD_RENDER: i32 = 4;
 
@@ -160,16 +160,13 @@ struct FtLib {
 unsafe impl Send for FtLib {}
 
 fn ft_lib() -> &'static Mutex<Option<FtLib>> {
-    static INIT: Once = Once::new();
-    static mut LIB: *const Mutex<Option<FtLib>> = std::ptr::null();
-    INIT.call_once(|| {
+    static LIB: OnceLock<Mutex<Option<FtLib>>> = OnceLock::new();
+    LIB.get_or_init(|| {
         let mut lib: *mut c_void = std::ptr::null_mut();
         let ok = unsafe { FT_Init_FreeType(&mut lib) } == 0;
         let fc_ok = unsafe { FcInit() } != 0;
-        let state = if ok { Some(FtLib { lib, fc_ok }) } else { None };
-        unsafe { LIB = Box::into_raw(Box::new(Mutex::new(state))) };
-    });
-    unsafe { &*LIB }
+        Mutex::new(if ok { Some(FtLib { lib, fc_ok }) } else { None })
+    })
 }
 
 fn match_pattern(pattern: &str) -> Option<(String, i32, u16)> {
@@ -276,10 +273,7 @@ impl FtFont {
 
     pub fn text_width(&self, text: &str) -> u32 {
         let mut total = 0u32;
-        let mut cache = match self.glyphs.lock() {
-            Ok(g) => g,
-            Err(_) => return 0,
-        };
+        let Ok(mut cache) = self.glyphs.lock() else { return 0 };
         for ch in text.chars() {
             let code = ch as u32;
             if let Some(st) = cache.get(&code) {
@@ -300,10 +294,7 @@ impl FtFont {
     }
 
     fn load_advance(&self, code: u32) -> u16 {
-        let guard = match ft_lib().lock() {
-            Ok(g) => g,
-            Err(_) => return 0,
-        };
+        let Ok(guard) = ft_lib().lock() else { return 0 };
         if guard.is_none() {
             return 0;
         }
@@ -333,13 +324,10 @@ impl FtFont {
             self.glyphset
                 .store(gs, std::sync::atomic::Ordering::Relaxed);
         }
-        let mut cache = match self.glyphs.lock() {
-            Ok(g) => g,
-            Err(_) => return,
-        };
+        let Ok(mut cache) = self.glyphs.lock() else { return };
         for ch in text.chars() {
             let code = ch as u32;
-            let done = cache.get(&code).map_or(false, |st| st.uploaded);
+            let done = cache.get(&code).is_some_and(|st| st.uploaded);
             if done {
                 continue;
             }
@@ -355,10 +343,7 @@ impl FtFont {
     }
 
     fn upload_glyph(&self, conn: &XcbConnection, gs: u32, code: u32) -> u16 {
-        let guard = match ft_lib().lock() {
-            Ok(g) => g,
-            Err(_) => return 0,
-        };
+        let Ok(guard) = ft_lib().lock() else { return 0 };
         if guard.is_none() {
             return 0;
         }

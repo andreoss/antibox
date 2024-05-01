@@ -60,7 +60,7 @@ pub fn parse_layer(s: &str) -> Option<WinLayer> {
     }
 }
 
-fn layer_from_code(n: i32) -> Option<WinLayer> {
+const fn layer_from_code(n: i32) -> Option<WinLayer> {
     match n {
         0 | 1 => Some(WinLayer::Desktop),
         2 | 3 => Some(WinLayer::Below),

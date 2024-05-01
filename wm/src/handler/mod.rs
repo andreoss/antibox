@@ -14,7 +14,7 @@ use crate::wmstate::WinLayer;
 use antibox_core::backend::{BackendEvent, DisplayBackend, EventMask, MapState};
 use antibox_core::rect::Rect;
 
-pub(crate) fn window_type_decorated(wt: crate::client::WindowType) -> bool {
+pub(crate) const fn window_type_decorated(wt: crate::client::WindowType) -> bool {
     use crate::client::WindowType;
     !matches!(
         wt,
@@ -22,7 +22,7 @@ pub(crate) fn window_type_decorated(wt: crate::client::WindowType) -> bool {
     )
 }
 
-pub(crate) fn hide_from_taskbar_on_map(client: &ClientWindow) -> bool {
+pub(crate) const fn hide_from_taskbar_on_map(client: &ClientWindow) -> bool {
     !window_type_decorated(client.window_type())
 }
 
@@ -30,7 +30,7 @@ pub(crate) fn want_decorated(client: &ClientWindow) -> bool {
     window_type_decorated(client.window_type())
         && !client
             .mwm_hints()
-            .map_or(false, antibox_core::MwmHints::undecorated)
+            .is_some_and(antibox_core::MwmHints::undecorated)
         && !client.is_csd()
 }
 
@@ -43,7 +43,7 @@ pub(crate) fn client_list_ids<H: DisplayBackend + 'static + ?Sized>(
 ) -> Vec<u32> {
     let mut ids: Vec<u32> = wm
         .map_order
-        .iter().cloned()
+        .iter().copied()
         .filter(|id| wm.frames.contains_key(id))
         .map(|id| wm.xid_index.xid_of(id))
         .collect();
@@ -65,10 +65,7 @@ pub fn map_request_ex<H: DisplayBackend + 'static + ?Sized>(
         return;
     }
     let map_t0 = std::time::Instant::now();
-    let xw = match wm.backend().unwrap().wrap_window(window) {
-        Ok(xw) => xw,
-        Err(_) => return,
-    };
+    let Ok(xw) = wm.backend().unwrap().wrap_window(window) else { return };
     let own_mask = if wm.self_windows.contains(&window) {
         EventMask::PROPERTY_CHANGE
             | EventMask::KEY_PRESS
@@ -124,7 +121,7 @@ pub fn map_request_ex<H: DisplayBackend + 'static + ?Sized>(
         if hide_from_taskbar_on_map(fw.client()) {
             fw.state_mut().skip_taskbar = true;
         }
-        fw.state_mut().urgent = fw.client().wm_hints().map_or(false, |h| h.urgency);
+        fw.state_mut().urgent = fw.client().wm_hints().is_some_and(|h| h.urgency);
         fw.shapes_protect = wm.config.shapes_protect_client;
         fw.frame_rect = fr;
         fw.client_rect = Rect::new(cr.x - inset[0], cr.y - inset[2], cw, ch);
@@ -135,8 +132,8 @@ pub fn map_request_ex<H: DisplayBackend + 'static + ?Sized>(
         }
         let dock_ci = fw.client().class_instance().map(ToString::to_string);
         let is_dock_app = dock_ci
-            .as_ref().map(|v| v.as_ref())
-            .map_or(false, |ci| wm.dock_manager.try_dock(Some(ci)));
+            .as_ref().map(AsRef::as_ref)
+            .is_some_and(|ci| wm.dock_manager.try_dock(Some(ci)));
         if is_dock_app {
             wm.dock_manager.dock(window);
             if let Some(b) = wm.backend() {
@@ -274,7 +271,7 @@ pub fn map_request_ex<H: DisplayBackend + 'static + ?Sized>(
         if wm
             .frames
             .get(&cid)
-            .map_or(false, |f| f.client().suppresses_map_focus())
+            .is_some_and(|f| f.client().suppresses_map_focus())
         {
             skip_focus = true;
         }
@@ -361,16 +358,10 @@ pub fn set_window_decorated<H: DisplayBackend + 'static + ?Sized>(
     decorated: bool,
 ) {
     let backend = wm.backend.clone();
-    let b = match backend.as_ref().map(|v| v.as_ref()) {
-        Some(b) => b,
-        None => return,
-    };
+    let Some(b) = backend.as_ref().map(AsRef::as_ref) else { return };
     let frame_id;
     {
-        let fw = match wm.frame_mut(w) {
-            Some(fw) => fw,
-            None => return,
-        };
+        let Some(fw) = wm.frame_mut(w) else { return };
         if fw.decorated() == decorated {
             return;
         }
@@ -429,14 +420,8 @@ pub(crate) fn apply_csd_extents<H: DisplayBackend + 'static + ?Sized>(
     w: ClientId,
 ) {
     let backend = wm.backend.clone();
-    let b = match backend.as_ref().map(|v| v.as_ref()) {
-        Some(b) => b,
-        None => return,
-    };
-    let fw = match wm.frame_mut(w) {
-        Some(fw) => fw,
-        None => return,
-    };
+    let Some(b) = backend.as_ref().map(AsRef::as_ref) else { return };
+    let Some(fw) = wm.frame_mut(w) else { return };
     let [il, ir, it, ib] = if fw.client().is_csd() {
         fw.client().csd_extents()
     } else {
@@ -508,10 +493,7 @@ fn drop_hidden_tab<H: DisplayBackend + 'static + ?Sized>(
             break;
         }
     }
-    let owner = match owner {
-        Some(o) => o,
-        None => return false,
-    };
+    let Some(owner) = owner else { return false };
     if let Some(fw) = wm.frames.get_mut(&owner) {
         fw.tabbed_clients.retain(|&c| c != w);
         fw.tab_order.retain(|&c| c != w);
@@ -536,7 +518,7 @@ fn hidden_tab_title_sync<H: DisplayBackend + 'static + ?Sized>(
     }
     let managed = wm
         .cid_for_xid(w)
-        .map_or(false, |cid| wm.frames.contains_key(&cid));
+        .is_some_and(|cid| wm.frames.contains_key(&cid));
     if managed {
         return;
     }
@@ -547,10 +529,7 @@ fn hidden_tab_title_sync<H: DisplayBackend + 'static + ?Sized>(
             break;
         }
     }
-    let owner = match owner {
-        Some(o) => o,
-        None => return,
-    };
+    let Some(owner) = owner else { return };
     let title = read_window_title(wm, w);
     if let Some(fw) = wm.frames.get(&owner) {
         if let Some(t) = title {
@@ -665,10 +644,7 @@ pub fn redraw_scrolled_frames<H: DisplayBackend + 'static + ?Sized>(
         redraw_all_frames(wm);
         return;
     }
-    let b = match wm.backend() {
-        Some(b) => b,
-        None => return,
-    };
+    let Some(b) = wm.backend() else { return };
     for raw in ids {
         let id = ClientId(*raw);
         if let Some(fw) = wm.frames.get(&id) {
@@ -685,10 +661,7 @@ pub fn redraw_scrolled_frames<H: DisplayBackend + 'static + ?Sized>(
 }
 
 pub fn redraw_all_frames<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManager<H>) {
-    let b = match wm.backend() {
-        Some(b) => b,
-        None => return,
-    };
+    let Some(b) = wm.backend() else { return };
     for (id, fw) in wm.frames.iter() {
         let focused = wm.focused_window == Some(*id);
         crate::drag::paint_frame_decorations(
@@ -734,7 +707,7 @@ pub fn expose<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManager<H>, w: u3
     if let (Some(b), Some(fw)) = (wm.backend(), wm.frame_by_xid(w)) {
         let focused = wm
             .cid_for_xid(w)
-            .map_or(false, |cid| wm.focused_window == Some(cid));
+            .is_some_and(|cid| wm.focused_window == Some(cid));
         crate::drag::paint_frame_decorations(
             fw,
             b,
@@ -805,7 +778,7 @@ pub fn property_notify<H: DisplayBackend + 'static + ?Sized>(
         }
         if let Some(cid) = wm.cid_for_xid(w) {
             let backend = wm.backend.clone();
-            if let Some(b) = backend.as_ref().map(|v| v.as_ref()) {
+            if let Some(b) = backend.as_ref().map(AsRef::as_ref) {
                 let sh = wm.frame(cid).and_then(|f| f.client().size_hints());
                 let mwm = wm.frame(cid).and_then(|f| f.client().mwm_hints());
                 crate::ewmh::update_allowed_actions(b, &wm.atoms, w, sh, mwm);
@@ -905,14 +878,8 @@ fn wm_state_value<H: DisplayBackend + 'static + ?Sized>(
 pub(crate) fn saved_stacking_order<H: DisplayBackend + 'static + ?Sized>(
     wm: &WindowManager<H>,
 ) -> Vec<u32> {
-    let atom = match wm.atoms.get("_NET_CLIENT_LIST_STACKING") {
-        Some(a) => a,
-        None => return Vec::new(),
-    };
-    let b = match wm.backend() {
-        Some(b) => b,
-        None => return Vec::new(),
-    };
+    let Some(atom) = wm.atoms.get("_NET_CLIENT_LIST_STACKING") else { return Vec::new() };
+    let Some(b) = wm.backend() else { return Vec::new() };
     match b.get_property(b.root().read_id(), atom, 0, 0, 4096) {
         Ok(Some(data)) => data
             .chunks_exact(4)
@@ -924,7 +891,7 @@ pub(crate) fn saved_stacking_order<H: DisplayBackend + 'static + ?Sized>(
 
 pub(crate) fn apply_saved_stacking(children: &[u32], saved: &[u32]) -> Vec<u32> {
     let mut listed: std::collections::VecDeque<u32> = saved
-        .iter().cloned()
+        .iter().copied()
         .filter(|w| children.contains(w))
         .collect();
     children
@@ -941,19 +908,13 @@ pub(crate) fn apply_saved_stacking(children: &[u32], saved: &[u32]) -> Vec<u32> 
 
 pub fn manage_existing_windows<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
     let root = wm.backend().unwrap().root().read_id();
-    let tree = match wm.backend().unwrap().query_tree(root) {
-        Ok(tree) => tree,
-        Err(_) => return,
-    };
+    let Ok(tree) = wm.backend().unwrap().query_tree(root) else { return };
     let children = apply_saved_stacking(&tree.children, &saved_stacking_order(wm));
     for &child in &children {
         if child == root || wm.xid_index.contains_xid(child) {
             continue;
         }
-        let attrs = match wm.backend().unwrap().get_window_attributes(child) {
-            Ok(attrs) => attrs,
-            Err(_) => continue,
-        };
+        let Ok(attrs) = wm.backend().unwrap().get_window_attributes(child) else { continue };
         if attrs.override_redirect {
             continue;
         }

@@ -91,8 +91,8 @@ pub struct WindowOption {
 }
 
 impl WindowOption {
-    pub fn new(class_instance: &str) -> WindowOption {
-        WindowOption {
+    pub fn new(class_instance: &str) -> Self {
+        Self {
             class_instance: class_instance.to_string(),
             ..Default::default()
         }

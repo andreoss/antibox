@@ -145,9 +145,9 @@ pub struct FrameWindow {
 }
 
 impl FrameWindow {
-    pub fn new(client: ClientWindow, frame: Box<dyn WindowHandle>) -> FrameWindow {
+    pub fn new(client: ClientWindow, frame: Box<dyn WindowHandle>) -> Self {
         let layer = WinLayer::default_for_window_type(client.window_type());
-        FrameWindow {
+        Self {
             client,
             frame,
             state: WindowState::default(),
@@ -527,7 +527,7 @@ impl FrameWindow {
         self.state.shaded = has("_NET_WM_STATE_SHADED");
         self.state.fullscreen = has("_NET_WM_STATE_FULLSCREEN");
         let net_urgent = has("_NET_WM_STATE_DEMANDS_ATTENTION");
-        let hint_urgent = self.client.wm_hints().map_or(false, |h| h.urgency);
+        let hint_urgent = self.client.wm_hints().is_some_and(|h| h.urgency);
         self.state.urgent = net_urgent || hint_urgent;
         self.state.above = has("_NET_WM_STATE_ABOVE");
         self.state.below = has("_NET_WM_STATE_BELOW");
@@ -585,7 +585,7 @@ impl FrameWindow {
             'm' if self
                 .client()
                 .mwm_hints()
-                .map_or(false, |h| !h.allows(mwm_func::MAXIMIZE)) =>
+                .is_some_and(|h| !h.allows(mwm_func::MAXIMIZE)) =>
             {
                 None
             }
@@ -595,13 +595,12 @@ impl FrameWindow {
             'i' if self
                 .client()
                 .mwm_hints()
-                .map_or(false, |h| !h.allows(mwm_func::MINIMIZE)) =>
+                .is_some_and(|h| !h.allows(mwm_func::MINIMIZE)) =>
             {
                 None
             }
             'i' if !self.state.minimized => Some((5, "_", "minimize")),
             'r' if self.state.shaded => Some((3, "=", "rolldown")),
-            'r' => None,
             'h' => Some((0, "0", "hide")),
             's' => Some((7, "S", "menu")),
             'p' if self.workspace() == !0 => Some((8, "P", "pinned")),
@@ -794,7 +793,7 @@ impl FrameWindow {
             ) {
                 let xid = win.id();
                 let _ = backend.set_win_gravity(xid, gravity);
-                let cursor = cursors.get(cur_idx).cloned().unwrap_or(0);
+                let cursor = cursors.get(cur_idx).copied().unwrap_or(0);
                 if cursor != 0 {
                     let _ = backend.define_cursor(xid, cursor);
                 }

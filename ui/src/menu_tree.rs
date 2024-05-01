@@ -32,22 +32,22 @@ pub struct FlatRow<T> {
 }
 
 impl<T> FlatRow<T> {
-    pub fn payload(&self) -> Option<&T> {
+    pub const fn payload(&self) -> Option<&T> {
         match &self.entry {
             FlatEntry::Leaf(p) => Some(p),
             _ => None,
         }
     }
 
-    pub fn is_group(&self) -> bool {
+    pub const fn is_group(&self) -> bool {
         matches!(self.entry, FlatEntry::Group { .. })
     }
 
-    pub fn is_separator(&self) -> bool {
+    pub const fn is_separator(&self) -> bool {
         matches!(self.entry, FlatEntry::Separator)
     }
 
-    pub fn selectable(&self) -> bool {
+    pub const fn selectable(&self) -> bool {
         !self.is_separator()
     }
 }
@@ -58,7 +58,7 @@ fn norm(title: &str) -> String {
 
 impl<T: Clone> MenuNode<T> {
     pub fn leaf(title: impl Into<String>, payload: T) -> Self {
-        MenuNode::Leaf {
+        Self::Leaf {
             title: title.into(),
             payload,
             icon: None,
@@ -66,7 +66,7 @@ impl<T: Clone> MenuNode<T> {
     }
 
     pub fn group(title: impl Into<String>, children: Vec<Self>) -> Self {
-        MenuNode::Group {
+        Self::Group {
             title: title.into(),
             icon: None,
             children,
@@ -75,7 +75,7 @@ impl<T: Clone> MenuNode<T> {
     }
 
     pub fn group_expanded(title: impl Into<String>, children: Vec<Self>) -> Self {
-        MenuNode::Group {
+        Self::Group {
             title: title.into(),
             icon: None,
             children,
@@ -83,47 +83,47 @@ impl<T: Clone> MenuNode<T> {
         }
     }
 
-    pub fn separator() -> Self {
-        MenuNode::Separator
+    pub const fn separator() -> Self {
+        Self::Separator
     }
 
     pub fn with_icon(mut self, ic: Option<PixmapData>) -> Self {
         match &mut self {
-            MenuNode::Leaf { icon, .. } | MenuNode::Group { icon, .. } => *icon = ic,
-            MenuNode::Separator => {}
+            Self::Leaf { icon, .. } | Self::Group { icon, .. } => *icon = ic,
+            Self::Separator => {}
         }
         self
     }
 
     pub fn title(&self) -> &str {
         match self {
-            MenuNode::Leaf { title, .. } | MenuNode::Group { title, .. } => title,
-            MenuNode::Separator => "",
+            Self::Leaf { title, .. } | Self::Group { title, .. } => title,
+            Self::Separator => "",
         }
     }
 
-    pub fn is_separator(&self) -> bool {
-        matches!(self, MenuNode::Separator)
+    pub const fn is_separator(&self) -> bool {
+        matches!(self, Self::Separator)
     }
 
-    pub fn payload(&self) -> Option<&T> {
+    pub const fn payload(&self) -> Option<&T> {
         match self {
-            MenuNode::Leaf { payload, .. } => Some(payload),
+            Self::Leaf { payload, .. } => Some(payload),
             _ => None,
         }
     }
 
-    pub fn children(&self) -> Option<&[MenuNode<T>]> {
+    pub fn children(&self) -> Option<&[Self]> {
         match self {
-            MenuNode::Group { children, .. } => Some(children),
+            Self::Group { children, .. } => Some(children),
             _ => None,
         }
     }
 
-    pub fn icon(&self) -> Option<&PixmapData> {
+    pub const fn icon(&self) -> Option<&PixmapData> {
         match self {
-            MenuNode::Leaf { icon, .. } | MenuNode::Group { icon, .. } => icon.as_ref(),
-            MenuNode::Separator => None,
+            Self::Leaf { icon, .. } | Self::Group { icon, .. } => icon.as_ref(),
+            Self::Separator => None,
         }
     }
 
@@ -134,18 +134,18 @@ impl<T: Clone> MenuNode<T> {
         out
     }
 
-    pub fn filter(&self, needle: &str) -> Option<MenuNode<T>> {
+    pub fn filter(&self, needle: &str) -> Option<Self> {
         let needle = needle.to_lowercase();
         self.filter_norm(&needle)
     }
 
-    fn filter_norm(&self, needle: &str) -> Option<MenuNode<T>> {
+    fn filter_norm(&self, needle: &str) -> Option<Self> {
         match self {
-            MenuNode::Separator => None,
-            MenuNode::Leaf { title, .. } => {
+            Self::Separator => None,
+            Self::Leaf { title, .. } => {
                 norm(title).contains(needle).then(|| self.clone())
             }
-            MenuNode::Group {
+            Self::Group {
                 title,
                 icon,
                 children,
@@ -159,7 +159,7 @@ impl<T: Clone> MenuNode<T> {
                         .filter_map(|c| c.filter_norm(needle))
                         .collect()
                 };
-                (!kept.is_empty()).then(|| MenuNode::Group {
+                (!kept.is_empty()).then(|| Self::Group {
                     title: title.clone(),
                     icon: icon.clone(),
                     children: kept,
@@ -242,10 +242,7 @@ pub fn collect_leaves<T: Clone>(nodes: &[MenuNode<T>], out: &mut Vec<MenuNode<T>
 }
 
 pub fn toggle_at<T>(nodes: &mut [MenuNode<T>], path: &[usize]) -> bool {
-    let (first, rest) = match path.split_first() {
-        Some(p) => p,
-        None => return false,
-    };
+    let Some((first, rest)) = path.split_first() else { return false };
     match nodes.get_mut(*first) {
         Some(MenuNode::Group {
             children, expanded, ..

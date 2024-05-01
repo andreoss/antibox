@@ -13,14 +13,14 @@ pub(crate) fn event_timing_enabled() -> bool {
         *c.borrow_mut()
             .get_or_insert_with(|| {
                 std::env::var("ANTIBOX_LOOP_TIMING")
-                    .map_or(false, |v| v != "0" && !v.is_empty())
+                    .is_ok_and(|v| v != "0" && !v.is_empty())
             })
     })
 }
 
 impl App {
     pub(crate) fn drain_pending_events_count(&mut self) -> usize {
-        let events = match self.event_loop.process_pending() { Ok(v) => v, Err(_) => return 0  };
+        let Ok(events) = self.event_loop.process_pending() else { return 0 };
         let n = events.len();
         let mut last_expose: std::collections::HashMap<u32, usize> =
             std::collections::HashMap::new();
@@ -113,7 +113,7 @@ impl App {
         }
         let _ = self.backend.flush();
         if self.consecutive_panics >= MAX_CONSECUTIVE_PANICS {
-            eprintln!("giving up after {} consecutive panics", MAX_CONSECUTIVE_PANICS);
+            eprintln!("giving up after {MAX_CONSECUTIVE_PANICS} consecutive panics");
             self.running = false;
         }
     }
@@ -130,7 +130,7 @@ impl App {
                     a.set_theme_colours(&tc);
                 }
             }
-            crate::handler::redraw_all_frames(&mut self.wm);
+            crate::handler::redraw_all_frames(&self.wm);
         }
 
         apply_font_prefs(&self.backend, &prefs);
@@ -177,7 +177,7 @@ impl App {
             for a in &mut tb.applets {
                 if let Some(c) = a
                     .as_any_mut()
-                    .downcast_mut::<crate::clock_applet::ClockApplet>()
+                    .downcast_mut::<ClockApplet>()
                 {
                     let _ = c.set_base_format(&prefs.clock.format);
                 }
@@ -232,7 +232,7 @@ impl App {
                     layouts,
                     &colours,
                 ) {
-                    let a: Box<dyn crate::applet::Applet> = Box::new(kb);
+                    let a: Box<dyn Applet> = Box::new(kb);
                     let _ = a.window().map();
                     tb.add_applet(a);
                 }
@@ -292,11 +292,11 @@ impl App {
                 return;
             }
         }
-        if self.root_menu.as_ref().map_or(false, |m| m.visible) && self.handle_root_menu_event(event)
+        if self.root_menu.as_ref().is_some_and(|m| m.visible) && self.handle_root_menu_event(event)
         {
             return;
         }
-        if self.group_menu.as_ref().map_or(false, |m| m.visible) && self.handle_group_menu_event(event)
+        if self.group_menu.as_ref().is_some_and(|m| m.visible) && self.handle_group_menu_event(event)
         {
             return;
         }
@@ -443,23 +443,20 @@ impl App {
     }
 
     fn dispatch_to_taskbar(&mut self, event: &BackendEvent) {
-        let menu_open = self.taskbar.as_ref().map_or(false, |tb| {
-            tb.menu.as_ref().map_or(false, |m| m.visible)
+        let menu_open = self.taskbar.as_ref().is_some_and(|tb| {
+            tb.menu.as_ref().is_some_and(|m| m.visible)
         });
         if menu_open {
             let backend = self.backend.clone();
             let handled = self
                 .taskbar
                 .as_mut()
-                .map_or(false, |tb| tb.handle_menu_event(event, &*backend));
+                .is_some_and(|tb| tb.handle_menu_event(event, &*backend));
             if handled {
                 return;
             }
         }
-        let tb = match self.taskbar.as_ref() {
-            Some(tb) => tb,
-            None => return,
-        };
+        let Some(tb) = self.taskbar.as_ref() else { return };
         let own =
             |w: u32| -> bool { w == tb.window.id() || tb.applets.iter().any(|a| a.owns_window(w)) };
         match *event {
@@ -593,7 +590,7 @@ impl App {
     fn handle_super_tap(&mut self, event: &BackendEvent) -> bool {
         const SUPER_L: u32 = 0xFFEB;
         const SUPER_R: u32 = 0xFFEC;
-        const TAP_WINDOW: std::time::Duration = std::time::Duration::from_millis(400);
+        const TAP_WINDOW: Duration = Duration::from_millis(400);
         match event {
             BackendEvent::KeyPress { keycode, .. } => {
                 let ks = self.lookup_keysym(*keycode);
@@ -601,7 +598,7 @@ impl App {
                     let now = Instant::now();
                     let double = self
                         .super_tap_at
-                        .map_or(false, |t| now.duration_since(t) <= TAP_WINDOW);
+                        .is_some_and(|t| now.duration_since(t) <= TAP_WINDOW);
                     self.super_tap_at = Some(now);
                     self.super_tap_armed = true;
                     if double && crate::layout_preferences::menu_on_super_tap() {
@@ -637,7 +634,7 @@ impl App {
             let alt_up = self
                 .backend
                 .query_pointer(self.backend.root().read_id())
-                .map_or(false, |p| !p.mask.intersects(KeyButMask::MOD1));
+                .is_ok_and(|p| !p.mask.intersects(KeyButMask::MOD1));
             if alt_up {
                 self.close_alt_tab();
             }
@@ -700,7 +697,7 @@ impl App {
     }
 
     fn route_to_sub_applet(&mut self, window: u32, event: &BackendEvent) -> bool {
-        let is_sub = self.taskbar.as_ref().map_or(false, |tb| {
+        let is_sub = self.taskbar.as_ref().is_some_and(|tb| {
             tb.applets
                 .iter()
                 .any(|a| a.owns_window(window) && a.window().id() != window)
@@ -719,15 +716,12 @@ impl App {
     }
 
     pub(crate) fn activate_taskbar_window(&mut self, clicked: u32) {
-        let clicked = match self.wm.cid_for_xid(clicked) {
-            Some(c) => c,
-            None => return,
-        };
+        let Some(clicked) = self.wm.cid_for_xid(clicked) else { return };
         let minimized = self
             .wm
             .frames
             .get(&clicked)
-            .map_or(false, |fw| fw.state().minimized);
+            .is_some_and(|fw| fw.state().minimized);
         if minimized {
             if let Some(fw) = self.wm.frame_mut(clicked) {
                 fw.state_mut().minimized = false;
@@ -845,7 +839,7 @@ impl App {
             }
             OmniOutcome::CloseMarked => {
                 self.omni.hide(&self.backend);
-                let ids: Vec<crate::id::ClientId> = self.wm.frames.keys().collect();
+                let ids: Vec<ClientId> = self.wm.frames.keys().collect();
                 for id in ids {
                     if self.omni.is_marked(self.wm.xid_index.xid_of(id)) {
                         crate::wmaction::close_client(&mut self.wm, id);
@@ -854,7 +848,7 @@ impl App {
             }
             OmniOutcome::KillMarked => {
                 self.omni.hide(&self.backend);
-                let ids: Vec<crate::id::ClientId> = self.wm.frames.keys().collect();
+                let ids: Vec<ClientId> = self.wm.frames.keys().collect();
                 for id in ids {
                     if self.omni.is_marked(self.wm.xid_index.xid_of(id)) {
                         crate::wmaction::kill_client_id(&mut self.wm, id);
@@ -866,10 +860,7 @@ impl App {
 
     fn perform_omni_win_op(&mut self, target: u32, op: crate::omni::OmniWinOp) {
         use crate::omni::OmniWinOp;
-        let target = match self.wm.cid_for_xid(target) {
-            Some(t) => t,
-            None => return,
-        };
+        let Some(target) = self.wm.cid_for_xid(target) else { return };
         match op {
             OmniWinOp::Close => crate::wmaction::close_client(&mut self.wm, target),
             OmniWinOp::Kill => crate::wmaction::kill_client_id(&mut self.wm, target),
@@ -884,14 +875,8 @@ impl App {
     }
 
     fn activate_omni_target(&mut self, id: u32) {
-        let id = match self.wm.cid_for_xid(id) {
-            Some(i) => i,
-            None => return,
-        };
-        let ws = match self.wm.frame(id).map(|f| f.workspace()) {
-            Some(w) => w,
-            None => return,
-        };
+        let Some(id) = self.wm.cid_for_xid(id) else { return };
+        let Some(ws) = self.wm.frame(id).map(super::frame::FrameWindow::workspace) else { return };
         if ws != !0 && ws != self.wm.active_workspace() {
             self.wm.activate_workspace(ws);
         }
@@ -899,7 +884,7 @@ impl App {
             .wm
             .frames
             .get(&id)
-            .map_or(false, |f| f.state().minimized);
+            .is_some_and(|f| f.state().minimized);
         if minimized {
             if let Some(fw) = self.wm.frame_mut(id) {
                 fw.state_mut().minimized = false;
@@ -935,12 +920,9 @@ impl App {
     }
 
     fn set_menu_pressed(&mut self, v: bool) {
-        let tb = match self.taskbar.as_mut() {
-            Some(tb) => tb,
-            None => return,
-        };
+        let Some(tb) = self.taskbar.as_mut() else { return };
         let mut wid = None;
-        for a in tb.applets.iter_mut() {
+        for a in &mut tb.applets {
             if let Some(m) = a
                 .as_any_mut()
                 .downcast_mut::<crate::menu_applet::MenuApplet>()
@@ -959,7 +941,7 @@ impl App {
         }
     }
 
-    fn root_menu_nodes(&self) -> Vec<crate::menu_tree::MenuNode<crate::action::Action>> {
+    fn root_menu_nodes(&self) -> Vec<crate::menu_tree::MenuNode<Action>> {
         use crate::action::Action;
         use crate::action::WorkspaceOp;
         use crate::menu_tree::MenuNode;
@@ -973,7 +955,7 @@ impl App {
                 .map(|a| {
                     MenuNode::leaf(
                         a.name.clone(),
-                        Action::Misc(crate::action::MiscOp::Command(a.command.join(" "))),
+                        Action::Misc(MiscOp::Command(a.command.join(" "))),
                     )
                 })
                 .collect();
@@ -988,7 +970,7 @@ impl App {
         ));
         nodes.push(MenuNode::leaf(
             "Se_ttings",
-            Action::Misc(crate::action::MiscOp::Command(settings_command())),
+            Action::Misc(MiscOp::Command(settings_command())),
         ));
         nodes
     }
@@ -1032,10 +1014,7 @@ impl App {
 
     fn handle_root_menu_event(&mut self, event: &BackendEvent) -> bool {
         use crate::menu::MenuNav;
-        let mut menu = match self.root_menu.take() {
-            Some(menu) => menu,
-            None => return false,
-        };
+        let Some(mut menu) = self.root_menu.take() else { return false };
         if !menu.visible {
             return false;
         }
@@ -1096,10 +1075,7 @@ impl App {
 
     fn handle_group_menu_event(&mut self, event: &BackendEvent) -> bool {
         use crate::menu::MenuNav;
-        let mut menu = match self.group_menu.take() {
-            Some(menu) => menu,
-            None => return false,
-        };
+        let Some(mut menu) = self.group_menu.take() else { return false };
         if !menu.visible {
             return false;
         }

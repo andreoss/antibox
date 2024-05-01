@@ -21,7 +21,7 @@ pub struct XcbGraphics {
 }
 
 impl XcbGraphics {
-    pub fn new(conn: Arc<XcbConnection>, drawable: u32, gc: u32, depth: u8) -> Self {
+    pub const fn new(conn: Arc<XcbConnection>, drawable: u32, gc: u32, depth: u8) -> Self {
         Self {
             conn,
             drawable,
@@ -68,10 +68,10 @@ impl XcbGraphics {
         unsafe { xcb_change_gc(self.conn.raw(), self.gc, mask, vals.as_ptr()) };
     }
 
-    fn ft_font(&self) -> Option<std::sync::Arc<super::ft::FtFont>> {
+    fn ft_font(&self) -> Option<Arc<super::ft::FtFont>> {
         match self.font.lock() {
             Ok(g) => match &*g {
-                Some(ResolvedFont::Ft(f)) => Some(std::sync::Arc::clone(f)),
+                Some(ResolvedFont::Ft(f)) => Some(Arc::clone(f)),
                 _ => None,
             },
             Err(_) => None,
@@ -267,7 +267,7 @@ impl GraphicsContext for XcbGraphics {
     }
 
     fn font_metrics(&self) -> (u16, u16, u16) {
-        self.font.lock().unwrap().as_ref().map_or((0, 0, 0), |f| f.metrics())
+        self.font.lock().unwrap().as_ref().map_or((0, 0, 0), ResolvedFont::metrics)
     }
 
     fn drawable(&self) -> u32 {
@@ -405,7 +405,7 @@ impl GraphicsContext for XcbGraphics {
         Ok(())
     }
 
-    fn composite_pixmap(&self, _src_pixmap: u32, _src_size: antibox_core::point::Dimension, _dest: antibox_core::point::Point, _src: antibox_core::point::Point) -> Result<()> {
+    fn composite_pixmap(&self, _src_pixmap: u32, _src_size: antibox_core::point::Dimension, _dest: Point, _src: Point) -> Result<()> {
         Ok(())
     }
 

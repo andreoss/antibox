@@ -10,7 +10,7 @@ fn view_with(batteries: Vec<BatInfo>, ac_online: bool) -> BatteryView {
     )
 }
 
-fn bat(percent: i32, charging: bool, discharging: bool) -> BatInfo {
+const fn bat(percent: i32, charging: bool, discharging: bool) -> BatInfo {
     BatInfo {
         percent,
         charging,
@@ -263,9 +263,7 @@ fn test_vertical_battery_fill_height_tracks_charge() {
         .unwrap();
     assert!(
         low_h < high_h,
-        "battery interior fill must rise with charge ({} vs {})",
-        low_h,
-        high_h
+        "battery interior fill must rise with charge ({low_h} vs {high_h})"
     );
 }
 

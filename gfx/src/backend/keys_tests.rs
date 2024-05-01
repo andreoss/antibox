@@ -16,7 +16,7 @@
 
     #[test]
     fn function_keysyms_produce_no_char() {
-        for ks in [0xFF52u32, 0xFF54, 0xFF51, 0xFF53, 0xFF0D, 0xFF1B, 0xFFBE].iter().cloned() {
+        for ks in [0xFF52u32, 0xFF54, 0xFF51, 0xFF53, 0xFF0D, 0xFF1B, 0xFFBE].iter().copied() {
             assert_eq!(keysym_to_char(ks), None);
         }
         assert_eq!(keysym_to_char(0xE4), Some('\u{e4}'));

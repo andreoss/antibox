@@ -134,99 +134,99 @@ pub enum BackendEvent {
 }
 
 impl BackendEvent {
-    pub fn name(&self) -> &'static str {
+    pub const fn name(&self) -> &'static str {
         match self {
-            BackendEvent::MapRequest { .. } => "MapRequest",
-            BackendEvent::ConfigureRequest { .. } => "ConfigureRequest",
-            BackendEvent::DestroyNotify { .. } => "DestroyNotify",
-            BackendEvent::UnmapNotify { .. } => "UnmapNotify",
-            BackendEvent::Expose { .. } => "Expose",
-            BackendEvent::ClientMessage { .. } => "ClientMessage",
-            BackendEvent::ButtonPress { .. } => "ButtonPress",
-            BackendEvent::ButtonRelease { .. } => "ButtonRelease",
-            BackendEvent::MotionNotify { .. } => "MotionNotify",
-            BackendEvent::KeyPress { .. } => "KeyPress",
-            BackendEvent::KeyRelease { .. } => "KeyRelease",
-            BackendEvent::EnterNotify { .. } => "EnterNotify",
-            BackendEvent::LeaveNotify { .. } => "LeaveNotify",
-            BackendEvent::FocusIn { .. } => "FocusIn",
-            BackendEvent::FocusOut { .. } => "FocusOut",
-            BackendEvent::PropertyNotify { .. } => "PropertyNotify",
-            BackendEvent::CreateNotify { .. } => "CreateNotify",
-            BackendEvent::ReparentNotify { .. } => "ReparentNotify",
-            BackendEvent::MapNotify { .. } => "MapNotify",
-            BackendEvent::ConfigureNotify { .. } => "ConfigureNotify",
-            BackendEvent::MappingNotify { .. } => "MappingNotify",
-            BackendEvent::ShapeNotify { .. } => "ShapeNotify",
-            BackendEvent::SelectionNotify { .. } => "SelectionNotify",
-            BackendEvent::SelectionRequest { .. } => "SelectionRequest",
-            BackendEvent::SelectionClear { .. } => "SelectionClear",
-            BackendEvent::ScreenSizeChanged { .. } => "ScreenSizeChanged",
-            BackendEvent::KeyboardChanged => "KeyboardChanged",
+            Self::MapRequest { .. } => "MapRequest",
+            Self::ConfigureRequest { .. } => "ConfigureRequest",
+            Self::DestroyNotify { .. } => "DestroyNotify",
+            Self::UnmapNotify { .. } => "UnmapNotify",
+            Self::Expose { .. } => "Expose",
+            Self::ClientMessage { .. } => "ClientMessage",
+            Self::ButtonPress { .. } => "ButtonPress",
+            Self::ButtonRelease { .. } => "ButtonRelease",
+            Self::MotionNotify { .. } => "MotionNotify",
+            Self::KeyPress { .. } => "KeyPress",
+            Self::KeyRelease { .. } => "KeyRelease",
+            Self::EnterNotify { .. } => "EnterNotify",
+            Self::LeaveNotify { .. } => "LeaveNotify",
+            Self::FocusIn { .. } => "FocusIn",
+            Self::FocusOut { .. } => "FocusOut",
+            Self::PropertyNotify { .. } => "PropertyNotify",
+            Self::CreateNotify { .. } => "CreateNotify",
+            Self::ReparentNotify { .. } => "ReparentNotify",
+            Self::MapNotify { .. } => "MapNotify",
+            Self::ConfigureNotify { .. } => "ConfigureNotify",
+            Self::MappingNotify { .. } => "MappingNotify",
+            Self::ShapeNotify { .. } => "ShapeNotify",
+            Self::SelectionNotify { .. } => "SelectionNotify",
+            Self::SelectionRequest { .. } => "SelectionRequest",
+            Self::SelectionClear { .. } => "SelectionClear",
+            Self::ScreenSizeChanged { .. } => "ScreenSizeChanged",
+            Self::KeyboardChanged => "KeyboardChanged",
         }
     }
 
-    pub fn variant_index(&self) -> usize {
+    pub const fn variant_index(&self) -> usize {
         match self {
-            BackendEvent::MapRequest { .. } => 0,
-            BackendEvent::ConfigureRequest { .. } => 1,
-            BackendEvent::DestroyNotify { .. } => 2,
-            BackendEvent::UnmapNotify { .. } => 3,
-            BackendEvent::Expose { .. } => 4,
-            BackendEvent::ClientMessage { .. } => 5,
-            BackendEvent::ButtonPress { .. } => 6,
-            BackendEvent::ButtonRelease { .. } => 7,
-            BackendEvent::MotionNotify { .. } => 8,
-            BackendEvent::KeyPress { .. } => 9,
-            BackendEvent::KeyRelease { .. } => 10,
-            BackendEvent::EnterNotify { .. } => 11,
-            BackendEvent::LeaveNotify { .. } => 12,
-            BackendEvent::FocusIn { .. } => 13,
-            BackendEvent::FocusOut { .. } => 14,
-            BackendEvent::PropertyNotify { .. } => 15,
-            BackendEvent::CreateNotify { .. } => 16,
-            BackendEvent::ReparentNotify { .. } => 17,
-            BackendEvent::MapNotify { .. } => 18,
-            BackendEvent::MappingNotify { .. } => 19,
-            BackendEvent::ShapeNotify { .. } => 20,
-            BackendEvent::SelectionNotify { .. } => 21,
-            BackendEvent::SelectionRequest { .. } => 22,
-            BackendEvent::SelectionClear { .. } => 23,
-            BackendEvent::ConfigureNotify { .. } => 24,
-            BackendEvent::ScreenSizeChanged { .. } => 25,
-            BackendEvent::KeyboardChanged => 26,
+            Self::MapRequest { .. } => 0,
+            Self::ConfigureRequest { .. } => 1,
+            Self::DestroyNotify { .. } => 2,
+            Self::UnmapNotify { .. } => 3,
+            Self::Expose { .. } => 4,
+            Self::ClientMessage { .. } => 5,
+            Self::ButtonPress { .. } => 6,
+            Self::ButtonRelease { .. } => 7,
+            Self::MotionNotify { .. } => 8,
+            Self::KeyPress { .. } => 9,
+            Self::KeyRelease { .. } => 10,
+            Self::EnterNotify { .. } => 11,
+            Self::LeaveNotify { .. } => 12,
+            Self::FocusIn { .. } => 13,
+            Self::FocusOut { .. } => 14,
+            Self::PropertyNotify { .. } => 15,
+            Self::CreateNotify { .. } => 16,
+            Self::ReparentNotify { .. } => 17,
+            Self::MapNotify { .. } => 18,
+            Self::MappingNotify { .. } => 19,
+            Self::ShapeNotify { .. } => 20,
+            Self::SelectionNotify { .. } => 21,
+            Self::SelectionRequest { .. } => 22,
+            Self::SelectionClear { .. } => 23,
+            Self::ConfigureNotify { .. } => 24,
+            Self::ScreenSizeChanged { .. } => 25,
+            Self::KeyboardChanged => 26,
         }
     }
 
-    pub fn window(&self) -> Option<u32> {
+    pub const fn window(&self) -> Option<u32> {
         match self {
-            BackendEvent::MappingNotify { .. } | BackendEvent::ScreenSizeChanged { .. } | BackendEvent::KeyboardChanged => {
+            Self::MappingNotify { .. } | Self::ScreenSizeChanged { .. } | Self::KeyboardChanged => {
                 None
             }
-            BackendEvent::MapRequest { window }
-            | BackendEvent::ConfigureRequest { window, .. }
-            | BackendEvent::DestroyNotify { window }
-            | BackendEvent::UnmapNotify { window }
-            | BackendEvent::Expose { window, .. }
-            | BackendEvent::ClientMessage { window, .. }
-            | BackendEvent::ButtonPress { window, .. }
-            | BackendEvent::ButtonRelease { window, .. }
-            | BackendEvent::MotionNotify { window, .. }
-            | BackendEvent::KeyPress { window, .. }
-            | BackendEvent::KeyRelease { window, .. }
-            | BackendEvent::EnterNotify { window, .. }
-            | BackendEvent::LeaveNotify { window, .. }
-            | BackendEvent::FocusIn { window, .. }
-            | BackendEvent::FocusOut { window, .. }
-            | BackendEvent::PropertyNotify { window, .. }
-            | BackendEvent::CreateNotify { window, .. }
-            | BackendEvent::ReparentNotify { window, .. }
-            | BackendEvent::MapNotify { window }
-            | BackendEvent::ConfigureNotify { window, .. }
-            | BackendEvent::ShapeNotify { window, .. } => Some(*window),
-            BackendEvent::SelectionNotify { requestor: w, .. }
-            | BackendEvent::SelectionRequest { owner: w, .. }
-            | BackendEvent::SelectionClear { owner: w, .. } => Some(*w),
+            Self::MapRequest { window }
+            | Self::ConfigureRequest { window, .. }
+            | Self::DestroyNotify { window }
+            | Self::UnmapNotify { window }
+            | Self::Expose { window, .. }
+            | Self::ClientMessage { window, .. }
+            | Self::ButtonPress { window, .. }
+            | Self::ButtonRelease { window, .. }
+            | Self::MotionNotify { window, .. }
+            | Self::KeyPress { window, .. }
+            | Self::KeyRelease { window, .. }
+            | Self::EnterNotify { window, .. }
+            | Self::LeaveNotify { window, .. }
+            | Self::FocusIn { window, .. }
+            | Self::FocusOut { window, .. }
+            | Self::PropertyNotify { window, .. }
+            | Self::CreateNotify { window, .. }
+            | Self::ReparentNotify { window, .. }
+            | Self::MapNotify { window }
+            | Self::ConfigureNotify { window, .. }
+            | Self::ShapeNotify { window, .. } => Some(*window),
+            Self::SelectionNotify { requestor: w, .. }
+            | Self::SelectionRequest { owner: w, .. }
+            | Self::SelectionClear { owner: w, .. } => Some(*w),
         }
     }
 }
@@ -247,8 +247,8 @@ pub struct EventQueue {
 }
 
 impl EventQueue {
-    pub fn new() -> EventQueue {
-        EventQueue { events: Vec::new() }
+    pub const fn new() -> Self {
+        Self { events: Vec::new() }
     }
 
     pub fn push(&mut self, event: BackendEvent) {

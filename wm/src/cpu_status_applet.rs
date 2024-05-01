@@ -99,13 +99,13 @@ fn compute_deltas(
     }
     let mut merged = [0u64; IWM_STATES];
     if n == 1 {
-        for i in 0..IWM_STATES {
-            merged[i] = cur[0][i].saturating_sub(prev[0][i]);
+        for (i, m) in merged.iter_mut().enumerate() {
+            *m = cur[0][i].saturating_sub(prev[0][i]);
         }
     } else {
         for c in 0..n {
-            for i in 0..IWM_STATES {
-                merged[i] = merged[i].saturating_add(cur[c][i].saturating_sub(prev[c][i]));
+            for (i, m) in merged.iter_mut().enumerate() {
+                *m = m.saturating_add(cur[c][i].saturating_sub(prev[c][i]));
             }
         }
     }
@@ -129,7 +129,7 @@ fn read_cpu_freq() -> Vec<(u32, f64)> {
     for cpu in 0..8 {
         let mut found = None;
         for f in &["scaling_cur_freq", "cpuinfo_cur_freq"] {
-            let path = format!("/sys/devices/system/cpu/cpu{}/cpufreq/{}", cpu, f);
+            let path = format!("/sys/devices/system/cpu/cpu{cpu}/cpufreq/{f}");
             if let Ok(data) = std::fs::read_to_string(&path) {
                 if let Ok(v) = data.trim().parse::<f64>() {
                     found = Some(v);
@@ -150,10 +150,7 @@ fn read_acpi_temp() -> Vec<(String, i32)> {
     if !dir.is_dir() {
         return temps;
     }
-    let entries = match std::fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(_) => return temps,
-    };
+    let Ok(entries) = std::fs::read_dir(dir) else { return temps };
     for entry in entries.flatten() {
         let name = entry.file_name();
         let name_str = name.to_string_lossy();
@@ -181,7 +178,7 @@ fn fmt_freq(freq: f64) -> String {
     } else if freq > 1000.0 {
         format!("{:.0}MHz", freq / 1000.0)
     } else {
-        format!("{:.0}KHz", freq)
+        format!("{freq:.0}KHz")
     }
 }
 
@@ -192,7 +189,7 @@ fn fmt_mem(kb: u64) -> String {
     } else if bytes >= 1048576 {
         format!("{:.1}M", bytes as f64 / 1048576.0)
     } else {
-        format!("{}K", kb)
+        format!("{kb}K")
     }
 }
 
@@ -228,7 +225,7 @@ impl CpuStatusApplet {
                 | EventMask::BUTTON_RELEASE,
         )?;
         let cpu_count = read_cpu_times().map_or(1, |v| v.len());
-        Ok(CpuStatusApplet {
+        Ok(Self {
             conn: Arc::clone(conn),
             window,
             tooltip: None,
@@ -242,10 +239,7 @@ impl CpuStatusApplet {
     }
 
     pub fn update(&mut self) -> bool {
-        let cur = match read_cpu_times() {
-            Some(cur) => cur,
-            None => return false,
-        };
+        let Some(cur) = read_cpu_times() else { return false };
         let delta = if let Some(prev) = &self.prev_times {
             compute_deltas(prev, &cur)
         } else {
@@ -261,10 +255,7 @@ impl CpuStatusApplet {
 
     #[cfg(test)]
     fn last_percent(&self) -> f32 {
-        let d = match self.samples.latest() {
-            Some(d) => d,
-            None => return 0.0,
-        };
+        let Some(d) = self.samples.latest() else { return 0.0 };
         let total = total_delta(&d.vals);
         if total == 0 {
             return 0.0;
@@ -277,7 +268,7 @@ impl CpuStatusApplet {
         let mut s = String::new();
         let load = read_loadavg();
         if !load.is_empty() {
-            s.push_str(&format!("CPU Load: {}\n", load));
+            s.push_str(&format!("CPU Load: {load}\n"));
         }
         if let Some((total, free)) = crate::proc_reader::read_proc_meminfo() {
             let used = total.saturating_sub(free);
@@ -291,7 +282,7 @@ impl CpuStatusApplet {
         let temps = read_acpi_temp();
         for (ttype, temp) in &temps {
             if *temp > 0 {
-                s.push_str(&format!("{}: {}\u{B0}C\n", ttype, temp));
+                s.push_str(&format!("{ttype}: {temp}\u{B0}C\n"));
             }
         }
         if self.cpu_count > 1 {
@@ -310,10 +301,7 @@ impl_status_applet!(CpuStatusApplet);
 
 impl CpuStatusApplet {
     fn paint_graph(&self, g: &dyn GraphicsContext) {
-        let plot = match crate::status_graph::plot(self.w, self.h, self.samples.len()) {
-            Some(plot) => plot,
-            None => return,
-        };
+        let Some(plot) = crate::status_graph::plot(self.w, self.h, self.samples.len()) else { return };
         let h64 = plot.gh as u64;
         let n = plot.count();
         for col in 0..n {

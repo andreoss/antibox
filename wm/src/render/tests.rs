@@ -19,10 +19,10 @@
             true,
         )
         .unwrap();
-        assert!(g.commands().iter().any(|c| match c {
-                MockCommand::FillRect(_, _, _, _) => true,
-                _ => false,
-            }));
+        assert!(g
+            .commands()
+            .iter()
+            .any(|c| matches!(c, MockCommand::FillRect(_, _, _, _))));
 
         let fills = |g: &MockGraphics| -> Vec<u32> {
             g.commands()

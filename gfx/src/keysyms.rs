@@ -3142,7 +3142,7 @@ pub fn ucs_to_keysym(ucs: u32) -> u32 {
     0
 }
 
-pub fn map_keypad(keysym: u32) -> u32 {
+pub const fn map_keypad(keysym: u32) -> u32 {
     match keysym {
         KEY_KP_0 => KEY_0,
         KEY_KP_1 => KEY_1,

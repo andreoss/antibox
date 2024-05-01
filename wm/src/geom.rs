@@ -16,7 +16,7 @@ pub fn screen_rect<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManager<H>) 
 
 pub fn workarea<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManager<H>) -> Rect {
     wm.workareas
-        .first().cloned()
+        .first().copied()
         .unwrap_or_else(|| screen_rect(wm))
 }
 

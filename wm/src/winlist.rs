@@ -20,7 +20,7 @@ pub struct WinListItem {
 
 impl Clone for WinListItem {
     fn clone(&self) -> Self {
-        WinListItem {
+        Self {
             title: self.title.clone(),
             client_id: self.client_id,
             workspace: self.workspace,
@@ -38,14 +38,14 @@ pub struct WinListMenu {
 }
 
 impl Default for WinListMenu {
-    fn default() -> WinListMenu {
+    fn default() -> Self {
         Self::new()
     }
 }
 
 impl WinListMenu {
-    pub fn new() -> WinListMenu {
-        WinListMenu {
+    pub fn new() -> Self {
+        Self {
             view: ListView::new(),
             client_id: 0,
             visible: false,
@@ -305,7 +305,7 @@ impl WinListMenu {
         self.view
             .items
             .iter()
-            .position(|r| r.payload().map_or(false, |p| p.client_id == xid))
+            .position(|r| r.payload().is_some_and(|p| p.client_id == xid))
     }
 
     fn selection_from_focus(
@@ -383,10 +383,7 @@ impl WinListMenu {
             }
             return false;
         }
-        let row = match self.view.row_at(p) {
-            Some(r) => r,
-            None => return false,
-        };
+        let Some(row) = self.view.row_at(p) else { return false };
         if let Some(r) = self.view.items.get(row) {
             if r.payload().is_some() {
                 self.view.selected = Some(row);
@@ -396,7 +393,7 @@ impl WinListMenu {
             .view
             .items
             .get(row)
-            .map_or(false, |r| r.payload().is_some());
+            .is_some_and(|r| r.payload().is_some());
         self.activate(conn, wm, row);
         self.paint(conn);
         activated

@@ -16,14 +16,14 @@ pub struct PreviewWindow {
 }
 
 impl Default for PreviewWindow {
-    fn default() -> PreviewWindow {
+    fn default() -> Self {
         Self::new()
     }
 }
 
 impl PreviewWindow {
-    pub fn new() -> PreviewWindow {
-        PreviewWindow {
+    pub fn new() -> Self {
+        Self {
             window: None,
             visible: false,
             ws_count: 4,
@@ -60,11 +60,8 @@ impl PreviewWindow {
     }
 
     pub fn paint(&self, conn: &Arc<dyn DisplayBackend>, wm: &WindowManager<dyn DisplayBackend>) {
-        let win = match &self.window { Some(v) => v, None => return };
-        let g = match conn.create_graphics(win.id()) {
-            Ok(g) => g,
-            Err(_) => return,
-        };
+        let Some(win) = &self.window else { return };
+        let Ok(g) = conn.create_graphics(win.id()) else { return };
         let cols = 2;
         let pw = 2 * (WS_W + 8) + 4;
         let rows = (self.ws_count as u16 + 1) / 2;

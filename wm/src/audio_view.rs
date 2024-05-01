@@ -33,7 +33,7 @@ fn bar_w(h: u16) -> i16 {
     ((bar_zone_w(h) - 2) / 3).max(2)
 }
 
-fn wave_count(volume: i32) -> i16 {
+const fn wave_count(volume: i32) -> i16 {
     if volume <= 0 {
         0
     } else if volume < 34 {
@@ -62,23 +62,20 @@ pub struct AudioView {
 }
 
 impl AudioView {
-    pub fn new(state: Option<AudioState>) -> Self {
+    pub const fn new(state: Option<AudioState>) -> Self {
         Self { state }
     }
 
-    pub fn present(&self) -> bool {
+    pub const fn present(&self) -> bool {
         self.state.is_some()
     }
 
-    pub fn natural_width(h: u16) -> u16 {
+    pub const fn natural_width(h: u16) -> u16 {
         h
     }
 
     pub fn tooltip(&self) -> String {
-        let state = match &self.state {
-            Some(s) => s,
-            None => return String::new(),
-        };
+        let Some(state) = &self.state else { return String::new() };
         if state.sink_muted {
             "Muted".to_string()
         } else {
@@ -87,10 +84,7 @@ impl AudioView {
     }
 
     pub fn draw(&self, g: &dyn GraphicsContext, x0: i16, h: u16) {
-        let state = match &self.state {
-            Some(s) => s,
-            None => return,
-        };
+        let Some(state) = &self.state else { return };
         let muted = state.sink_muted;
         let shape_colour = theme::text();
         let outline = theme::shadow();
@@ -145,23 +139,20 @@ pub struct MicView {
 }
 
 impl MicView {
-    pub fn new(state: Option<AudioState>) -> Self {
+    pub const fn new(state: Option<AudioState>) -> Self {
         Self { state }
     }
 
     pub fn present(&self) -> bool {
-        self.state.as_ref().map_or(false, |s| !s.readers.is_empty())
+        self.state.as_ref().is_some_and(|s| !s.readers.is_empty())
     }
 
-    pub fn natural_width(h: u16) -> u16 {
+    pub const fn natural_width(h: u16) -> u16 {
         h
     }
 
     pub fn tooltip(&self) -> String {
-        let state = match &self.state {
-            Some(s) => s,
-            None => return String::new(),
-        };
+        let Some(state) = &self.state else { return String::new() };
         let mut s = format!("Recording: {}", state.readers.join(", "));
         if state.source_muted {
             s.push_str("\nMic: muted");
@@ -170,10 +161,7 @@ impl MicView {
     }
 
     pub fn draw(&self, g: &dyn GraphicsContext, x0: i16, h: u16) {
-        let state = match &self.state {
-            Some(s) => s,
-            None => return,
-        };
+        let Some(state) = &self.state else { return };
         if state.readers.is_empty() {
             return;
         }

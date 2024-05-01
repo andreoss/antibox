@@ -110,21 +110,19 @@
         let g = MockGraphics::new(64);
         applet.paint_graph(&g);
         let mut per_col: std::collections::HashMap<i16, u16> = std::collections::HashMap::new();
-        for c in g.commands().iter() {
+        for c in &g.commands() {
             if let MockCommand::FillRect(x, _, _, h) = c {
                 if *h > 0 {
                     *per_col.entry(*x).or_insert(0) += *h;
                 }
             }
         }
-        let heights: Vec<u16> = per_col.values().cloned().collect();
-        let max = heights.iter().cloned().max().unwrap_or(0);
-        let min = heights.iter().cloned().min().unwrap_or(0);
+        let heights: Vec<u16> = per_col.values().copied().collect();
+        let max = heights.iter().copied().max().unwrap_or(0);
+        let min = heights.iter().copied().min().unwrap_or(0);
 
         assert!(
             max >= 2 * min.max(1),
-            "tiny changes are amplified by auto-ranging (max={}, min={})",
-            max,
-            min
+            "tiny changes are amplified by auto-ranging (max={max}, min={min})"
         );
     }

@@ -15,13 +15,13 @@ pub enum Coord {
 impl Coord {
     pub fn eval(&self, w: i32, h: i32, s: i32) -> i32 {
         match self {
-            Coord::Lit(v) => *v,
-            Coord::W => w,
-            Coord::H => h,
-            Coord::S => s,
-            Coord::Add(a, b) => a.eval(w, h, s) + b.eval(w, h, s),
-            Coord::Sub(a, b) => a.eval(w, h, s) - b.eval(w, h, s),
-            Coord::Mul(a, b) => a.eval(w, h, s) * b.eval(w, h, s),
+            Self::Lit(v) => *v,
+            Self::W => w,
+            Self::H => h,
+            Self::S => s,
+            Self::Add(a, b) => a.eval(w, h, s) + b.eval(w, h, s),
+            Self::Sub(a, b) => a.eval(w, h, s) - b.eval(w, h, s),
+            Self::Mul(a, b) => a.eval(w, h, s) * b.eval(w, h, s),
         }
     }
 }
@@ -88,15 +88,15 @@ impl ThemeDef {
     }
 
     pub fn string(&self, name: &str) -> Option<&str> {
-        self.strings.get(name).map(|s| s.as_str())
+        self.strings.get(name).map(String::as_str)
     }
 
     pub fn element(&self, name: &str) -> Option<&[Op]> {
-        self.elements.get(name).map(|v| v.as_slice())
+        self.elements.get(name).map(Vec::as_slice)
     }
 }
 
-fn is_ident(b: u8) -> bool {
+const fn is_ident(b: u8) -> bool {
     b.is_ascii_alphanumeric() || b == b'_'
 }
 

@@ -1,4 +1,4 @@
-    fn ne(v: u32) -> [u8; 4] {
+    const fn ne(v: u32) -> [u8; 4] {
         [v as u8, (v >> 8) as u8, (v >> 16) as u8, (v >> 24) as u8]
     }
     use super::*;

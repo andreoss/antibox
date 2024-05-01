@@ -44,7 +44,7 @@ impl TaskPane {
                 | EventMask::ENTER_WINDOW
                 | EventMask::LEAVE_WINDOW,
         )?;
-        Ok(TaskPane {
+        Ok(Self {
             conn: Arc::clone(conn),
             window,
             buttons: Vec::new(),

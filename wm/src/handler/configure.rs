@@ -15,9 +15,7 @@ pub fn configure_request<H: DisplayBackend + 'static + ?Sized>(
     const CFG_HEIGHT: u16 = 1 << 3;
 
     let key = wm.cid_for_xid(w);
-    let id = match key {
-        Some(id) => id,
-        None => {
+    let Some(id) = key else {
             if let Ok(xw) = wm.backend().unwrap().wrap_window(w) {
                 let _ = xw.configure(
                     if value_mask & CFG_X != 0 { Some(r.x) } else { None },
@@ -35,10 +33,9 @@ pub fn configure_request<H: DisplayBackend + 'static + ?Sized>(
                 );
             }
             return;
-        }
-    };
+        };
 
-    if wm.frame(id).map_or(false, |f| f.state().shaded)
+    if wm.frame(id).is_some_and(|f| f.state().shaded)
         && value_mask & (CFG_WIDTH | CFG_HEIGHT) != 0
     {
         return;
@@ -79,7 +76,7 @@ pub fn configure_request<H: DisplayBackend + 'static + ?Sized>(
         )
     });
     let bw = if decorated { border_width() } else { 0 };
-    let strip = wm.frames.get(&id).map_or(0, |f| f.tab_strip_h());
+    let strip = wm.frames.get(&id).map_or(0, super::super::frame::FrameWindow::tab_strip_h);
     let (ts, bs) = if crate::frame::tabs_on_bottom() {
         (0, strip)
     } else {

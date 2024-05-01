@@ -3,9 +3,9 @@ use antibox_core::mock::MockDisplay;
 
 fn sample_nodes() -> Vec<MenuNode<u32>> {
     let mut nodes: Vec<MenuNode<u32>> = (0..25)
-        .map(|i| MenuNode::leaf(format!("alpha{}", i), i))
+        .map(|i| MenuNode::leaf(format!("alpha{i}"), i))
         .collect();
-    nodes.extend((0..5).map(|i| MenuNode::leaf(format!("zeta{}", i), 100 + i)));
+    nodes.extend((0..5).map(|i| MenuNode::leaf(format!("zeta{i}"), 100 + i)));
     nodes
 }
 
@@ -174,7 +174,7 @@ fn expanded_nodes() -> Vec<MenuNode<u32>> {
     vec![
         MenuNode::group_expanded(
             "Apps",
-            (0..12).map(|i| MenuNode::leaf(format!("app{}", i), i)).collect(),
+            (0..12).map(|i| MenuNode::leaf(format!("app{i}"), i)).collect(),
         ),
         MenuNode::leaf("Exit", 99),
     ]

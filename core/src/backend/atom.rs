@@ -30,7 +30,7 @@ impl AtomManager {
     }
 
     pub fn get(&self, name: &str) -> Option<u32> {
-        self.atoms.get(name).cloned()
+        self.atoms.get(name).copied()
     }
 
     pub fn supported_list(&self) -> Vec<u32> {

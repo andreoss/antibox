@@ -17,7 +17,7 @@ fn test_scroll_walks_pixels_then_chars_and_wraps() {
     let (t2, s2) = scroll_at(&g, label, char_w, 40);
     assert!(t2.starts_with('o'));
     assert_eq!(s2, 0);
-    let total = g.text_width(&format!("{}{}", label, GAP)).unwrap() as usize;
+    let total = g.text_width(&format!("{label}{GAP}")).unwrap() as usize;
     let (tw, sw) = scroll_at(&g, label, total, 40);
     assert_eq!((tw, sw), (t0.clone(), s0));
     let covered = g.text_width(&t0).unwrap();

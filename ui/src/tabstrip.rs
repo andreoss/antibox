@@ -70,7 +70,7 @@ fn draw_one(g: &dyn GraphicsContext, rect: Rect, label: &str, active: bool, clos
     };
     let _ = g.set_foreground(face);
     let _ = g.fill_rect(x, y, w, h);
-    crate::theme::bevel(g, x, y, w, h, false);
+    theme::bevel(g, x, y, w, h, false);
     let fg = theme::text();
     let _ = g.set_font(&tab_font(active));
     let _ = g.set_foreground(fg);

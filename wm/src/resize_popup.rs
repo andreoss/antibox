@@ -40,10 +40,10 @@ pub fn readout(fr: Rect, edge: ResizeEdge, hints: Option<&SizeHints>) -> String 
             } as i32;
             let cols = (cw - bw).max(0) / sh.width_inc as i32;
             let rows = (ch - bh).max(0) / sh.height_inc as i32;
-            return format!("{} x {}", cols, rows);
+            return format!("{cols} x {rows}");
         }
     }
-    format!("{} x {}", cw, ch)
+    format!("{cw} x {ch}")
 }
 
 pub fn show<H: DisplayBackend + 'static + ?Sized>(
@@ -51,18 +51,12 @@ pub fn show<H: DisplayBackend + 'static + ?Sized>(
     text: &str,
     center: Point,
 ) {
-    let b = match wm.backend.clone() {
-        Some(b) => b,
-        None => return,
-    };
-    let (tw, th) = match antibox_ui::textmeasure::with_measure_context(&*b, |g| {
+    let Some(b) = wm.backend.clone() else { return };
+    let Some((tw, th)) = antibox_ui::textmeasure::with_measure_context(&*b, |g| {
         let _ = g.set_font(&font());
         let (tw, th, _) = antibox_ui::textmeasure::measure(g, text, None);
         (tw as i32, th as i32)
-    }) {
-        Some(v) => v,
-        None => return,
-    };
+    }) else { return };
     let w = (tw + pad_x() * 2).max(antibox_ui::metrics::text_w(5));
     let h = th + pad_y() * 2;
     let sw = b.screen_width() as i32;
@@ -71,16 +65,13 @@ pub fn show<H: DisplayBackend + 'static + ?Sized>(
     let y = (center.y - h / 2).clamp(0, (sh - h).max(0));
 
     if wm.moveresize_popup.is_none() {
-        let win = match b.create_window(
+        let Ok(win) = b.create_window(
             b.root().as_parent(),
             Rect::new(x, y, w, h),
             WmWindowClass::InputOutput,
             true,
             EventMask::EXPOSURE,
-        ) {
-            Ok(win) => win,
-            Err(_) => return,
-        };
+        ) else { return };
         let _ = win.map();
         wm.moveresize_popup = Some(win);
     }
@@ -93,10 +84,7 @@ pub fn show<H: DisplayBackend + 'static + ?Sized>(
 }
 
 fn paint<H: DisplayBackend + 'static + ?Sized>(b: &H, win: u32, w: u16, h: u16, text: &str) {
-    let g = match b.create_graphics(win) {
-        Ok(g) => g,
-        Err(_) => return,
-    };
+    let Ok(g) = b.create_graphics(win) else { return };
     let _ = g.set_font(&font());
     let bg = antibox_ui::theme::tooltip_bg();
     let fg = antibox_ui::theme::tooltip_fg();

@@ -28,8 +28,8 @@ pub struct Config {
     pub warp_pointer_on_edge_switch: bool,
 }
 impl Default for Config {
-    fn default() -> Config {
-        Config {
+    fn default() -> Self {
+        Self {
             workspace_count: 4,
             focus_follows_mouse: false,
             click_to_focus: true,
@@ -143,7 +143,7 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
         colours: &ThemeColors,
     ) -> Self {
         let focus_mode = if click_to_focus { 1u32 } else { 2u32 };
-        WindowManager {
+        Self {
             config: Config {
                 workspace_count,
                 focus_follows_mouse: !click_to_focus,
@@ -200,7 +200,7 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
         }
     }
     pub fn new_test() -> Self {
-        WindowManager {
+        Self {
             config: Config::default(),
             frames: FrameStore::new(),
             xid_index: XidIndex::new(),
@@ -247,13 +247,13 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
         }
     }
     pub(crate) fn backend(&self) -> Option<&H> {
-        self.backend.as_ref().map(|v| v.as_ref())
+        self.backend.as_ref().map(AsRef::as_ref)
     }
 
     pub fn layout_for(&self, ws: u32) -> crate::layout::Layout {
         self.workspace_layouts
             .get(ws as usize)
-            .cloned()
+            .copied()
             .unwrap_or_default()
     }
 
@@ -320,13 +320,10 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
 
     fn route_win_menu(&mut self, e: &BackendEvent) -> bool {
         use crate::menu::MenuNav;
-        if !self.win_menu.as_ref().map_or(false, |m| m.visible()) {
+        if !self.win_menu.as_ref().is_some_and(antibox_ui::winmenu::WindowActionMenu::visible) {
             return false;
         }
-        let backend = match self.backend.clone() {
-            Some(b) => b,
-            None => return false,
-        };
+        let Some(backend) = self.backend.clone() else { return false };
         let mut menu = self.win_menu.take().expect("win_menu confirmed Some");
         match menu.handle_event(&*backend, e) {
             MenuNav::Ignored => {
@@ -353,13 +350,10 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
 
     fn route_dock_menu(&mut self, e: &BackendEvent) -> bool {
         use crate::menu::MenuNav;
-        if !self.dock_menu.as_ref().map_or(false, |m| m.visible) {
+        if !self.dock_menu.as_ref().is_some_and(|m| m.visible) {
             return false;
         }
-        let backend = match self.backend.clone() {
-            Some(b) => b,
-            None => return false,
-        };
+        let Some(backend) = self.backend.clone() else { return false };
         let mut menu = self.dock_menu.take().expect("dock_menu confirmed Some");
         match menu.handle_event(&*backend, e) {
             MenuNav::Ignored => {
@@ -590,14 +584,8 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
         if self.dock_window_client(window).is_none() || self.dock_manager.is_dragging() {
             return;
         }
-        let b = match self.backend.clone() {
-            Some(b) => b,
-            None => return,
-        };
-        let ptr = match b.query_pointer(b.root().read_id()) {
-            Ok(p) => p,
-            Err(_) => return,
-        };
+        let Some(b) = self.backend.clone() else { return };
+        let Ok(ptr) = b.query_pointer(b.root().read_id()) else { return };
         let sw = b.screen_width() as i32;
         let sh = b.screen_height() as i32;
         if self
@@ -612,10 +600,7 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
     pub(crate) fn apply_workspace_visibility(&mut self) {
         let cur = self.active_workspace;
         let backend = self.backend.clone();
-        let b = match backend {
-            Some(b) => b,
-            None => return,
-        };
+        let Some(b) = backend else { return };
         let decisions: Vec<(u32, u32, bool)> = self
             .frames
             .values()
@@ -682,12 +667,12 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
         self.map_order.retain(|&x| x != id);
     }
     pub(crate) fn rekey_orders(&mut self, old: ClientId, new: ClientId) {
-        for slot in self.insertion_order.iter_mut() {
+        for slot in &mut self.insertion_order {
             if *slot == old {
                 *slot = new;
             }
         }
-        for slot in self.map_order.iter_mut() {
+        for slot in &mut self.map_order {
             if *slot == old {
                 *slot = new;
             }
@@ -753,10 +738,8 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
                     let _ = std::process::Command::new(p).args(a).spawn();
                 }
             }
-            Action::Menu(MenuOp::WindowPickerList)
-            | Action::Menu(MenuOp::RootMenu)
-            | Action::Menu(MenuOp::Pager)
-            | Action::Menu(MenuOp::Omni) => {
+            Action::Menu(MenuOp::WindowPickerList | MenuOp::RootMenu | MenuOp::Pager |
+MenuOp::Omni) => {
                 self.pending_action = Some(a.clone());
             }
             Action::Menu(MenuOp::WindowActionMenu) => {
@@ -790,18 +773,18 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
             _ => {}
         }
     }
-    pub fn focused_window(&self) -> Option<ClientId> {
+    pub const fn focused_window(&self) -> Option<ClientId> {
         self.focused_window
     }
     pub(crate) fn focused_shaded(&self) -> bool {
         self.focused_window
             .and_then(|id| self.frames.get(&id))
-            .map_or(false, |f| f.state().shaded)
+            .is_some_and(|f| f.state().shaded)
     }
-    pub fn active_workspace(&self) -> u32 {
+    pub const fn active_workspace(&self) -> u32 {
         self.active_workspace
     }
-    pub fn workspace_count(&self) -> u32 {
+    pub const fn workspace_count(&self) -> u32 {
         self.config.workspace_count
     }
     pub fn frame_count(&self) -> usize {
@@ -848,7 +831,7 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
     }
 }
 
-pub(crate) fn workspace_visible(
+pub(crate) const fn workspace_visible(
     workspace: u32,
     sticky: bool,
     minimized: bool,

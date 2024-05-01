@@ -37,9 +37,9 @@ impl XcbEventLoop {
                     let mut buf = [0u8; 64];
                     loop {
                         let r = unsafe {
-                            antibox_core::libc::read(
+                            libc::read(
                                 fd,
-                                buf.as_mut_ptr() as *mut antibox_core::libc::c_void,
+                                buf.as_mut_ptr() as *mut libc::c_void,
                                 buf.len(),
                             )
                         };
@@ -132,7 +132,7 @@ impl EventLoopTrait for XcbEventLoop {
             if e.kind() == std::io::ErrorKind::Interrupted {
                 return Ok(None);
             }
-            return Err(format!("poll failed: {}", e).into());
+            return Err(format!("poll failed: {e}").into());
         }
         for (i, pf) in pollfds.iter().enumerate() {
             if i == 0 {

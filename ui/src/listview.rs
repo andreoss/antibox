@@ -39,6 +39,7 @@ pub enum ListNav<T> {
     Activate(T),
 }
 
+#[derive(Clone, Copy)]
 pub enum Place {
     Anchor(Point),
     At(Point),
@@ -75,7 +76,7 @@ impl<T: Clone> Default for ListView<T> {
 
 impl<T: Clone> ListView<T> {
     pub fn new() -> Self {
-        ListView {
+        Self {
             window: None,
             items: Vec::new(),
             tree: Vec::new(),
@@ -256,11 +257,11 @@ impl<T: Clone> ListView<T> {
     }
 
     pub fn owns_window(&self, id: u32) -> bool {
-        self.window.as_ref().map_or(false, |w| w.id() == id)
-            || self.bar.as_ref().map_or(false, |b| b.owns_window(id))
+        self.window.as_ref().is_some_and(|w| w.id() == id)
+            || self.bar.as_ref().is_some_and(|b| b.owns_window(id))
     }
 
-    pub fn contains(&self, p: Point) -> bool {
+    pub const fn contains(&self, p: Point) -> bool {
         p.x >= self.pos.x
             && p.x < self.pos.x + self.w as i32
             && p.y >= self.pos.y
@@ -325,16 +326,13 @@ impl<T: Clone> ListView<T> {
             | EventMask::LEAVE_WINDOW
             | EventMask::KEY_PRESS
             | EventMask::STRUCTURE_NOTIFY;
-        let win = match conn.create_window(
+        let Ok(win) = conn.create_window(
             conn.root().as_parent(),
             Rect::new(x, y, ww, hh),
             WmWindowClass::InputOutput,
             override_redirect,
             mask,
-        ) {
-            Ok(win) => win,
-            Err(_) => return,
-        };
+        ) else { return };
         let id = win.id();
         on_created(conn, id);
         let _ = win.map();
@@ -350,7 +348,7 @@ impl<T: Clone> ListView<T> {
         self.bar = Some(bar);
     }
 
-    pub fn bar(&self) -> Option<&crate::searchbar::SearchBar> {
+    pub const fn bar(&self) -> Option<&crate::searchbar::SearchBar> {
         self.bar.as_ref()
     }
 
@@ -358,15 +356,12 @@ impl<T: Clone> ListView<T> {
         self.bar.as_mut()
     }
 
-    pub fn pos(&self) -> Point {
+    pub const fn pos(&self) -> Point {
         self.pos
     }
 
     pub fn enable_filter(&mut self, rb: &Arc<dyn RenderBackend>) {
-        let win_id = match self.window.as_ref().map(|w| w.id()) {
-            Some(id) => id,
-            None => return,
-        };
+        let Some(win_id) = self.window.as_ref().map(|w| w.id()) else { return };
         if self.bar.is_some() {
             return;
         }
@@ -420,7 +415,7 @@ impl<T: Clone> ListView<T> {
     }
 
     pub fn next_selectable(&self, from: Option<usize>, dir: i32) -> Option<usize> {
-        self.next_matching(from, dir, |r| r.selectable())
+        self.next_matching(from, dir, FlatRow::selectable)
     }
 
     pub fn next_leaf(&self, from: Option<usize>, dir: i32) -> Option<usize> {
@@ -547,10 +542,7 @@ impl<T: Clone> ListView<T> {
             self.paint(conn);
             return ListNav::Handled;
         }
-        let idx = match self.row_at(p) {
-            Some(i) => i,
-            None => return ListNav::Ignored,
-        };
+        let Some(idx) = self.row_at(p) else { return ListNav::Ignored };
         match &self.items[idx].entry {
             FlatEntry::Separator => ListNav::Handled,
             FlatEntry::Group { .. } => {
@@ -574,7 +566,7 @@ impl<T: Clone> ListView<T> {
         }
         let next = self
             .row_at(p)
-            .filter(|i| self.items.get(*i).map_or(false, |r| r.selectable()));
+            .filter(|i| self.items.get(*i).is_some_and(FlatRow::selectable));
         if next != self.selected {
             self.selected = next;
             self.paint(conn);
@@ -589,10 +581,7 @@ impl<T: Clone> ListView<T> {
         button: u8,
     ) -> bool {
         use crate::searchbar::SearchEvent;
-        let bar = match self.bar.as_mut() {
-            Some(bar) => bar,
-            None => return false,
-        };
+        let Some(bar) = self.bar.as_mut() else { return false };
         if !bar.owns_window(window) {
             return false;
         }
@@ -650,10 +639,7 @@ impl<T: Clone> ListView<T> {
                 ListNav::Handled
             }
             0xFF0D | 0xFF8D => {
-                let idx = match self.selected {
-                    Some(i) => i,
-                    None => return ListNav::Handled,
-                };
+                let Some(idx) = self.selected else { return ListNav::Handled };
                 match self.items.get(idx).map(|r| &r.entry) {
                     Some(FlatEntry::Leaf(payload)) => ListNav::Activate(payload.clone()),
                     Some(FlatEntry::Group { .. }) => {
@@ -704,10 +690,7 @@ impl<T: Clone> ListView<T> {
 
     pub fn bar_key(&mut self, keycode: u32, state: u16, mapping: &KeyboardMapping) -> u8 {
         use crate::searchbar::SearchEvent;
-        let bar = match self.bar.as_mut() {
-            Some(bar) => bar,
-            None => return 0,
-        };
+        let Some(bar) = self.bar.as_mut() else { return 0 };
         let ev = bar.handle_key(keycode, state, mapping);
         if ev != SearchEvent::None {
             bar.repaint();
@@ -721,12 +704,9 @@ impl<T: Clone> ListView<T> {
     }
 
     pub fn paint<H: DisplayBackend + ?Sized>(&self, conn: &H) {
-        let win = match &self.window {
-            Some(win) => win,
-            None => return,
-        };
+        let Some(win) = &self.window else { return };
         crate::paintbuf::buffered(conn, win.id(), self.w.max(1), self.h.max(1), |g| {
-            self.paint_to(g)
+            self.paint_to(g);
         });
         if let Some(bar) = &self.bar {
             bar.repaint();
@@ -773,10 +753,7 @@ impl<T: Clone> ListView<T> {
         let vis = self.vis_rows();
         for v in 0..vis {
             let idx = (self.offset + v) as usize;
-            let row = match self.items.get(idx) {
-                Some(r) => r,
-                None => break,
-            };
+            let Some(row) = self.items.get(idx) else { break };
             let y = top + v * row_h();
             let x0 = 4 + e + row.depth as i16 * indent_w();
             if row.is_separator() {

@@ -21,7 +21,7 @@ pub struct MockDisplay {
 }
 
 impl MockDisplay {
-    pub fn new(width: u16, height: u16, depth: u8) -> MockDisplay {
+    pub fn new(width: u16, height: u16, depth: u8) -> Self {
         Self::with_screen(width, height, depth, 0, 1)
     }
 
@@ -31,14 +31,14 @@ impl MockDisplay {
         depth: u8,
         screen_num: usize,
         root_window: u32,
-    ) -> MockDisplay {
+    ) -> Self {
         let lifecycle = Arc::new(Mutex::new(Vec::new()));
         let mut windows = HashMap::new();
         windows.insert(
             root_window,
             MockWindow::with_lifecycle(root_window, lifecycle.clone()),
         );
-        MockDisplay {
+        Self {
             next_id: Arc::new(Mutex::new(root_window + 1)),
             windows: Arc::new(Mutex::new(windows)),
             atoms: Arc::new(Mutex::new(HashMap::new())),

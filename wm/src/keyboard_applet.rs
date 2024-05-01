@@ -35,7 +35,7 @@ fn detect_layout(conn: &Arc<dyn DisplayBackend>) -> (String, String) {
     }
     if let Some(l) = conn.keyboard_layout() {
         let up = l.to_uppercase();
-        return (up.clone(), format!("Layout: {}", up));
+        return (up.clone(), format!("Layout: {up}"));
     }
     detect_layout_info()
 }
@@ -78,7 +78,7 @@ fn detect_layout_info() -> (String, String) {
         if let Ok(v) = std::env::var("LANG") {
             if v.len() >= 2 {
                 layout = v[..2].to_uppercase();
-                tooltip = format!("layout: {}", layout);
+                tooltip = format!("layout: {layout}");
             }
         }
     }
@@ -154,7 +154,7 @@ impl KeyboardApplet {
             .iter()
             .position(|l| l.eq_ignore_ascii_case(&layout))
             .unwrap_or(0);
-        Ok(KeyboardApplet {
+        Ok(Self {
             window,
             conn: Arc::clone(conn),
             layout,
@@ -310,19 +310,13 @@ impl KeyboardApplet {
     }
 
     fn paint_menu(&self) {
-        let win = match self.menu_window {
-            Some(ref win) => win,
-            None => return,
-        };
+        let Some(ref win) = self.menu_window else { return };
         use antibox_ui::metrics;
         let mw = self.width;
         let ih = menu_item_h();
         let pad = metrics::pad() as i16;
         let h = (self.layouts.len() as u16) * ih + pad as u16 * 2;
-        let pm = match self.conn.create_pixmap(mw, h, self.conn.screen_depth()) {
-            Ok(pm) => pm,
-            Err(_) => return,
-        };
+        let Ok(pm) = self.conn.create_pixmap(mw, h, self.conn.screen_depth()) else { return };
         if let Ok(g) = self.conn.create_graphics(pm) {
             let _ = g.set_font(&FontSpec::ui(metrics::font_pt()));
             crate::render::draw_menu_frame(&*g, mw, h, self.face);
@@ -367,7 +361,7 @@ impl KeyboardApplet {
         }
     }
 
-    fn point_on_applet(&self, p: Point) -> bool {
+    const fn point_on_applet(&self, p: Point) -> bool {
         let (abs_x, abs_y) = (self.menu_abs.0 + p.x, self.menu_abs.1 + p.y);
         abs_x >= self.applet_abs.0
             && abs_x < self.applet_abs.0 + self.width as i32
@@ -381,7 +375,7 @@ impl KeyboardApplet {
             return;
         }
         let double = self.point_on_applet(p)
-            && self.opened_at.map_or(false, |t| {
+            && self.opened_at.is_some_and(|t| {
                 t.elapsed() < std::time::Duration::from_millis(400)
             });
         if double {
@@ -466,7 +460,7 @@ impl Applet for KeyboardApplet {
             .configure(Some(x as i32), Some(y as i32), Some(w), Some(h));
     }
     fn owns_window(&self, id: u32) -> bool {
-        self.window.id() == id || self.menu_window.as_ref().map_or(false, |w| w.id() == id)
+        self.window.id() == id || self.menu_window.as_ref().is_some_and(|w| w.id() == id)
     }
     fn handle_other_event(&mut self, event: &BackendEvent, conn: &Arc<dyn DisplayBackend>) {
         match *event {

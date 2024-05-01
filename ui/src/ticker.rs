@@ -25,7 +25,7 @@ pub struct Scrolled {
 }
 
 impl Scrolled {
-    pub fn any(&self) -> bool {
+    pub const fn any(&self) -> bool {
         self.panel || self.title
     }
 }
@@ -116,8 +116,8 @@ const CACHE_LIMIT: usize = 512;
 
 thread_local! {
     static METRICS: RefCell<HashMap<u64, HashMap<String, Metrics>>> = RefCell::new(HashMap::new());
-    static PANEL_TARGETS: RefCell<Vec<u64>> = RefCell::new(Vec::new());
-    static TITLE_TARGETS: RefCell<Vec<u64>> = RefCell::new(Vec::new());
+    static PANEL_TARGETS: RefCell<Vec<u64>> = const { RefCell::new(Vec::new()) };
+    static TITLE_TARGETS: RefCell<Vec<u64>> = const { RefCell::new(Vec::new()) };
 }
 
 fn font_stamp(g: &dyn GraphicsContext) -> u64 {
@@ -186,7 +186,7 @@ fn scroll_at(g: &dyn GraphicsContext, label: &str, phase: usize, avail: u16) -> 
         if cache.values().map(HashMap::len).sum::<usize>() > CACHE_LIMIT {
             cache.clear();
         }
-        let by_label = cache.entry(stamp).or_insert_with(HashMap::new);
+        let by_label = cache.entry(stamp).or_default();
         if !by_label.contains_key(label) {
             by_label.insert(label.to_string(), measure(g, label));
         }

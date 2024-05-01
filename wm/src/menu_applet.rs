@@ -19,7 +19,7 @@ pub struct MenuApplet {
 }
 
 impl MenuApplet {
-    pub fn new(conn: &Arc<dyn DisplayBackend>, parent: u32) -> Result<MenuApplet> {
+    pub fn new(conn: &Arc<dyn DisplayBackend>, parent: u32) -> Result<Self> {
         let w = antibox_ui::metrics::text_w(LABEL.chars().count()) + antibox_ui::metrics::pad() * 4;
         let h = antibox_ui::metrics::panel_height();
         let window = conn.create_window(
@@ -29,7 +29,7 @@ impl MenuApplet {
             true,
             EventMask::EXPOSURE | EventMask::BUTTON_PRESS | EventMask::BUTTON_RELEASE,
         )?;
-        Ok(MenuApplet {
+        Ok(Self {
             window,
             w: w as u16,
             h: h as u16,

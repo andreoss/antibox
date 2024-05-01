@@ -34,7 +34,7 @@ fn battery_absent() -> BatteryView {
     v
 }
 
-fn audio_present() -> AudioView {
+const fn audio_present() -> AudioView {
     AudioView::new(Some(AudioState {
         sink_muted: false,
         volume: 50,
@@ -43,7 +43,7 @@ fn audio_present() -> AudioView {
     }))
 }
 
-fn audio_absent() -> AudioView {
+const fn audio_absent() -> AudioView {
     AudioView::new(None)
 }
 
@@ -113,10 +113,10 @@ fn test_tooltip_only_audio_when_battery_absent() {
 }
 
 struct FakeAudio {
-    calls: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+    calls: Arc<std::sync::Mutex<Vec<String>>>,
 }
 
-impl crate::audio::AudioSystem for FakeAudio {
+impl AudioSystem for FakeAudio {
     fn read(&self) -> Option<AudioState> {
         Some(AudioState {
             sink_muted: false,
@@ -135,26 +135,26 @@ impl crate::audio::AudioSystem for FakeAudio {
         self.calls
             .lock()
             .unwrap()
-            .push(format!("sink{:+}", delta_pct));
+            .push(format!("sink{delta_pct:+}"));
     }
     fn nudge_source_volume(&self, delta_pct: i32) {
         self.calls
             .lock()
             .unwrap()
-            .push(format!("source{:+}", delta_pct));
+            .push(format!("source{delta_pct:+}"));
     }
 }
 
 fn applet_with_fake_audio() -> (
     PowerAudioApplet,
-    std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+    Arc<std::sync::Mutex<Vec<String>>>,
 ) {
-    let calls = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let calls = Arc::new(std::sync::Mutex::new(Vec::new()));
     let mut applet = new_applet();
     applet.battery = battery_present();
     applet.audio = audio_present();
     applet.audio_system = Box::new(FakeAudio {
-        calls: std::sync::Arc::clone(&calls),
+        calls: Arc::clone(&calls),
     });
     (applet, calls)
 }
@@ -196,12 +196,12 @@ fn test_clicks_on_battery_half_do_not_touch_audio() {
 
 #[test]
 fn test_clicks_ignored_when_audio_absent() {
-    let calls = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let calls = Arc::new(std::sync::Mutex::new(Vec::new()));
     let mut applet = new_applet();
     applet.battery = battery_present();
     applet.audio = audio_absent();
     applet.audio_system = Box::new(FakeAudio {
-        calls: std::sync::Arc::clone(&calls),
+        calls: Arc::clone(&calls),
     });
     applet.handle_click(5, 0, 4);
     assert!(calls.lock().unwrap().is_empty());

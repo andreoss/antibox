@@ -25,7 +25,7 @@ struct KeyBinding {
 }
 
 impl Default for KeyBindings {
-    fn default() -> KeyBindings {
+    fn default() -> Self {
         Self::new()
     }
 }
@@ -33,8 +33,8 @@ impl Default for KeyBindings {
 const LOCK_MASK: u16 = 0x02 | 0x10 | 0x20;
 
 impl KeyBindings {
-    pub fn new() -> KeyBindings {
-        KeyBindings {
+    pub const fn new() -> Self {
+        Self {
             bindings: Vec::new(),
         }
     }
@@ -90,14 +90,11 @@ impl KeyBindings {
         let min_kc = backend.setup_min_keycode();
         let max_kc = backend.setup_max_keycode();
         let count = max_kc - min_kc + 1;
-        let mapping = match backend.get_keyboard_mapping(min_kc, count) {
-            Ok(m) => m,
-            Err(_) => return,
-        };
+        let Ok(mapping) = backend.get_keyboard_mapping(min_kc, count) else { return };
         let kpc = mapping.keysyms_per_keycode as usize;
         let root = backend.root().read_id();
         let lock_combs = [0u16, 0x02, 0x10, 0x02 | 0x10];
-        for sym in [KEY_SUPER_L, KEY_SUPER_R].iter().cloned() {
+        for sym in [KEY_SUPER_L, KEY_SUPER_R].iter().copied() {
             if let Some(kc) = find_keycode(&mapping.keysyms, kpc, min_kc, sym) {
                 for &locks in &lock_combs {
                     let _ =
@@ -160,8 +157,8 @@ pub struct TransientKeymap {
 }
 
 impl TransientKeymap {
-    pub const fn new(entries: Vec<(u32, KeymapAction)>) -> TransientKeymap {
-        TransientKeymap { entries }
+    pub const fn new(entries: Vec<(u32, KeymapAction)>) -> Self {
+        Self { entries }
     }
 
     pub fn lookup(&self, keysym: u32) -> Option<&KeymapAction> {
@@ -178,8 +175,8 @@ pub struct KeymapStack {
 }
 
 impl KeymapStack {
-    pub fn new() -> KeymapStack {
-        KeymapStack { maps: Vec::new() }
+    pub const fn new() -> Self {
+        Self { maps: Vec::new() }
     }
 
     pub fn is_active(&self) -> bool {
@@ -203,10 +200,7 @@ impl KeymapStack {
     }
 
     pub fn lookup(&self, keysym: u32) -> KeymapLookup {
-        let top = match self.maps.last() {
-            Some(top) => top,
-            None => return KeymapLookup::Pass,
-        };
+        let Some(top) = self.maps.last() else { return KeymapLookup::Pass };
         match top.lookup(keysym) {
             Some(KeymapAction::Dispatch(a)) => KeymapLookup::Dispatch(a.clone()),
             Some(KeymapAction::Drag) => KeymapLookup::Drag,

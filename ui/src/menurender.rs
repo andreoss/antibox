@@ -200,7 +200,7 @@ pub fn menu_destroy_window(window: &mut Option<Box<dyn WindowHandle>>, visible: 
     *visible = false;
 }
 
-pub fn menu_item_at(
+pub const fn menu_item_at(
     p: Point,
     pos: Point,
     top_offset: i32,

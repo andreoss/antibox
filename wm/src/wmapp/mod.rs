@@ -29,46 +29,46 @@ enum AppletTick {
 
 impl AppletTick {
     const COUNT: usize = 7;
-    const ALL: [Self; AppletTick::COUNT] = [
-        AppletTick::Clock,
-        AppletTick::Cpu,
-        AppletTick::Mem,
-        AppletTick::Net,
-        AppletTick::PowerAudio,
-        AppletTick::Keyboard,
-        AppletTick::Ticker,
+    const ALL: [Self; Self::COUNT] = [
+        Self::Clock,
+        Self::Cpu,
+        Self::Mem,
+        Self::Net,
+        Self::PowerAudio,
+        Self::Keyboard,
+        Self::Ticker,
     ];
 
-    fn interval(self) -> Duration {
+    const fn interval(self) -> Duration {
         match self {
-            AppletTick::Clock => Duration::from_secs(1),
-            AppletTick::Cpu | AppletTick::Net | AppletTick::PowerAudio | AppletTick::Keyboard => {
+            Self::Clock => Duration::from_secs(1),
+            Self::Cpu | Self::Net | Self::PowerAudio | Self::Keyboard => {
                 Duration::from_secs(2)
             }
-            AppletTick::Mem => Duration::from_secs(5),
-            AppletTick::Ticker => antibox_ui::ticker::interval(),
+            Self::Mem => Duration::from_secs(5),
+            Self::Ticker => antibox_ui::ticker::interval(),
         }
     }
 
     fn update(self, tb: &mut TaskBar) -> Vec<u32> {
         match self {
-            AppletTick::Clock => {
+            Self::Clock => {
                 let mut v = tb.update_clocks();
                 v.extend(tb.update_urgent());
                 v
             }
-            AppletTick::Cpu => tb.update_cpu(),
-            AppletTick::Mem => tb.update_mem(),
-            AppletTick::Net => tb.update_net(),
-            AppletTick::PowerAudio => {
+            Self::Cpu => tb.update_cpu(),
+            Self::Mem => tb.update_mem(),
+            Self::Net => tb.update_net(),
+            Self::PowerAudio => {
                 if crate::audio_events::active() {
                     tb.update_power_audio_battery()
                 } else {
                     tb.update_power_audio()
                 }
             }
-            AppletTick::Keyboard => tb.update_keyboard(),
-            AppletTick::Ticker => Vec::new(),
+            Self::Keyboard => tb.update_keyboard(),
+            Self::Ticker => Vec::new(),
         }
     }
 }
@@ -94,7 +94,7 @@ fn apply_graph_prefs(prefs: &wmconfig::Prefs) {
 }
 
 pub fn apply_font_prefs(b: &Arc<dyn DisplayBackend>, prefs: &wmconfig::Prefs) {
-    antibox_core::backend::set_ui_font(&prefs.font.name);
+    set_ui_font(&prefs.font.name);
     if let Ok(g) = b.create_graphics(b.root().read_id()) {
         let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
         let (_, _, fh) = g.font_metrics();
@@ -112,9 +112,9 @@ struct AppletTickers {
 }
 
 impl AppletTickers {
-    fn new() -> AppletTickers {
+    fn new() -> Self {
         let now = Instant::now();
-        AppletTickers {
+        Self {
             last: [now; AppletTick::COUNT],
             last_clock_sec: Self::wall_secs(),
             ticker_fired: antibox_ui::ticker::Scrolled::default(),
@@ -192,12 +192,12 @@ struct LoopTiming {
 }
 
 impl LoopTiming {
-    fn new() -> LoopTiming {
-        let enabled = std::env::var("ANTIBOX_LOOP_TIMING").map_or(false, |v| v != "0" && !v.is_empty());
+    fn new() -> Self {
+        let enabled = std::env::var("ANTIBOX_LOOP_TIMING").is_ok_and(|v| v != "0" && !v.is_empty());
         if enabled {
             eprintln!("loop timing on (ANTIBOX_LOOP_TIMING): ~1s summaries, warn on iterate work >8ms");
         }
-        LoopTiming {
+        Self {
             enabled,
             last_report: Instant::now(),
             iters: 0,
@@ -256,7 +256,7 @@ pub struct App {
     pub winlist: WinListMenu,
     pub omni: crate::omni::Omni,
     pub group_menu: Option<crate::menu::MenuView<u32>>,
-    pub root_menu: Option<crate::menu::MenuView<crate::action::Action>>,
+    pub root_menu: Option<crate::menu::MenuView<Action>>,
     pub last_pager_sync: Instant,
     pub taskbar: Option<TaskBar>,
     pub(crate) keyboard_layouts_pref: String,
@@ -307,7 +307,7 @@ fn claim_wm_selection(
 ) -> Result<Box<dyn WindowHandle>> {
     let win = b.create_window(
         b.root().as_parent(),
-        antibox_core::rect::Rect::new(-1, -1, 1, 1),
+        Rect::new(-1, -1, 1, 1),
         WmWindowClass::InputOutput,
         true,
         EventMask::NO_EVENT,
@@ -340,14 +340,8 @@ fn claim_wm_selection(
 }
 
 pub(crate) fn apply_xft_dpi(b: &dyn DisplayBackend, dpi: i32) {
-    let rm_atom = match b.intern_atom("RESOURCE_MANAGER") {
-        Ok(a) => a,
-        Err(_) => return,
-    };
-    let str_atom = match b.intern_atom("STRING") {
-        Ok(a) => a,
-        Err(_) => return,
-    };
+    let Ok(rm_atom) = b.intern_atom("RESOURCE_MANAGER") else { return };
+    let Ok(str_atom) = b.intern_atom("STRING") else { return };
     let root = b.root();
     let existing = b
         .get_property(root.read_id(), rm_atom, str_atom, 0, u32::MAX / 4)
@@ -363,7 +357,7 @@ pub(crate) fn apply_xft_dpi(b: &dyn DisplayBackend, dpi: i32) {
         })
         .map(ToString::to_string)
         .collect();
-    lines.push(format!("Xft.dpi:\t{}", dpi));
+    lines.push(format!("Xft.dpi:\t{dpi}"));
     let mut merged = lines.join("\n");
     merged.push('\n');
     let _ = b.change_property8(
@@ -456,7 +450,7 @@ impl App {
         if old_owner != 0 {
             let who = incumbent_wm_name(&*b).map_or_else(
                 || "a non-EWMH window manager".to_string(),
-                |n| format!("\"{}\"", n),
+                |n| format!("\"{n}\""),
             );
             return Err(format!(
                 "antibox: {} already manages display {} (owns WM_S{})",
@@ -476,8 +470,8 @@ impl App {
         if redirect.is_err() {
             let who = incumbent_wm_name(&*b).map_or_else(|| {
                     "a window manager without EWMH identification (possibly the display server's built-in management)".to_string()
-                }, |n| format!("\"{}\"", n));
-            return Err(format!("antibox: {} already manages display {}", who, disp).into());
+                }, |n| format!("\"{n}\""));
+            return Err(format!("antibox: {who} already manages display {disp}").into());
         }
 
         let mut wm = WindowManager::with_config(
@@ -531,7 +525,7 @@ impl App {
         }
         crate::placement::update_workarea_from_struts(&mut wm);
         Self::run_script("startup");
-        Ok(App {
+        Ok(Self {
             backend: b,
             event_loop,
             atom_manager,
@@ -602,7 +596,7 @@ impl App {
         }
 
         if let Some(e) = self.backend.check_for_error() {
-            eprintln!("[antibox] X11 connection error: {}", e);
+            eprintln!("[antibox] X11 connection error: {e}");
             self.running = false;
             return Ok(());
         }
@@ -657,7 +651,7 @@ impl App {
         if self
             .taskbar
             .as_ref()
-            .map_or(false, TaskBar::any_tooltip_pending)
+            .is_some_and(TaskBar::any_tooltip_pending)
         {
             timeout = timeout.min(Duration::from_millis(100));
         }
@@ -668,10 +662,7 @@ impl App {
     }
 
     fn tick_taskbar(&mut self, tickers: &mut AppletTickers, work: &mut LoopWork) {
-        let tb = match self.taskbar {
-            Some(ref mut tb) => tb,
-            None => return,
-        };
+        let Some(ref mut tb) = self.taskbar else { return };
         if crate::audio_events::take_changed() {
             for wid in tb.update_power_audio() {
                 work.repaint_applets.push(wid);
@@ -801,14 +792,11 @@ impl App {
     }
 
     fn sync_taskbar_layout(&mut self, prefs: &wmconfig::Prefs) {
-        let mut tb = match self.taskbar.take() {
-            Some(tb) => tb,
-            None => return,
-        };
+        let Some(mut tb) = self.taskbar.take() else { return };
         let wid = tb.window.id();
         let conn = Arc::clone(&self.backend);
         {
-            let App {
+            let Self {
                 atom_manager,
                 wm,
                 tray,
@@ -849,10 +837,7 @@ impl App {
             position,
         } = cfg;
         let strut_atom = atom_manager.get("_NET_WM_STRUT").unwrap_or(0);
-        let mut tb = match TaskBar::new(conn, position, strut_atom) {
-            Ok(tb) => tb,
-            Err(_) => return (None, 0),
-        };
+        let Ok(mut tb) = TaskBar::new(conn, position, strut_atom) else { return (None, 0) };
         wm.reserved_strut = tb.strut();
         let tc = wm.theme_colours;
         tb.apply_theme_colours(&tc, wm.config.gradients);
@@ -860,7 +845,7 @@ impl App {
         wm.above_windows = vec![wid];
         let prefs = wmconfig::Config::load_prefs();
         let mut core: Vec<Box<dyn Applet>> = Vec::new();
-        for w in crate::layout_preferences::Widget::ALL.iter().cloned() {
+        for w in crate::layout_preferences::Widget::ALL.iter().copied() {
             if !crate::layout_preferences::taskbar_wants(w) {
                 continue;
             }
@@ -884,7 +869,7 @@ impl App {
         }
         let resize_cursor = wm
             .cursors
-            .get(crate::cursors::idx::SIZE_H).cloned()
+            .get(crate::cursors::idx::SIZE_H).copied()
             .unwrap_or(0);
         if resize_cursor != 0 {
             for a in &tb.applets {

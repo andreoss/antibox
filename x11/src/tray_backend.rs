@@ -13,10 +13,10 @@ pub struct XcbTray {
 }
 
 impl XcbTray {
-    pub fn new(conn: Arc<XcbConnection>) -> XcbTray {
+    pub fn new(conn: Arc<XcbConnection>) -> Self {
         let composite = conn.composite_probe();
         let damage = conn.damage_probe();
-        XcbTray {
+        Self {
             conn,
             composite,
             damage,
@@ -121,8 +121,9 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::missing_const_for_fn)]
     fn tray_backend_is_send_and_sync() {
-        fn assert_send_sync<T: Send + Sync>() {}
+        const fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<XcbTray>();
     }
 }
