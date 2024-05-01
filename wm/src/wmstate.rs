@@ -1,8 +1,9 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 #[repr(i32)]
 pub enum WinLayer {
     Desktop = 0,
     Below = 2,
+    #[default]
     Normal = 4,
     OnTop = 6,
     Dock = 8,
@@ -10,12 +11,6 @@ pub enum WinLayer {
     Menu = 12,
     Fullscreen = 14,
     AboveAll = 15,
-}
-
-impl Default for WinLayer {
-    fn default() -> WinLayer {
-        WinLayer::Normal
-    }
 }
 
 impl WinLayer {
