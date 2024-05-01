@@ -4,17 +4,12 @@ use antibox_core::backend::DisplayBackend;
 use antibox_core::point::Point;
 use antibox_core::rect::Rect;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum Layout {
+    #[default]
     Floating,
     Tall,
     Wide,
-}
-
-impl Default for Layout {
-    fn default() -> Layout {
-        Layout::Floating
-    }
 }
 
 const TALL_NMASTER: usize = 1;

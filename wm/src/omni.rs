@@ -58,19 +58,14 @@ pub enum OmniWinOp {
     UnmarkAll,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum OmniSort {
+    #[default]
     Natural,
     Title,
     Class,
     Workspace,
     Window,
-}
-
-impl Default for OmniSort {
-    fn default() -> OmniSort {
-        OmniSort::Natural
-    }
 }
 
 impl OmniSort {
