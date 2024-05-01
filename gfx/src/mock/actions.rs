@@ -46,7 +46,7 @@ impl RenderBackend for MockDisplay {
 
     fn wrap_window(&self, xid: u32) -> Result<Box<dyn WindowHandle>> {
         if self.broken.lock().unwrap().contains(&xid) {
-            return Err(crate::error::Error::message(format!("broken window {}", xid)));
+            return Err(crate::error::Error::message(format!("broken window {xid}")));
         }
         let mut windows = self.windows.lock().unwrap();
         let entry = windows

@@ -50,7 +50,7 @@ impl DisplayBackend for MockDisplay {
                 return Ok(name.clone());
             }
         }
-        Err(format!("unknown atom: {}", atom).into())
+        Err(format!("unknown atom: {atom}").into())
     }
     fn query_extension(&self, _name: &str) -> Result<bool> {
         Ok(false)
@@ -124,8 +124,8 @@ impl DisplayBackend for MockDisplay {
         &self,
         _src_window: u32,
         dst_window: u32,
-        _src_area: crate::rect::Rect,
-        dst: crate::point::Point,
+        _src_area: Rect,
+        dst: Point,
     ) -> Result<()> {
         self.warps
             .lock()
@@ -283,7 +283,7 @@ impl DisplayBackend for MockDisplay {
         _mask: u32,
         _fore: [u16; 3],
         _back: [u16; 3],
-        _hotspot: crate::point::Point,
+        _hotspot: Point,
     ) -> Result<u32> {
         let mut next = self.next_id.lock().unwrap();
         let id = *next;
@@ -302,7 +302,7 @@ impl DisplayBackend for MockDisplay {
         &self,
         _pixels: &[u8],
         _size: crate::point::Dimension,
-        _hotspot: crate::point::Point,
+        _hotspot: Point,
         _foreground: [u8; 3],
         _background: [u8; 3],
     ) -> Result<u32> {

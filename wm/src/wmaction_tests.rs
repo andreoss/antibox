@@ -2,7 +2,7 @@
     use antibox_core::backend::RenderBackend;
 
     fn tab_fixture() -> (
-        crate::manager::WindowManager<antibox_core::mock::MockDisplay>,
+        WindowManager<antibox_core::mock::MockDisplay>,
         Vec<ClientId>,
     ) {
         use crate::client::ClientWindow;
@@ -88,7 +88,7 @@
             &mut wm,
             ids[0],
             ids[0],
-            antibox_core::point::Point::new(50, 50),
+            Point::new(50, 50),
         );
         assert_eq!(wm.frames.len(), 2);
         let a = wm.frames.get(&ids[0]).unwrap();

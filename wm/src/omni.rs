@@ -167,9 +167,8 @@ fn run_history_file() -> Option<std::path::PathBuf> {
 }
 
 fn load_run_history() -> Vec<String> {
-    let text = match run_history_file().and_then(|p| std::fs::read_to_string(p).ok()) {
-        Some(t) => t,
-        None => return Vec::new(),
+    let Some(text) = run_history_file().and_then(|p| std::fs::read_to_string(p).ok()) else {
+        return Vec::new();
     };
     text.lines()
         .map(str::trim)
@@ -180,10 +179,7 @@ fn load_run_history() -> Vec<String> {
 }
 
 fn save_run_history(history: &[String]) {
-    let path = match run_history_file() {
-        Some(p) => p,
-        None => return,
-    };
+    let Some(path) = run_history_file() else { return };
     if let Some(dir) = path.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
@@ -191,10 +187,7 @@ fn save_run_history(history: &[String]) {
 }
 
 fn longest_common_prefix<'a>(items: &[&'a str]) -> &'a str {
-    let first = match items.first() {
-        Some(f) => f,
-        None => return "",
-    };
+    let Some(first) = items.first() else { return "" };
     let mut len = first.len();
     for s in &items[1..] {
         len = len.min(s.len());
@@ -264,7 +257,7 @@ impl Omni {
         }
     }
 
-    pub fn visible(&self) -> bool {
+    pub const fn visible(&self) -> bool {
         self.view.visible
     }
 
@@ -308,7 +301,7 @@ impl Omni {
 
     fn group_row_label(&self) -> String {
         let state = if self.grouping_enabled() { "on" } else { "off" };
-        format!("Group by class: {}", state)
+        format!("Group by class: {state}")
     }
 
     fn apply_sort(&mut self) {
@@ -376,7 +369,7 @@ impl Omni {
             .items
             .iter()
             .find(|it| !it.run && it.client_id == self.ops_target)
-            .map_or(false, |it| it.marked);
+            .is_some_and(|it| it.marked);
         let marked_count = self.items.iter().filter(|it| it.marked).count();
         let toggle = if marked { "Unmark" } else { "Mark" };
         let mut nodes: Vec<MenuNode<OmniAct>> = vec![
@@ -689,10 +682,7 @@ impl Omni {
             std::collections::HashMap::new();
         let mut first: std::collections::HashSet<(String, u32)> = std::collections::HashSet::new();
         for id in &wm.insertion_order {
-            let fw = match wm.frames.get(id) {
-                Some(fw) => fw,
-                None => continue,
-            };
+            let Some(fw) = wm.frames.get(id) else { continue };
             if fw.state().skip_taskbar {
                 continue;
             }
@@ -726,7 +716,7 @@ impl Omni {
                 };
                 let base = fw.client().title();
                 let title = if count > 1 {
-                    format!("{}  ({})", base, count)
+                    format!("{base}  ({count})")
                 } else {
                     base.to_string()
                 };
@@ -849,14 +839,11 @@ impl Omni {
             let mut set = std::collections::BTreeSet::new();
             if let Some(path) = std::env::var_os("PATH") {
                 for dir in std::env::split_paths(&path) {
-                    let rd = match std::fs::read_dir(&dir) {
-                        Ok(rd) => rd,
-                        Err(_) => continue,
-                    };
+                    let Ok(rd) = std::fs::read_dir(&dir) else { continue };
                     for entry in rd.flatten() {
                         let is_exec = entry
                             .file_type()
-                            .map_or(false, |t| t.is_file() || t.is_symlink());
+                            .is_ok_and(|t| t.is_file() || t.is_symlink());
                         if is_exec {
                             if let Ok(name) = entry.file_name().into_string() {
                                 set.insert(name);
@@ -921,7 +908,7 @@ impl Omni {
     fn cursor_at_end(&self) -> bool {
         self.view
             .bar()
-            .map_or(false, |b| b.input.cursor_pos() == b.text().len())
+            .is_some_and(|b| b.input.cursor_pos() == b.text().len())
     }
 
     fn command_line_argv(cmd: &[String]) -> String {
@@ -950,10 +937,7 @@ impl Omni {
     }
 
     fn keysym_for(&self, keycode: u32) -> u32 {
-        let m = match self.mapping.as_ref() {
-            Some(m) => m,
-            None => return 0,
-        };
+        let Some(m) = self.mapping.as_ref() else { return 0 };
         let off = (keycode as usize).saturating_sub(self.min_keycode as usize)
             * m.keysyms_per_keycode as usize;
         m.keysyms.get(off).copied().unwrap_or(0)
@@ -1061,10 +1045,7 @@ impl Omni {
                     }
                     _ => {}
                 }
-                let mapping = match self.mapping.as_ref() {
-                    Some(m) => m,
-                    None => return OmniOutcome::Close,
-                };
+                let Some(mapping) = self.mapping.as_ref() else { return OmniOutcome::Close };
                 let ev = match self.view.bar_mut() {
                     Some(bar) => {
                         let ev = bar.handle_key(*keycode, *state, mapping);
@@ -1099,7 +1080,7 @@ impl Omni {
                 button,
                 ..
             } => {
-                let own = self.view.window_id() == *window;
+                let own = self.view.window_id() == *window || self.view.contains(*root);
                 if !own && !self.owns_window(*window) {
                     return OmniOutcome::Close;
                 }
@@ -1133,7 +1114,7 @@ impl Omni {
                 root,
                 ..
             } => {
-                if self.view.window_id() == *window {
+                if self.view.window_id() == *window || self.view.contains(*root) {
                     if self.view.row_at(*root).is_some() {
                         self.view.handle_motion(conn.as_ref(), *root);
                     }

@@ -3,7 +3,7 @@
     use super::mwm_hints_flags::DECORATIONS;
     use super::MwmHints;
 
-    fn mwm(flags: u32, decorations: u32) -> MwmHints {
+    const fn mwm(flags: u32, decorations: u32) -> MwmHints {
         MwmHints {
             flags,
             functions: 0,

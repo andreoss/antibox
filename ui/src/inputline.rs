@@ -84,10 +84,7 @@ impl InputLine {
     }
 
     pub fn repaint(&self) {
-        let g = match self.conn.create_graphics(self.window.id()) {
-            Ok(g) => g,
-            Err(_) => return,
-        };
+        let Ok(g) = self.conn.create_graphics(self.window.id()) else { return };
         use crate::theme;
         let field_bg = theme::field();
         let _ = g.set_font(&FontSpec::role(FontRole::Input, crate::metrics::font_pt()));
@@ -175,10 +172,7 @@ impl InputLine {
     }
 
     fn index_at(&self, x: i32) -> usize {
-        let g = match self.conn.create_graphics(self.window.id()) {
-            Ok(g) => g,
-            Err(_) => return self.edit.text().len(),
-        };
+        let Ok(g) = self.conn.create_graphics(self.window.id()) else { return self.edit.text().len() };
         let _ = g.set_font(&FontSpec::role(FontRole::Input, crate::metrics::font_pt()));
         let text = self.edit.display_text();
         let target = x - Self::text_inset() as i32 + self.scroll_offset(&*g) as i32;

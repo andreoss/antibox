@@ -5,11 +5,11 @@ pub struct Monotime(Instant);
 
 impl Monotime {
     pub fn now() -> Self {
-        Monotime(Instant::now())
+        Self(Instant::now())
     }
 
     pub fn checked_add(&self, d: Duration) -> Option<Self> {
-        Some(Monotime(self.0 + d))
+        Some(Self(self.0 + d))
     }
 }
 

@@ -4,3 +4,4 @@ allow-print-in-tests = false
 allow-unwrap-in-tests = false
 allow-expect-in-tests = false
 type-complexity-threshold = 250
+too-many-arguments-threshold = 9

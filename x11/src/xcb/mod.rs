@@ -20,19 +20,17 @@ use antibox_core::backend::{DisplayBackend, EventLoopTrait, RenderBackend, TrayB
 use antibox_core::error::Result;
 use std::sync::Arc;
 
-pub fn build_backend(
-    display: Option<&str>,
-) -> Result<
-    (
-        Arc<dyn DisplayBackend>,
-        Arc<dyn RenderBackend>,
-        Box<dyn EventLoopTrait>,
-        Option<Arc<dyn TrayBackend>>,
-    )
-> {
+pub type Backend = (
+    Arc<dyn DisplayBackend>,
+    Arc<dyn RenderBackend>,
+    Box<dyn EventLoopTrait>,
+    Option<Arc<dyn TrayBackend>>,
+);
+
+pub fn build_backend(display: Option<&str>) -> Result<Backend> {
     let conn = XcbConnection::open_arc(display)?;
     arcs::register(&conn);
-    super::xcb::font::register_global_width_provider(&conn);
+    font::register_global_width_provider(&conn);
     let render: Arc<dyn RenderBackend> = conn.clone();
     let tray: Arc<dyn TrayBackend> = Arc::new(XcbTray::new(conn.clone()));
     let backend: Arc<dyn DisplayBackend> = conn;

@@ -59,7 +59,7 @@
         let leaves: Vec<MenuNode<WinListItem>> = (0..n)
             .map(|i| {
                 let it = WinListItem {
-                    title: format!("win{}", i),
+                    title: format!("win{i}"),
                     client_id: i as u32 + 1,
                     workspace: 0,
                     icon: None,
@@ -96,7 +96,7 @@
         let leaves: Vec<MenuNode<WinListItem>> = (0..n)
             .map(|i| {
                 let it = WinListItem {
-                    title: format!("win{}", i),
+                    title: format!("win{i}"),
                     client_id: i as u32 + 1,
                     workspace: 0,
                     icon: None,

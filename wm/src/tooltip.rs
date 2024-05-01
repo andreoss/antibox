@@ -47,8 +47,8 @@ pub struct ToolTip {
 }
 
 impl ToolTip {
-    pub fn new() -> ToolTip {
-        ToolTip {
+    pub fn new() -> Self {
+        Self {
             window: None,
             text: String::new(),
             visible: false,
@@ -90,7 +90,7 @@ impl ToolTip {
         }
         if self.visible {
             let life = tt_lifetime();
-            if !life.is_zero() && self.shown_at.map_or(false, |t| t.elapsed() >= life) {
+            if !life.is_zero() && self.shown_at.is_some_and(|t| t.elapsed() >= life) {
                 self.hide(conn);
             } else {
                 self.paint(conn);
@@ -98,7 +98,7 @@ impl ToolTip {
         }
     }
 
-    pub fn is_pending(&self) -> bool {
+    pub const fn is_pending(&self) -> bool {
         self.pending.is_some()
     }
 
@@ -107,15 +107,12 @@ impl ToolTip {
             return;
         }
         self.hide(conn);
-        let (text_w, text_h) = match antibox_ui::textmeasure::with_measure_context(conn, |g| {
+        let Some((text_w, text_h)) = antibox_ui::textmeasure::with_measure_context(conn, |g| {
             let _ = g.set_font(&tooltip_font());
             let (tw, th, _) =
                 antibox_ui::textmeasure::measure(g, &self.text, Some(wrap_width(conn)));
             (tw as i32, th as i32)
-        }) {
-            Some(v) => v,
-            None => return,
-        };
+        }) else { return };
         let w = (text_w + margin_x() * 2).max(antibox_ui::metrics::text_w(6));
         let h = text_h + margin_y() * 2;
 
@@ -160,11 +157,8 @@ impl ToolTip {
     }
 
     pub fn paint(&self, conn: &dyn DisplayBackend) {
-        let win = match &self.window { Some(v) => v, None => return };
-        let g = match conn.create_graphics(win.id()) {
-            Ok(g) => g,
-            Err(_) => return,
-        };
+        let Some(win) = &self.window else { return };
+        let Ok(g) = conn.create_graphics(win.id()) else { return };
         let _ = g.set_font(&tooltip_font());
         let (gw, gh) = win.get_geometry().unwrap_or((100, 24));
         let bg = antibox_ui::theme::tooltip_bg();
@@ -186,7 +180,7 @@ impl ToolTip {
 }
 
 impl Default for ToolTip {
-    fn default() -> ToolTip {
+    fn default() -> Self {
         Self::new()
     }
 }
@@ -247,7 +241,7 @@ pub fn pump_tip(slot: &mut Option<ToolTip>, conn: &dyn DisplayBackend) {
 }
 
 pub fn tip_pending(slot: &Option<ToolTip>) -> bool {
-    slot.as_ref().map_or(false, ToolTip::is_pending)
+    slot.as_ref().is_some_and(ToolTip::is_pending)
 }
 
 macro_rules! impl_applet_tooltip {

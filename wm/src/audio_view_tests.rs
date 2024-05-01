@@ -1,6 +1,6 @@
 use super::*;
 
-fn state(volume: i32, sink_muted: bool, source_muted: bool) -> AudioState {
+const fn state(volume: i32, sink_muted: bool, source_muted: bool) -> AudioState {
     AudioState {
         sink_muted,
         volume,
@@ -22,10 +22,10 @@ fn test_present_true_with_state() {
 #[test]
 fn test_glyph_occupies_a_square_slot() {
     for h in [16u16, 18, 22, 28] {
-        assert_eq!(AudioView::natural_width(h), h, "h={}", h);
-        assert!(spk_w(h) >= 4, "h={}", h);
-        assert!(bar_zone_w(h) >= 5, "h={}", h);
-        assert!(bar_w(h) >= 2, "h={}", h);
+        assert_eq!(AudioView::natural_width(h), h, "h={h}");
+        assert!(spk_w(h) >= 4, "h={h}");
+        assert!(bar_zone_w(h) >= 5, "h={h}");
+        assert!(bar_w(h) >= 2, "h={h}");
     }
 }
 
@@ -123,7 +123,7 @@ fn test_zero_volume_lights_no_bars_but_keeps_them_visible() {
         let cmds = g.commands();
         let unlit = rects_with_colour(&cmds, theme::shadow())
             + rects_with_colour(&cmds, theme::graph_bg());
-        assert!(unlit >= 3, "h={}: unlit bars missing ({})", h, unlit);
+        assert!(unlit >= 3, "h={h}: unlit bars missing ({unlit})");
     }
 }
 
@@ -219,7 +219,7 @@ fn test_mic_view_stays_within_natural_width() {
 fn test_recording_surfaces_the_mic_view() {
     assert!(!MicView::new(Some(state(50, false, false))).present());
     assert!(MicView::new(Some(recording_state(false))).present());
-    assert!(MicView::new(None).present() == false);
+    assert!(!MicView::new(None).present());
 }
 
 #[test]

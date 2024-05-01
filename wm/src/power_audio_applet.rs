@@ -69,7 +69,7 @@ impl PowerAudioApplet {
         })
     }
 
-    fn slot_w(h: u16) -> u16 {
+    const fn slot_w(h: u16) -> u16 {
         h
     }
 
@@ -201,14 +201,11 @@ impl Applet for PowerAudioApplet {
     }
 
     fn handle_click(&mut self, x: i32, _y: i32, button: u8) -> Option<u32> {
-        let idx = match self.slot_at(x as i16) {
-            Some(idx) => idx,
-            None => return None,
-        };
+        let idx = self.slot_at(x as i16)?;
         match (idx, button) {
             (SLOT_AUDIO, 1) => self.audio_system.toggle_sink_mute(),
-            (SLOT_AUDIO, 2) | (SLOT_MIC, 1) | (SLOT_MIC, 2) => {
-                self.audio_system.toggle_source_mute()
+            (SLOT_AUDIO | SLOT_MIC, 2) | (SLOT_MIC, 1) => {
+                self.audio_system.toggle_source_mute();
             }
             (SLOT_AUDIO, 4) => self.audio_system.nudge_sink_volume(5),
             (SLOT_AUDIO, 5) => self.audio_system.nudge_sink_volume(-5),
@@ -245,10 +242,7 @@ impl Applet for PowerAudioApplet {
         if self.presents().iter().filter(|p| **p).count() <= 1 {
             return;
         }
-        let idx = match self.slot_at(x as i16) {
-            Some(idx) => idx,
-            None => return,
-        };
+        let Some(idx) = self.slot_at(x as i16) else { return };
         if self.hovered == Some(idx) {
             return;
         }

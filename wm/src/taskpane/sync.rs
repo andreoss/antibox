@@ -105,7 +105,7 @@ impl TaskPane {
                 let key = fw.client().class_instance().unwrap_or("").to_string();
                 by_class.entry(key).or_default().push(xid_index.xid_of(*id));
             }
-            for (_, mut members) in by_class.into_iter() {
+            for (_, mut members) in by_class {
                 members.sort_unstable();
                 group_of.insert(members[0], members);
             }
@@ -116,7 +116,7 @@ impl TaskPane {
             }
         }
 
-        let new_ids: HashSet<u32> = group_of.keys().cloned().collect();
+        let new_ids: HashSet<u32> = group_of.keys().copied().collect();
         let old_ids: HashSet<u32> = self.buttons.iter().map(|b| b.window_id).collect();
         let mut membership_changed = false;
         for id in old_ids.difference(&new_ids) {
@@ -124,7 +124,7 @@ impl TaskPane {
             membership_changed = true;
         }
         let existing: HashSet<u32> = self.buttons.iter().map(|b| b.window_id).collect();
-        let mut to_add: Vec<u32> = new_ids.difference(&existing).cloned().collect();
+        let mut to_add: Vec<u32> = new_ids.difference(&existing).copied().collect();
         to_add.sort_unstable();
         for rep in to_add {
             self.add_button(rep, "");
@@ -134,17 +134,14 @@ impl TaskPane {
         let mut title_changed = false;
         let mut active_changed = false;
         for btn in &mut self.buttons {
-            let members = match group_of.get(&btn.window_id) {
-                Some(members) => members,
-                None => continue,
-            };
+            let Some(members) = group_of.get(&btn.window_id) else { continue };
             if btn.members != *members {
                 btn.members = members.clone();
                 membership_changed = true;
             }
             let shown = members
                 .iter()
-                .cloned()
+                .copied()
                 .find(|&m| m == new_focused)
                 .unwrap_or(btn.window_id);
             if let Some(fw) = xid_index
@@ -238,7 +235,7 @@ impl TaskPane {
         if let Some(pos) = btn.members.iter().position(|&m| m == self.focused_id) {
             return btn.members[(pos + 1) % btn.members.len()];
         }
-        btn.members.first().cloned().unwrap_or(btn.window_id)
+        btn.members.first().copied().unwrap_or(btn.window_id)
     }
 
     pub fn find_by_pos(&self, x: i32) -> Option<u32> {

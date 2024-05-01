@@ -10,27 +10,27 @@
         set_title_layout("s", "xmir", -5);
         assert_eq!(title_justify(), antibox_ui::theme::title_justify_default());
         set_taskbar_align("Center");
-        assert!(match taskbar_align() {
-            antibox_ui::widget::LabelAlign::Center => true,
-            _ => false,
-        });
+        assert!(matches!(
+            taskbar_align(),
+            antibox_ui::widget::LabelAlign::Center
+        ));
         set_taskbar_align("right");
-        assert!(match taskbar_align() {
-            antibox_ui::widget::LabelAlign::Right => true,
-            _ => false,
-        });
+        assert!(matches!(
+            taskbar_align(),
+            antibox_ui::widget::LabelAlign::Right
+        ));
         set_taskbar_align("left");
-        assert!(match taskbar_align() {
-            antibox_ui::widget::LabelAlign::Left => true,
-            _ => false,
-        });
-        for empty in ["", "   ", "nonsense"].iter().cloned() {
+        assert!(matches!(
+            taskbar_align(),
+            antibox_ui::widget::LabelAlign::Left
+        ));
+        for empty in ["", "   ", "nonsense"].iter().copied() {
             set_taskbar_align(empty);
             assert_eq!(TASKBAR_ALIGN.load(Ordering::Relaxed), TASKBAR_ALIGN_THEME);
-            assert!(match taskbar_align() {
-                    antibox_ui::widget::LabelAlign::Left => true,
-                    _ => false,
-                });
+            assert!(matches!(
+                taskbar_align(),
+                antibox_ui::widget::LabelAlign::Left
+            ));
             assert!(!taskbar_fill());
         }
         set_title_layout(DEFAULT_TITLE_LEFT, DEFAULT_TITLE_RIGHT, 0);

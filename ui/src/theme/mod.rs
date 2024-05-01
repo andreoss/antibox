@@ -52,14 +52,8 @@ pub fn current() -> Option<ThemeDef> {
 }
 
 pub fn draw_element(g: &dyn antibox_gfx::backend::GraphicsContext, name: &str, x: i16, y: i16, w: u16, h: u16) -> bool {
-    let def = match current() {
-        Some(d) => d,
-        None => return false,
-    };
-    let ops = match def.element(name) {
-        Some(o) => o,
-        None => return false,
-    };
+    let Some(def) = current() else { return false };
+    let Some(ops) = def.element(name) else { return false };
     let s = antibox_gfx::scale::scaled(1).max(1) as i16;
     exec::draw_ops(g, &def, ops, x, y, w as i16, h as i16, s)
 }
@@ -76,32 +70,32 @@ trait FromI64: Sized {
 }
 
 impl FromI64 for u16 {
-    fn from_i64(v: i64) -> Option<u16> {
-        u16::try_from(v).ok()
+    fn from_i64(v: i64) -> Option<Self> {
+        Self::try_from(v).ok()
     }
 }
 
 impl FromI64 for i16 {
-    fn from_i64(v: i64) -> Option<i16> {
-        i16::try_from(v).ok()
+    fn from_i64(v: i64) -> Option<Self> {
+        Self::try_from(v).ok()
     }
 }
 
 impl FromI64 for u8 {
-    fn from_i64(v: i64) -> Option<u8> {
-        u8::try_from(v).ok()
+    fn from_i64(v: i64) -> Option<Self> {
+        Self::try_from(v).ok()
     }
 }
 
 impl FromI64 for i32 {
-    fn from_i64(v: i64) -> Option<i32> {
-        i32::try_from(v).ok()
+    fn from_i64(v: i64) -> Option<Self> {
+        Self::try_from(v).ok()
     }
 }
 
 impl FromI64 for u32 {
-    fn from_i64(v: i64) -> Option<u32> {
-        u32::try_from(v).ok()
+    fn from_i64(v: i64) -> Option<Self> {
+        Self::try_from(v).ok()
     }
 }
 
@@ -462,8 +456,8 @@ pub fn graph_bg() -> Colour {
     face()
 }
 
-static GRAPH_COLOURS: antibox_gfx::sync::atomic::LazyRwLock<(Vec<Colour>, Option<Colour>)> =
-    antibox_gfx::sync::atomic::LazyRwLock::new();
+static GRAPH_COLOURS: LazyRwLock<(Vec<Colour>, Option<Colour>)> =
+    LazyRwLock::new();
 
 pub fn set_graph_colours(series: Vec<Colour>, heat: Option<Colour>) {
     if let Ok(mut g) = GRAPH_COLOURS.write() {

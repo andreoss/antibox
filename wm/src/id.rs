@@ -13,8 +13,8 @@ impl ClientId {
         self.0
     }
 
-    pub fn allocate() -> ClientId {
-        ClientId(NEXT_ID.fetch_add(1, Ordering::Relaxed))
+    pub fn allocate() -> Self {
+        Self(NEXT_ID.fetch_add(1, Ordering::Relaxed))
     }
 }
 
@@ -34,8 +34,8 @@ impl FrameId {
 }
 
 impl From<u32> for FrameId {
-    fn from(v: u32) -> FrameId {
-        FrameId(v)
+    fn from(v: u32) -> Self {
+        Self(v)
     }
 }
 
@@ -52,14 +52,14 @@ pub struct XidIndex {
 }
 
 impl Default for XidIndex {
-    fn default() -> XidIndex {
+    fn default() -> Self {
         Self::new()
     }
 }
 
 impl XidIndex {
-    pub fn new() -> XidIndex {
-        XidIndex {
+    pub fn new() -> Self {
+        Self {
             client_by_xid: HashMap::new(),
             frame_by_xid: HashMap::new(),
             xid_of: HashMap::new(),
@@ -91,12 +91,12 @@ impl XidIndex {
 
     pub fn client_id_for(&self, xid: u32) -> Option<ClientId> {
         self.client_by_xid
-            .get(&xid).cloned()
-            .or_else(|| self.frame_by_xid.get(&xid).cloned())
+            .get(&xid).copied()
+            .or_else(|| self.frame_by_xid.get(&xid).copied())
     }
 
     pub fn xid_of(&self, cid: ClientId) -> u32 {
-        self.xid_of.get(&cid).cloned().unwrap_or(0)
+        self.xid_of.get(&cid).copied().unwrap_or(0)
     }
 
     pub fn has(&self, cid: ClientId) -> bool {

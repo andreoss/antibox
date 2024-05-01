@@ -6,7 +6,7 @@ use crate::wmaction::set_minimized_visible;
 use antibox_core::backend::{DisplayBackend, StackMode};
 use antibox_core::rect::Rect;
 
-pub fn parse_restack_mode(mode: u32) -> StackMode {
+pub const fn parse_restack_mode(mode: u32) -> StackMode {
     match mode {
         1 => StackMode::Below,
         2 => StackMode::TopIf,
@@ -16,7 +16,7 @@ pub fn parse_restack_mode(mode: u32) -> StackMode {
     }
 }
 
-pub fn apply_moveresize_flags(
+pub const fn apply_moveresize_flags(
     mut fr: Rect,
     flags: u32,
     x: i32,
@@ -48,10 +48,7 @@ pub fn client_message<H: DisplayBackend + 'static + ?Sized>(
     if let Some(ncw) = wm.atoms.get("_NET_CLOSE_WINDOW") {
         if mt == ncw {
             let xid = if w == 0 { d[0] } else { w };
-            let cid = match wm.cid_for_xid(xid) {
-                Some(cid) => cid,
-                None => return,
-            };
+            let Some(cid) = wm.cid_for_xid(xid) else { return };
             crate::wmaction::close_client(wm, cid);
             return;
         }
@@ -60,8 +57,8 @@ pub fn client_message<H: DisplayBackend + 'static + ?Sized>(
         if mt == wcs {
             use antibox_core::backend::hints::wm_state;
             let want_min = d[0] == wm_state::ICONIC;
-            let cid = match wm.cid_for_xid(w) { Some(v) => v, None => return };
-            let was_min = wm.frames.get(&cid).map_or(false, |fw| fw.state().minimized);
+            let Some(cid) = wm.cid_for_xid(w) else { return };
+            let was_min = wm.frames.get(&cid).is_some_and(|fw| fw.state().minimized);
             if want_min != was_min && wm.frames.contains_key(&cid) {
                 if let Some(fw) = wm.frame_mut(cid) {
                     fw.state_mut().minimized = want_min;
@@ -93,10 +90,10 @@ pub fn client_message<H: DisplayBackend + 'static + ?Sized>(
     if let Some(na) = wm.atoms.get("_NET_ACTIVE_WINDOW") {
         if mt == na {
             let source = d[0];
-            let cid = match wm.cid_for_xid(w) { Some(v) => v, None => return };
+            let Some(cid) = wm.cid_for_xid(w) else { return };
             let other_workspace = wm
                 .frame(cid)
-                .map_or(false, |f| f.workspace() != !0 && f.workspace() != wm.active_workspace());
+                .is_some_and(|f| f.workspace() != !0 && f.workspace() != wm.active_workspace());
             if source == 2 || !other_workspace {
                 crate::focus::activate_window(wm, cid);
             } else {
@@ -158,7 +155,7 @@ pub fn client_message<H: DisplayBackend + 'static + ?Sized>(
     }
     if let Some(nwmr) = wm.atoms.get("_NET_WM_MOVERESIZE") {
         if mt == nwmr {
-            let cid = match wm.cid_for_xid(w) { Some(v) => v, None => return };
+            let Some(cid) = wm.cid_for_xid(w) else { return };
             crate::drag::start_moveresize(wm, cid, d[0] as i32, d[1] as i32, d[2]);
             return;
         }

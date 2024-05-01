@@ -6,7 +6,7 @@ fn ring() -> u16 {
     antibox_core::scale::scaled(2).max(1) as u16
 }
 
-pub(crate) fn ring_rectangles(w: u16, h: u16, t: u16) -> [(i16, i16, u16, u16); 4] {
+pub(crate) const fn ring_rectangles(w: u16, h: u16, t: u16) -> [(i16, i16, u16, u16); 4] {
     [
         (0, 0, w, t),
         (0, h.saturating_sub(t) as i16, w, t),
@@ -16,10 +16,7 @@ pub(crate) fn ring_rectangles(w: u16, h: u16, t: u16) -> [(i16, i16, u16, u16); 
 }
 
 pub fn show<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, rect: Rect) {
-    let b = match wm.backend.clone() {
-        Some(b) => b,
-        None => return,
-    };
+    let Some(b) = wm.backend.clone() else { return };
     let t = ring();
     let (w, h) = (rect.w.max(1) as u16, rect.h.max(1) as u16);
     let strips = ring_rectangles(w, h, t);
@@ -32,16 +29,13 @@ pub fn show<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, rec
                 (sw as i32).max(1),
                 (sh as i32).max(1),
             );
-            let win = match b.create_window(
+            let Ok(win) = b.create_window(
                 b.root().as_parent(),
                 strip,
                 WmWindowClass::InputOutput,
                 true,
                 EventMask::EXPOSURE,
-            ) {
-                Ok(win) => win,
-                Err(_) => continue,
-            };
+            ) else { continue };
             let _ = win.map();
             wins.push(win);
         }

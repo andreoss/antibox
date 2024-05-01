@@ -17,7 +17,7 @@ pub fn tint(c: Colour, f: f32) -> Colour {
     (clamp255(r) << 16) | (clamp255(g) << 8) | clamp255(b)
 }
 
-fn clamp255(v: u32) -> u32 {
+const fn clamp255(v: u32) -> u32 {
     if v > 255 {
         255
     } else {
@@ -38,7 +38,7 @@ pub fn lerp(a: Colour, b: Colour, t: f32) -> Colour {
     (r << 16) | (g << 8) | b
 }
 
-fn clamp_i32(v: i32) -> u32 {
+const fn clamp_i32(v: i32) -> u32 {
     if v < 0 {
         0
     } else if v > 255 {
@@ -48,7 +48,7 @@ fn clamp_i32(v: i32) -> u32 {
     }
 }
 
-pub fn shift(c: Colour, d: i32) -> Colour {
+pub const fn shift(c: Colour, d: i32) -> Colour {
     (clamp_i32(((c >> 16) & 0xFF) as i32 + d) << 16)
         | (clamp_i32(((c >> 8) & 0xFF) as i32 + d) << 8)
         | clamp_i32((c & 0xFF) as i32 + d)
@@ -77,15 +77,15 @@ pub const fn grey_green(c: Colour) -> Colour {
     (r << 16) | (g << 8) | b
 }
 
-fn luma(c: Colour) -> u32 {
+const fn luma(c: Colour) -> u32 {
     (((c >> 16) & 0xFF) * 299 + ((c >> 8) & 0xFF) * 587 + (c & 0xFF) * 114) / 1000
 }
 
-pub fn is_dark(c: Colour) -> bool {
+pub const fn is_dark(c: Colour) -> bool {
     luma(c) < 128
 }
 
-pub fn contrast(fg: Colour, bg: Colour) -> Colour {
+pub const fn contrast(fg: Colour, bg: Colour) -> Colour {
     let lb = luma(bg);
     let lf = luma(fg);
     let d = lf.abs_diff(lb);
@@ -106,16 +106,16 @@ pub struct RgbColour {
 }
 
 impl RgbColour {
-    pub const fn new(r: u8, g: u8, b: u8) -> RgbColour {
-        RgbColour { r, g, b }
+    pub const fn new(r: u8, g: u8, b: u8) -> Self {
+        Self { r, g, b }
     }
 
     pub const fn to_pixel(&self) -> u32 {
         ((self.r as u32) << 16) | ((self.g as u32) << 8) | (self.b as u32)
     }
 
-    pub const fn from_pixel(p: Colour) -> RgbColour {
-        RgbColour {
+    pub const fn from_pixel(p: Colour) -> Self {
+        Self {
             r: ((p >> 16) & 0xFF) as u8,
             g: ((p >> 8) & 0xFF) as u8,
             b: (p & 0xFF) as u8,
@@ -123,7 +123,7 @@ impl RgbColour {
     }
 
     #[must_use]
-    pub fn lerp(&self, other: &Self, t: f32) -> RgbColour {
+    pub fn lerp(&self, other: &Self, t: f32) -> Self {
         Self::from_pixel(lerp(self.to_pixel(), other.to_pixel(), t))
     }
 }
@@ -136,12 +136,12 @@ impl FromStr for RgbColour {
         if let Some(hex) = s.strip_prefix('#') {
             if hex.len() == 6 {
                 let r =
-                    u8::from_str_radix(&hex[0..2], 16).map_err(|e| format!("Invalid hex: {}", e))?;
+                    u8::from_str_radix(&hex[0..2], 16).map_err(|e| format!("Invalid hex: {e}"))?;
                 let g =
-                    u8::from_str_radix(&hex[2..4], 16).map_err(|e| format!("Invalid hex: {}", e))?;
+                    u8::from_str_radix(&hex[2..4], 16).map_err(|e| format!("Invalid hex: {e}"))?;
                 let b =
-                    u8::from_str_radix(&hex[4..6], 16).map_err(|e| format!("Invalid hex: {}", e))?;
-                return Ok(RgbColour { r, g, b });
+                    u8::from_str_radix(&hex[4..6], 16).map_err(|e| format!("Invalid hex: {e}"))?;
+                return Ok(Self { r, g, b });
             }
         }
         if let Some(rest) = s.strip_prefix("rgb:") {
@@ -155,13 +155,13 @@ impl FromStr for RgbColour {
                         u8::from_str_radix(s, 16).map(|v| v * 17)
                     }
                 };
-                let r = parse_hex(parts[0]).map_err(|e| format!("Invalid R: {}", e))?;
-                let g = parse_hex(parts[1]).map_err(|e| format!("Invalid G: {}", e))?;
-                let b = parse_hex(parts[2]).map_err(|e| format!("Invalid B: {}", e))?;
-                return Ok(RgbColour { r, g, b });
+                let r = parse_hex(parts[0]).map_err(|e| format!("Invalid R: {e}"))?;
+                let g = parse_hex(parts[1]).map_err(|e| format!("Invalid G: {e}"))?;
+                let b = parse_hex(parts[2]).map_err(|e| format!("Invalid B: {e}"))?;
+                return Ok(Self { r, g, b });
             }
         }
-        Err(format!("Invalid colour format: {}", s))
+        Err(format!("Invalid colour format: {s}"))
     }
 }
 

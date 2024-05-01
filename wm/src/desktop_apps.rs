@@ -117,10 +117,7 @@ fn parse_desktop(content: &str) -> Option<DesktopApp> {
         if !in_entry {
             continue;
         }
-        let (key, value) = match line.split_once('=') {
-            Some(kv) => kv,
-            None => continue,
-        };
+        let Some((key, value)) = line.split_once('=') else { continue };
         let (key, value) = (key.trim(), value.trim());
         match key {
             "Type" => typ = value.to_string(),
@@ -195,10 +192,7 @@ pub fn scan() -> Vec<DesktopApp> {
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut apps: Vec<DesktopApp> = Vec::new();
     for dir in xdg_app_dirs() {
-        let read = match std::fs::read_dir(&dir) {
-            Ok(r) => r,
-            Err(_) => continue,
-        };
+        let Ok(read) = std::fs::read_dir(&dir) else { continue };
         for entry in read.flatten() {
             let path = entry.path();
             if path.extension().and_then(|e| e.to_str()) != Some("desktop") {
@@ -211,10 +205,7 @@ pub fn scan() -> Vec<DesktopApp> {
             if !seen.insert(id) {
                 continue;
             }
-            let content = match std::fs::read_to_string(&path) {
-                Ok(c) => c,
-                Err(_) => continue,
-            };
+            let Ok(content) = std::fs::read_to_string(&path) else { continue };
             if let Some(app) = parse_desktop(&content) {
                 apps.push(app);
             }

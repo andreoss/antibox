@@ -3,13 +3,13 @@
 
     fn sample() -> MenuApplet {
         let display: Arc<dyn DisplayBackend> = Arc::new(antibox_core::mock::MockDisplay::new(1280, 720, 24));
-        let a = MenuApplet::new(&display, 1).unwrap();
-        a
+        
+        MenuApplet::new(&display, 1).unwrap()
     }
 
     #[test]
     fn label_is_stable() {
-        assert!(!LABEL.is_empty());
+        assert_eq!(LABEL, "Start");
     }
 
     #[test]

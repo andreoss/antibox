@@ -300,8 +300,8 @@ pub struct PixmapData {
 }
 
 impl PixmapData {
-    pub const fn new(width: u16, height: u16, data: Vec<u8>) -> PixmapData {
-        PixmapData {
+    pub const fn new(width: u16, height: u16, data: Vec<u8>) -> Self {
+        Self {
             width,
             height,
             data,
@@ -309,7 +309,7 @@ impl PixmapData {
         }
     }
 
-    pub fn with_mask(mut self, mask: Vec<u8>) -> PixmapData {
+    pub fn with_mask(mut self, mask: Vec<u8>) -> Self {
         self.mask = Some(mask);
         self
     }
@@ -357,7 +357,7 @@ impl PixmapData {
     }
 
     #[must_use]
-    pub fn scaled(&self, w: u16, h: u16) -> PixmapData {
+    pub fn scaled(&self, w: u16, h: u16) -> Self {
         if w == 0 || h == 0 || self.width == 0 || self.height == 0 {
             return Self::new(0, 0, Vec::new());
         }

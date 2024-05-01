@@ -71,7 +71,7 @@ fn render_init(conn: *mut xcb_connection_t) -> (u32, u32, u32) {
     }
     let count = unsafe { (*r).num_formats } as usize;
     let base = unsafe {
-        (r as *const u8).add(std::mem::size_of::<xcb_render_query_pict_formats_reply_t>())
+        (r as *const u8).add(size_of::<xcb_render_query_pict_formats_reply_t>())
             as *const xcb_render_pictforminfo_t
     };
     let (mut a8, mut rgb24, mut argb32) = (0u32, 0u32, 0u32);
@@ -95,7 +95,7 @@ fn render_init(conn: *mut xcb_connection_t) -> (u32, u32, u32) {
     (a8, rgb24, argb32)
 }
 
-fn map_state(raw: u8) -> MapState {
+const fn map_state(raw: u8) -> MapState {
     match raw {
         0 => MapState::Unmapped,
         1 => MapState::Unviewable,
@@ -106,7 +106,7 @@ fn map_state(raw: u8) -> MapState {
 impl XcbConnection {
     pub fn open_arc(display: Option<&str>) -> Result<Arc<Self>> {
         let resolved = display
-            .map(|s| s.to_string())
+            .map(ToString::to_string)
             .or_else(|| std::env::var("DISPLAY").ok());
         let cstr = resolved
             .as_ref()
@@ -123,8 +123,7 @@ impl XcbConnection {
             let proc_display = std::env::var("DISPLAY").unwrap_or_else(|_| "<unset>".to_string());
             let unix_sock = std::path::Path::new("/tmp/.X11-unix").exists();
             return Err(err(format!(
-                "xcb connection error code {} (requested={:?} DISPLAY={} /tmp/.X11-unix={})",
-                err_code, resolved, proc_display, unix_sock,
+                "xcb connection error code {err_code} (requested={resolved:?} DISPLAY={proc_display} /tmp/.X11-unix={unix_sock})",
             )));
         }
         let setup = unsafe { xcb_get_setup(conn) };
@@ -150,7 +149,7 @@ impl XcbConnection {
         let xkb_event_base = super::xkb::init(conn);
         let shape_event_base = shape_init(conn);
         let (render_a8, render_rgb24, render_argb32) = render_init(conn);
-        Ok(Arc::new(XcbConnection {
+        Ok(Arc::new(Self {
             conn,
             screen,
             root,
@@ -169,15 +168,15 @@ impl XcbConnection {
         }))
     }
 
-    pub fn raw(&self) -> *mut xcb_connection_t {
+    pub const fn raw(&self) -> *mut xcb_connection_t {
         self.conn
     }
 
-    pub(crate) fn xkb_event_base(&self) -> u8 {
+    pub(crate) const fn xkb_event_base(&self) -> u8 {
         self.xkb_event_base
     }
 
-    pub(crate) fn shape_event_base(&self) -> u8 {
+    pub(crate) const fn shape_event_base(&self) -> u8 {
         self.shape_event_base
     }
 
@@ -188,11 +187,11 @@ impl XcbConnection {
         old != group
     }
 
-    pub(crate) fn render_a8_format(&self) -> u32 {
+    pub(crate) const fn render_a8_format(&self) -> u32 {
         self.render_a8
     }
 
-    pub(crate) fn render_format_for(&self, depth: u8) -> u32 {
+    pub(crate) const fn render_format_for(&self, depth: u8) -> u32 {
         match depth {
             24 => self.render_rgb24,
             32 => self.render_argb32,
@@ -200,7 +199,7 @@ impl XcbConnection {
         }
     }
 
-    fn screen(&self) -> &xcb_screen_t {
+    const fn screen(&self) -> &xcb_screen_t {
         &self.screen
     }
 
@@ -209,7 +208,7 @@ impl XcbConnection {
         if e == 0 {
             None
         } else {
-            Some(Box::new(err(format!("xcb connection error code {}", e))))
+            Some(Box::new(err(format!("xcb connection error code {e}"))))
         }
     }
 
@@ -460,7 +459,7 @@ impl RenderBackend for XcbConnection {
         let format = unsafe { (*r).format };
         let num_items = unsafe { (*r).num_items };
         let type_ = unsafe { (*r).type_ };
-        let data_ptr = unsafe { (r as *const u8).add(std::mem::size_of::<xcb_get_property_reply_t>()) };
+        let data_ptr = unsafe { (r as *const u8).add(size_of::<xcb_get_property_reply_t>()) };
         let bytes = match format {
             8 => num_items as usize,
             16 => num_items as usize * 2,
@@ -634,7 +633,7 @@ impl DisplayBackend for XcbConnection {
             return Err(err("get_atom_name failed"));
         }
         let len = unsafe { (*r).name_len } as usize;
-        let data_ptr = unsafe { (r as *const u8).add(std::mem::size_of::<xcb_get_atom_name_reply_t>()) };
+        let data_ptr = unsafe { (r as *const u8).add(size_of::<xcb_get_atom_name_reply_t>()) };
         let bytes = unsafe { std::slice::from_raw_parts(data_ptr, len) };
         let name = String::from_utf8_lossy(bytes).into_owned();
         unsafe { libc::free(r as *mut libc::c_void) };
@@ -667,7 +666,7 @@ impl DisplayBackend for XcbConnection {
         }
         let kpc = unsafe { (*r).keysyms_per_keycode } as usize;
         let total = count as usize * kpc;
-        let data_ptr = unsafe { (r as *const u8).add(std::mem::size_of::<xcb_get_keyboard_mapping_reply_t>()) };
+        let data_ptr = unsafe { (r as *const u8).add(size_of::<xcb_get_keyboard_mapping_reply_t>()) };
         let keysyms = unsafe { std::slice::from_raw_parts(data_ptr as *const u32, total).to_vec() };
         unsafe { libc::free(r as *mut libc::c_void) };
         Ok(KeyboardMapping { keysyms_per_keycode: kpc as u8, keysyms })
@@ -681,14 +680,14 @@ impl DisplayBackend for XcbConnection {
             return Err(err("get_modifier_mapping failed"));
         }
         let kpm = unsafe { (*r).keycodes_per_modifier } as usize;
-        let data_ptr = unsafe { (r as *const u8).add(std::mem::size_of::<xcb_get_modifier_mapping_reply_t>()) };
+        let data_ptr = unsafe { (r as *const u8).add(size_of::<xcb_get_modifier_mapping_reply_t>()) };
         let mut keycodes_per_modifier: [Vec<u8>; 8] = [
             Vec::new(), Vec::new(), Vec::new(), Vec::new(),
             Vec::new(), Vec::new(), Vec::new(), Vec::new(),
         ];
-        for m in 0..8 {
+        for (m, slot) in keycodes_per_modifier.iter_mut().enumerate() {
             let slice = unsafe { std::slice::from_raw_parts(data_ptr.add(m * kpm), kpm) };
-            keycodes_per_modifier[m] = slice.to_vec();
+            *slot = slice.to_vec();
         }
         unsafe { libc::free(r as *mut libc::c_void) };
         Ok(ModifierMapping { keycodes_per_modifier })
@@ -779,7 +778,7 @@ impl DisplayBackend for XcbConnection {
             std::ptr::copy_nonoverlapping(
                 &ev as *const xcb_configure_notify_event_t as *const u8,
                 buf.as_mut_ptr(),
-                std::mem::size_of::<xcb_configure_notify_event_t>(),
+                size_of::<xcb_configure_notify_event_t>(),
             );
             xcb_send_event(
                 self.conn,
@@ -888,12 +887,12 @@ impl DisplayBackend for XcbConnection {
             let msg = if !e.is_null() {
                 let code = unsafe { (*e).response_type };
                 unsafe { libc::free(e as *mut libc::c_void) };
-                format!("get_selection_owner failed (X error response_type={})", code)
+                format!("get_selection_owner failed (X error response_type={code})")
             } else {
                 "get_selection_owner reply null".to_string()
             };
             let conn_err = unsafe { xcb_connection_has_error(self.conn) };
-            eprintln!("[xcb] get_selection_owner({}): {} conn_err={}", selection, msg, conn_err);
+            eprintln!("[xcb] get_selection_owner({selection}): {msg} conn_err={conn_err}");
             return Err(err(msg));
         }
         let owner = unsafe { (*r).owner };
@@ -913,7 +912,7 @@ impl DisplayBackend for XcbConnection {
         let root = unsafe { (*r).root };
         let parent = unsafe { (*r).parent };
         let children_len = unsafe { (*r).children_len } as usize;
-        let data_ptr = unsafe { (r as *const u8).add(std::mem::size_of::<xcb_query_tree_reply_t>()) };
+        let data_ptr = unsafe { (r as *const u8).add(size_of::<xcb_query_tree_reply_t>()) };
         let children = unsafe { std::slice::from_raw_parts(data_ptr as *const u32, children_len).to_vec() };
         unsafe { libc::free(r as *mut libc::c_void) };
         Ok(QueryTreeResult { root, parent, children })
@@ -972,7 +971,7 @@ impl DisplayBackend for XcbConnection {
             return Err(err("grab_root_window failed"));
         }
         let bytes = unsafe { (*r).length as usize * 4 };
-        let data_ptr = unsafe { (r as *const u8).add(std::mem::size_of::<xcb_get_image_reply_t>()) };
+        let data_ptr = unsafe { (r as *const u8).add(size_of::<xcb_get_image_reply_t>()) };
         let data = unsafe { std::slice::from_raw_parts(data_ptr, bytes).to_vec() };
         unsafe { libc::free(r as *mut libc::c_void) };
         Ok((w, h, data))

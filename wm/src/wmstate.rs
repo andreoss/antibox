@@ -14,17 +14,17 @@ pub enum WinLayer {
 }
 
 impl WinLayer {
-    pub fn from_i32(n: i32) -> Option<Self> {
+    pub const fn from_i32(n: i32) -> Option<Self> {
         match n {
-            0 => Some(WinLayer::Desktop),
-            2 => Some(WinLayer::Below),
-            4 => Some(WinLayer::Normal),
-            6 => Some(WinLayer::OnTop),
-            8 => Some(WinLayer::Dock),
-            10 => Some(WinLayer::AboveDock),
-            12 => Some(WinLayer::Menu),
-            14 => Some(WinLayer::Fullscreen),
-            15 => Some(WinLayer::AboveAll),
+            0 => Some(Self::Desktop),
+            2 => Some(Self::Below),
+            4 => Some(Self::Normal),
+            6 => Some(Self::OnTop),
+            8 => Some(Self::Dock),
+            10 => Some(Self::AboveDock),
+            12 => Some(Self::Menu),
+            14 => Some(Self::Fullscreen),
+            15 => Some(Self::AboveAll),
             _ => None,
         }
     }
@@ -33,20 +33,20 @@ impl WinLayer {
         self as i32
     }
 
-    pub fn default_for_window_type(window_type: crate::client::WindowType) -> WinLayer {
+    pub const fn default_for_window_type(window_type: crate::client::WindowType) -> Self {
         match window_type {
-            crate::client::WindowType::Desktop => WinLayer::Desktop,
-            crate::client::WindowType::Dock => WinLayer::Dock,
-            crate::client::WindowType::Menu => WinLayer::Menu,
-            _ => WinLayer::Normal,
+            crate::client::WindowType::Desktop => Self::Desktop,
+            crate::client::WindowType::Dock => Self::Dock,
+            crate::client::WindowType::Menu => Self::Menu,
+            _ => Self::Normal,
         }
     }
 
-    pub fn from_ewmh_state(above: bool, below: bool, base: Self) -> WinLayer {
+    pub const fn from_ewmh_state(above: bool, below: bool, base: Self) -> Self {
         if above {
-            WinLayer::OnTop
+            Self::OnTop
         } else if below {
-            WinLayer::Below
+            Self::Below
         } else {
             base
         }

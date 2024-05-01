@@ -21,7 +21,7 @@ impl Default for EventFilter {
 }
 
 impl EventFilter {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             enabled: [false; EVENT_VARIANT_COUNT],
         }
@@ -128,11 +128,11 @@ impl EventFilter {
     }
 
     pub fn is_enabled(&self, ev: &BackendEvent) -> bool {
-        variant_index(ev).map_or(false, |idx| self.enabled[idx])
+        variant_index(ev).is_some_and(|idx| self.enabled[idx])
     }
 }
 
-fn variant_index(ev: &BackendEvent) -> Option<usize> {
+const fn variant_index(ev: &BackendEvent) -> Option<usize> {
     Some(ev.variant_index())
 }
 
@@ -151,8 +151,8 @@ pub fn resolve_atom(atom: u32) -> Option<String> {
 
 fn fmt_atom(atom: u32) -> String {
     match resolve_atom(atom) {
-        Some(name) => format!("{} (0x{:X})", name, atom),
-        None => format!("0x{:X}", atom),
+        Some(name) => format!("{name} (0x{atom:X})"),
+        None => format!("0x{atom:X}"),
     }
 }
 
@@ -171,14 +171,14 @@ pub fn init_log_events() {
     }
 }
 
-pub fn event_name(ev: &BackendEvent) -> &'static str {
+pub const fn event_name(ev: &BackendEvent) -> &'static str {
     ev.name()
 }
 
 pub fn format_event(ev: &BackendEvent) -> String {
     match ev {
         BackendEvent::MapRequest { window } => {
-            format!("window=0x{:X}: MapRequest", window)
+            format!("window=0x{window:X}: MapRequest")
         }
         BackendEvent::ConfigureRequest {
             window,
@@ -200,15 +200,15 @@ pub fn format_event(ev: &BackendEvent) -> String {
             );
             if *value_mask != 0 {
                 use std::fmt::Write;
-                let _ = write!(s, " mask=0x{:X}", value_mask);
+                let _ = write!(s, " mask=0x{value_mask:X}");
             }
             s
         }
         BackendEvent::DestroyNotify { window } => {
-            format!("window=0x{:X}: DestroyNotify", window)
+            format!("window=0x{window:X}: DestroyNotify")
         }
         BackendEvent::UnmapNotify { window } => {
-            format!("window=0x{:X}: UnmapNotify", window)
+            format!("window=0x{window:X}: UnmapNotify")
         }
         BackendEvent::Expose { window, rect } => {
             format!(
@@ -282,9 +282,8 @@ pub fn format_event(ev: &BackendEvent) -> String {
             state,
         } => {
             format!(
-                "window=0x{:X}: KeyPress event=0x{:X} \
-                 keycode={} state=0x{:X}",
-                window, event, keycode, state,
+                "window=0x{window:X}: KeyPress event=0x{event:X} \
+                 keycode={keycode} state=0x{state:X}",
             )
         }
         BackendEvent::KeyRelease {
@@ -293,8 +292,7 @@ pub fn format_event(ev: &BackendEvent) -> String {
             state,
         } => {
             format!(
-                "window=0x{:X}: KeyRelease keycode={} state=0x{:X}",
-                window, keycode, state
+                "window=0x{window:X}: KeyRelease keycode={keycode} state=0x{state:X}"
             )
         }
         BackendEvent::EnterNotify { window, mode } => {
@@ -312,10 +310,10 @@ pub fn format_event(ev: &BackendEvent) -> String {
             )
         }
         BackendEvent::FocusIn { window } => {
-            format!("window=0x{:X}: FocusIn", window)
+            format!("window=0x{window:X}: FocusIn")
         }
         BackendEvent::FocusOut { window } => {
-            format!("window=0x{:X}: FocusOut", window)
+            format!("window=0x{window:X}: FocusOut")
         }
         BackendEvent::PropertyNotify {
             window,
@@ -366,12 +364,11 @@ pub fn format_event(ev: &BackendEvent) -> String {
             y,
         } => {
             format!(
-                "window=0x{:X}: ReparentNotify parent=0x{:X} ({},{})",
-                window, parent, x, y
+                "window=0x{window:X}: ReparentNotify parent=0x{parent:X} ({x},{y})"
             )
         }
         BackendEvent::MapNotify { window } => {
-            format!("window=0x{:X}: MapNotify", window)
+            format!("window=0x{window:X}: MapNotify")
         }
         BackendEvent::ConfigureNotify { window, rect } => {
             format!("window=0x{:X}: ConfigureNotify {}x{}", window, rect.w, rect.h)
@@ -387,18 +384,16 @@ pub fn format_event(ev: &BackendEvent) -> String {
                 2 => "Pointer",
                 r => {
                     return format!(
-                        "MappingNotify request={}? first={} count={}",
-                        r, first_keycode, count
+                        "MappingNotify request={r}? first={first_keycode} count={count}"
                     )
                 }
             };
             format!(
-                "MappingNotify request={} first={} count={}",
-                req_str, first_keycode, count
+                "MappingNotify request={req_str} first={first_keycode} count={count}"
             )
         }
         BackendEvent::ShapeNotify { window, shaped } => {
-            format!("window=0x{:X}: ShapeNotify shaped={}", window, shaped)
+            format!("window=0x{window:X}: ShapeNotify shaped={shaped}")
         }
         BackendEvent::SelectionNotify {
             requestor,
@@ -408,13 +403,8 @@ pub fn format_event(ev: &BackendEvent) -> String {
             time,
         } => {
             format!(
-                "requestor=0x{:X}: SelectionNotify sel=0x{:X} \
-                 target=0x{:X} prop=0x{:X} time={}",
-                requestor,
-                selection,
-                target,
-                property,
-                time,
+                "requestor=0x{requestor:X}: SelectionNotify sel=0x{selection:X} \
+                 target=0x{target:X} prop=0x{property:X} time={time}",
             )
         }
         BackendEvent::SelectionRequest {
@@ -426,14 +416,8 @@ pub fn format_event(ev: &BackendEvent) -> String {
             time,
         } => {
             format!(
-                "owner=0x{:X}: SelectionRequest requestor=0x{:X} \
-                 sel=0x{:X} target=0x{:X} prop=0x{:X} time={}",
-                owner,
-                requestor,
-                selection,
-                target,
-                property,
-                time,
+                "owner=0x{owner:X}: SelectionRequest requestor=0x{requestor:X} \
+                 sel=0x{selection:X} target=0x{target:X} prop=0x{property:X} time={time}",
             )
         }
         BackendEvent::SelectionClear {
@@ -442,18 +426,17 @@ pub fn format_event(ev: &BackendEvent) -> String {
             time,
         } => {
             format!(
-                "owner=0x{:X}: SelectionClear sel=0x{:X} time={}",
-                owner, selection, time
+                "owner=0x{owner:X}: SelectionClear sel=0x{selection:X} time={time}"
             )
         }
         BackendEvent::ScreenSizeChanged { width, height } => {
-            format!("ScreenSizeChanged {}x{}", width, height)
+            format!("ScreenSizeChanged {width}x{height}")
         }
         BackendEvent::KeyboardChanged => "KeyboardChanged".to_string(),
     }
 }
 
-fn focus_mode_str(mode: u8) -> &'static str {
+const fn focus_mode_str(mode: u8) -> &'static str {
     match mode {
         0 => "Normal",
         1 => "Grab",

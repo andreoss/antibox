@@ -75,9 +75,8 @@
         let def = nt();
         for name in &["panel", "field", "well", "button", "button_pressed", "title_active", "title_inactive", "menu_sel", "tooltip", "progress"] {
             assert!(
-                def.element(name).map_or(false, |o| !o.is_empty()),
-                "element {} must have ops",
-                name
+                def.element(name).is_some_and(|o| !o.is_empty()),
+                "element {name} must have ops"
             );
         }
         assert!(def.element("nope").is_none());

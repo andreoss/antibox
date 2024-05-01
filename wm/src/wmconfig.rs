@@ -92,8 +92,8 @@ pub struct TaskbarPrefs {
 pub const DEFAULT_TASKBAR_LAYOUT: &str = "pager tasks cpu mem net power keyboard tray clock";
 
 impl Default for Prefs {
-    fn default() -> Prefs {
-        Prefs {
+    fn default() -> Self {
+        Self {
             font: FontPrefs {
                 name: "-misc-fixed-medium-r-semicondensed--13-*-*-*-*-*-iso10646-1".to_string(),
             },
@@ -154,7 +154,7 @@ pub fn parse_prefs(text: &str) -> Prefs {
 pub fn split_layout_list(s: &str) -> Vec<String> {
     s.split(|c: char| c == ',' || c.is_whitespace())
         .filter(|s| !s.is_empty())
-        .map(|s| s.to_string())
+        .map(ToString::to_string)
         .collect()
 }
 
@@ -193,15 +193,9 @@ fn as_count(value: &toml::Value) -> Option<u32> {
 }
 
 pub fn apply_prefs(p: &mut Prefs, text: &str) {
-    let doc = match toml::from_str::<toml::Value>(text) {
-        Ok(toml::Value::Table(doc)) => doc,
-        _ => return,
-    };
+    let Ok(toml::Value::Table(doc)) = toml::from_str::<toml::Value>(text) else { return };
     for (section, entries) in &doc {
-        let entries = match entries {
-            toml::Value::Table(entries) => entries,
-            _ => continue,
-        };
+        let toml::Value::Table(entries) = entries else { continue };
         if section.eq_ignore_ascii_case("keys") {
             for (combo, value) in entries {
                 let action = match value.as_str() {

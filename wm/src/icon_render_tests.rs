@@ -53,7 +53,7 @@
         let clear = icon(4, 4, 0x0000_0000);
         let pm = icon_to_pixmap(&clear, 8, 8, 0xAABBCC);
         assert_eq!(&pm.data[..4], &[0xAA, 0xBB, 0xCC, 0]);
-        assert!(pm.mask.as_ref().map_or(false, |m| m.iter().all(|b| *b == 0)));
+        assert!(pm.mask.as_ref().is_some_and(|m| m.iter().all(|b| *b == 0)));
     }
 
     #[test]

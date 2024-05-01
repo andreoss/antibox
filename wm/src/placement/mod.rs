@@ -199,7 +199,7 @@ pub fn restack_windows<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowMana
         .collect();
     sorted.sort_by(|a, b| b.1.cmp(&a.1).then(b.2.cmp(&a.2)));
     let ids: Vec<ClientId> = sorted.into_iter().map(|(id, _, _)| id).collect();
-    let bottom_to_top: Vec<ClientId> = ids.iter().rev().cloned().collect();
+    let bottom_to_top: Vec<ClientId> = ids.iter().rev().copied().collect();
     let root = wm.backend().map_or(0, |b| b.root().read_id());
     let bottom_to_top = stack_transients_above(&bottom_to_top, |id| {
         wm.frame(id).and_then(|f| match f.transient_for() {
@@ -220,7 +220,7 @@ pub fn restack_windows<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowMana
             }
         }
     }
-    frame_ids.extend(wm.above_windows.iter().cloned());
+    frame_ids.extend(wm.above_windows.iter().copied());
     frame_ids.extend(over_bar);
     if let Some(backend) = wm.backend() {
         let _ = backend.restack_windows(&frame_ids);
@@ -249,7 +249,7 @@ pub(crate) fn requested_position(
 }
 
 pub(crate) fn workarea(wm: &WindowManager<impl DisplayBackend + ?Sized>) -> Rect {
-    wm.workareas.first().cloned().unwrap_or_else(|| {
+    wm.workareas.first().copied().unwrap_or_else(|| {
         if let Some(m) = wm.monitors.first() {
             Rect::new(m.x as i32, m.y as i32, m.width as i32, m.height as i32)
         } else {
@@ -525,7 +525,7 @@ pub fn update_workarea_from_struts<H: DisplayBackend + 'static + ?Sized>(
         .frames
         .values()
         .filter_map(|fw| {
-            let s = fw.client().strut().cloned()?;
+            let s = fw.client().strut().copied()?;
             let mon = mons.iter().position(|m| {
                 let mx = m.x as i32;
                 let my = m.y as i32;

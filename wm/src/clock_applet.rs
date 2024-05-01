@@ -41,7 +41,7 @@ impl ClockApplet {
                 | EventMask::BUTTON_RELEASE,
         )?;
         let fmt = format.unwrap_or_else(|| DEFAULT_FORMAT.to_string());
-        Ok(ClockApplet {
+        Ok(Self {
             conn: Arc::clone(conn),
             window,
             format: fmt,

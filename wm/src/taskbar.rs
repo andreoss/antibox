@@ -66,7 +66,7 @@ impl TaskBar {
                 | EventMask::POINTER_MOTION
                 | EventMask::EXPOSURE,
         )?;
-        Ok(TaskBar {
+        Ok(Self {
             conn: Arc::clone(conn),
             window,
             position,
@@ -128,7 +128,7 @@ impl TaskBar {
         if wid == 0 {
             return None;
         }
-        if let Some((w, h)) = self.geom_cache.borrow().get(&wid).cloned() {
+        if let Some((w, h)) = self.geom_cache.borrow().get(&wid).copied() {
             if w > 0 && h > 0 {
                 return Some((w, h));
             }
@@ -153,10 +153,7 @@ impl TaskBar {
             blits.push((tb_id, pm, self.width, self.height));
         }
         for applet in &self.applets {
-            let (w, h) = match self.applet_geom(applet.as_ref()) {
-                Some(g) => g,
-                None => continue,
-            };
+            let Some((w, h)) = self.applet_geom(applet.as_ref()) else { continue };
             let wid = applet.window().id();
             if let Ok(pm) = self.conn.create_pixmap(w, h, depth) {
                 if let Ok(pg) = self.conn.create_graphics(pm) {
@@ -183,15 +180,9 @@ impl TaskBar {
         applet: &dyn Applet,
     ) {
         let wid = applet.window().id();
-        let (w, h) = match self.applet_geom(applet) {
-            Some(g) => g,
-            None => return,
-        };
+        let Some((w, h)) = self.applet_geom(applet) else { return };
         let depth = self.conn.screen_depth();
-        let pm = match self.conn.create_pixmap(w, h, depth) {
-            Ok(pm) => pm,
-            Err(_) => return,
-        };
+        let Ok(pm) = self.conn.create_pixmap(w, h, depth) else { return };
         if let Ok(pg) = self.conn.create_graphics(pm) {
             let _ = guard_applet("paint", || applet.paint(&*pg));
             if let Some(wg) = Self::gfx(cache, &self.conn, wid) {
@@ -317,15 +308,12 @@ impl TaskBar {
         if self.window.id() == id {
             return true;
         }
-        self.menu.as_ref().map_or(false, |m| m.contains_window(id))
+        self.menu.as_ref().is_some_and(|m| m.contains_window(id))
     }
 
     pub fn handle_menu_event(&mut self, event: &BackendEvent, conn: &dyn DisplayBackend) -> bool {
         use crate::menu::MenuNav;
-        let menu = match self.menu.as_mut() {
-            Some(menu) => menu,
-            None => return false,
-        };
+        let Some(menu) = self.menu.as_mut() else { return false };
         if !menu.visible {
             return false;
         }
@@ -610,13 +598,9 @@ impl TaskBar {
         let mut relayout = false;
         let mut changed = Vec::new();
         for applet in &mut self.applets {
-            let pa = match applet
+            let Some(pa) = applet
                 .as_any_mut()
-                .downcast_mut::<crate::power_audio_applet::PowerAudioApplet>()
-            {
-                Some(pa) => pa,
-                None => continue,
-            };
+                .downcast_mut::<crate::power_audio_applet::PowerAudioApplet>() else { continue };
             let was_w = pa.preferred_width();
             let dirty = if battery_only {
                 guard_applet("update", || pa.update_battery())
@@ -640,13 +624,9 @@ impl TaskBar {
         let mut relayout = false;
         let mut changed = Vec::new();
         for applet in &mut self.applets {
-            let kb = match applet
+            let Some(kb) = applet
                 .as_any_mut()
-                .downcast_mut::<crate::keyboard_applet::KeyboardApplet>()
-            {
-                Some(kb) => kb,
-                None => continue,
-            };
+                .downcast_mut::<crate::keyboard_applet::KeyboardApplet>() else { continue };
             let was_present = kb.preferred_width() > 0;
             if guard_applet("update", || kb.update()).unwrap_or(false) {
                 changed.push(kb.window().id());
@@ -736,36 +716,36 @@ const DEFAULT_RIGHT: [PanelSlot; 7] = [
 ];
 
 impl PanelSlot {
-    fn from_widget(w: crate::layout_preferences::Widget) -> PanelSlot {
+    const fn from_widget(w: crate::layout_preferences::Widget) -> Self {
         use crate::layout_preferences::Widget;
         match w {
-            Widget::Menu => PanelSlot::Menu,
-            Widget::Workspaces => PanelSlot::Workspaces,
-            Widget::Windows => PanelSlot::Task,
-            Widget::Tray => PanelSlot::Tray,
-            Widget::Cpu => PanelSlot::Cpu,
-            Widget::Mem => PanelSlot::Mem,
-            Widget::Net => PanelSlot::Net,
-            Widget::PowerAudio => PanelSlot::PowerAudio,
-            Widget::Keyboard => PanelSlot::Keyboard,
-            Widget::Clock => PanelSlot::Clock,
+            Widget::Menu => Self::Menu,
+            Widget::Workspaces => Self::Workspaces,
+            Widget::Windows => Self::Task,
+            Widget::Tray => Self::Tray,
+            Widget::Cpu => Self::Cpu,
+            Widget::Mem => Self::Mem,
+            Widget::Net => Self::Net,
+            Widget::PowerAudio => Self::PowerAudio,
+            Widget::Keyboard => Self::Keyboard,
+            Widget::Clock => Self::Clock,
         }
     }
 
     fn matches(self, a: &dyn Applet) -> bool {
         let any = a.as_any();
         match self {
-            PanelSlot::Menu => any.is::<crate::menu_applet::MenuApplet>(),
-            PanelSlot::Workspaces => any.is::<WorkspacesPane>(),
-            PanelSlot::Task => any.is::<crate::taskpane::TaskPane>(),
-            PanelSlot::Cpu => any.is::<crate::cpu_status_applet::CpuStatusApplet>(),
-            PanelSlot::Mem => any.is::<crate::mem_status_applet::MemStatusApplet>(),
-            PanelSlot::Net => any.is::<crate::net_status_applet::NetStatusApplet>(),
-            PanelSlot::PowerAudio => any.is::<crate::power_audio_applet::PowerAudioApplet>(),
-            PanelSlot::Keyboard => any.is::<crate::keyboard_applet::KeyboardApplet>(),
-            PanelSlot::Clock => any.is::<ClockApplet>(),
+            Self::Menu => any.is::<crate::menu_applet::MenuApplet>(),
+            Self::Workspaces => any.is::<WorkspacesPane>(),
+            Self::Task => any.is::<crate::taskpane::TaskPane>(),
+            Self::Cpu => any.is::<crate::cpu_status_applet::CpuStatusApplet>(),
+            Self::Mem => any.is::<crate::mem_status_applet::MemStatusApplet>(),
+            Self::Net => any.is::<crate::net_status_applet::NetStatusApplet>(),
+            Self::PowerAudio => any.is::<crate::power_audio_applet::PowerAudioApplet>(),
+            Self::Keyboard => any.is::<crate::keyboard_applet::KeyboardApplet>(),
+            Self::Clock => any.is::<ClockApplet>(),
             #[cfg(feature = "tray")]
-            PanelSlot::Tray => any.is::<crate::tray_applet::TrayApplet>(),
+            Self::Tray => any.is::<crate::tray_applet::TrayApplet>(),
             #[cfg(not(feature = "tray"))]
             PanelSlot::Tray => false,
         }
@@ -793,7 +773,7 @@ impl TaskBar {
     where
         F: FnMut(crate::layout_preferences::Widget) -> Option<Box<dyn Applet>>,
     {
-        for w in crate::layout_preferences::Widget::ALL.iter().cloned() {
+        for w in crate::layout_preferences::Widget::ALL.iter().copied() {
             let slot = PanelSlot::from_widget(w);
             let at = self.applets.iter().position(|a| slot.matches(a.as_ref()));
             let wanted = crate::layout_preferences::taskbar_wants(w);
@@ -906,7 +886,7 @@ fn guard_applet<R, F: FnOnce() -> R>(what: &str, f: F) -> Option<R> {
     if let Ok(r) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
         Some(r)
     } else {
-        eprintln!("applet {} panicked; ignoring this cycle", what);
+        eprintln!("applet {what} panicked; ignoring this cycle");
         None
     }
 }

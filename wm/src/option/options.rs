@@ -2,13 +2,13 @@ pub struct WindowOptions {
     opts: Vec<WindowOption>,
 }
 impl Default for WindowOptions {
-    fn default() -> WindowOptions {
+    fn default() -> Self {
         Self::new()
     }
 }
 impl WindowOptions {
-    pub fn new() -> WindowOptions {
-        WindowOptions { opts: Vec::new() }
+    pub const fn new() -> Self {
+        Self { opts: Vec::new() }
     }
     pub fn is_empty(&self) -> bool {
         self.opts.is_empty()

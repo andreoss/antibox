@@ -3,8 +3,8 @@
 
     #[test]
     fn query_font_reply_matches_wire_layout() {
-        assert_eq!(std::mem::size_of::<xcb_charinfo_t>(), 12);
-        assert_eq!(std::mem::size_of::<xcb_query_font_reply_t>(), 60);
+        assert_eq!(size_of::<xcb_charinfo_t>(), 12);
+        assert_eq!(size_of::<xcb_query_font_reply_t>(), 60);
     }
 
     #[test]
@@ -20,7 +20,7 @@
     }
 
 
-    fn font(min_char: u16, max_char: u16, min_byte1: u8, max_byte1: u8, widths: Vec<i16>) -> super::XcbFont {
+    const fn font(min_char: u16, max_char: u16, min_byte1: u8, max_byte1: u8, widths: Vec<i16>) -> super::XcbFont {
         super::XcbFont {
             id: 1,
             ascent: 10,

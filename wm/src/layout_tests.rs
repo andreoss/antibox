@@ -100,7 +100,7 @@
     }
 
     fn wm_with_maximized_frame() -> (
-        crate::manager::WindowManager<antibox_core::mock::MockDisplay>,
+        WindowManager<antibox_core::mock::MockDisplay>,
         ClientId,
     ) {
         use crate::client::ClientWindow;
@@ -110,7 +110,7 @@
         use std::sync::Arc;
 
         let d = Arc::new(MockDisplay::new(1280, 720, 24));
-        let mut wm = crate::manager::WindowManager::<MockDisplay>::new_test();
+        let mut wm = WindowManager::<MockDisplay>::new_test();
         wm.backend = Some(Arc::clone(&d));
         let mk = |w: i32, h: i32| {
             d.create_window(

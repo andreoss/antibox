@@ -55,7 +55,7 @@ impl MemStatusApplet {
                 | EventMask::BUTTON_PRESS
                 | EventMask::BUTTON_RELEASE,
         )?;
-        let mut s = MemStatusApplet {
+        let mut s = Self {
             conn: Arc::clone(conn),
             window,
             tooltip: None,
@@ -70,10 +70,7 @@ impl MemStatusApplet {
     }
 
     pub fn update(&mut self) {
-        let sample = match read_mem_sample() {
-            Some(sample) => sample,
-            None => return,
-        };
+        let Some(sample) = read_mem_sample() else { return };
         self.samples.push(sample);
         let total: u64 = sample.vals.iter().sum();
         self.used_pct = if total > 0 {
@@ -84,10 +81,7 @@ impl MemStatusApplet {
     }
 
     fn paint_graph(&self, g: &dyn GraphicsContext) {
-        let plot = match crate::status_graph::plot(self.w, self.h, self.samples.len()) {
-            Some(plot) => plot,
-            None => return,
-        };
+        let Some(plot) = crate::status_graph::plot(self.w, self.h, self.samples.len()) else { return };
         let n = plot.count();
         let used = |col: usize| -> u64 {
             let v = &self.samples.at(col, n).vals;
@@ -125,10 +119,7 @@ impl MemStatusApplet {
     }
 
     fn tooltip(&self) -> String {
-        let sample = match self.samples.latest() {
-            Some(sample) => sample,
-            None => return String::from("Memory"),
-        };
+        let Some(sample) = self.samples.latest() else { return String::from("Memory") };
         let v = &sample.vals;
         let total: u64 = v.iter().sum();
         if total == 0 {
@@ -150,7 +141,7 @@ fn fmt_bytes(b: u64) -> String {
     if mb >= 1024.0 {
         format!("{:.1}G", mb / 1024.0)
     } else {
-        format!("{:.0}M", mb)
+        format!("{mb:.0}M")
     }
 }
 

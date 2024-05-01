@@ -90,7 +90,7 @@ fn filter_drops_non_matching_branches_and_separators() {
         titles(&rows),
         vec![("Game".to_string(), 0), ("Mines".to_string(), 1)]
     );
-    assert!(!rows.iter().any(|r| r.is_separator()));
+    assert!(!rows.iter().any(FlatRow::is_separator));
     assert!(filter_nodes(&tree(), "zzz").is_empty());
 }
 

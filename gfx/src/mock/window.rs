@@ -17,14 +17,14 @@ impl fmt::Display for MockError {
 impl Error for MockError {}
 
 impl From<String> for MockError {
-    fn from(s: String) -> MockError {
-        MockError(s)
+    fn from(s: String) -> Self {
+        Self(s)
     }
 }
 
 impl From<&str> for MockError {
-    fn from(s: &str) -> MockError {
-        MockError(s.to_string())
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
     }
 }
 
@@ -48,12 +48,12 @@ pub struct MockWindow {
 }
 
 impl MockWindow {
-    pub fn new(id: u32) -> MockWindow {
+    pub fn new(id: u32) -> Self {
         Self::with_lifecycle(id, Arc::new(Mutex::new(Vec::new())))
     }
 
-    pub fn with_lifecycle(id: u32, lifecycle: LifecycleLog) -> MockWindow {
-        MockWindow {
+    pub fn with_lifecycle(id: u32, lifecycle: LifecycleLog) -> Self {
+        Self {
             id,
             mapped: Arc::new(Mutex::new(false)),
             geometry: Arc::new(Mutex::new((0, 0, 0, 0))),

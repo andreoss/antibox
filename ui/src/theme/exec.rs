@@ -75,14 +75,8 @@ pub fn draw_ops(
                 w: gw,
                 h: gh,
             } => {
-                let fc = match resolve_colour(def, from) {
-                    Some(c) => c,
-                    None => continue,
-                };
-                let tc = match resolve_colour(def, to) {
-                    Some(c) => c,
-                    None => continue,
-                };
+                let Some(fc) = resolve_colour(def, from) else { continue };
+                let Some(tc) = resolve_colour(def, to) else { continue };
                 let gx = ox + clamp_i16(x.eval(i32::from(w), i32::from(h), i32::from(s)));
                 let gy = oy + clamp_i16(y.eval(i32::from(w), i32::from(h), i32::from(s)));
                 let gw = clamp_u16(gw.eval(i32::from(w), i32::from(h), i32::from(s)));

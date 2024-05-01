@@ -16,7 +16,7 @@ pub struct XcbWindow {
 }
 
 impl XcbWindow {
-    pub fn new(conn: Arc<XcbConnection>, id: u32) -> Self {
+    pub const fn new(conn: Arc<XcbConnection>, id: u32) -> Self {
         Self { conn, id }
     }
 }

@@ -6,7 +6,7 @@ pub struct IconData {
 }
 
 impl IconData {
-    pub fn from_property(data: &[u8]) -> Vec<IconData> {
+    pub fn from_property(data: &[u8]) -> Vec<Self> {
         let words: Vec<u32> = data
             .chunks_exact(4)
             .map(|c| u32::from_ne_bytes([c[0], c[1], c[2], c[3]]))
@@ -19,15 +19,12 @@ impl IconData {
             if w == 0 || h == 0 {
                 break;
             }
-            let pixel_count = match (w as usize).checked_mul(h as usize) {
-                Some(n) => n,
-                None => break,
-            };
+            let Some(pixel_count) = (w as usize).checked_mul(h as usize) else { break };
             if idx + 2 + pixel_count > words.len() {
                 break;
             }
             let pixels = words[idx + 2..idx + 2 + pixel_count].to_vec();
-            icons.push(IconData {
+            icons.push(Self {
                 width: w,
                 height: h,
                 pixels,

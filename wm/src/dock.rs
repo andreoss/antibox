@@ -69,8 +69,8 @@ impl DockManager {
 }
 
 impl Default for DockManager {
-    fn default() -> DockManager {
-        DockManager {
+    fn default() -> Self {
+        Self {
             apps: Vec::new(),
             right_side: true,
             drag_idx: None,
@@ -83,7 +83,7 @@ impl Default for DockManager {
 }
 
 impl DockManager {
-    pub fn new() -> DockManager {
+    pub fn new() -> Self {
         Self::default()
     }
 
@@ -180,7 +180,7 @@ impl DockManager {
         self.expand_guard = false;
     }
 
-    pub fn collapsed_pos(&self, sw: i32) -> (i32, i32) {
+    pub const fn collapsed_pos(&self, sw: i32) -> (i32, i32) {
         let x = if self.right_side {
             sw - DOCK_SIZE - DOCK_PAD
         } else {
@@ -200,7 +200,7 @@ impl DockManager {
         (start_x, start_y, total_w, total_h)
     }
 
-    fn tile_contains(&self, x: i32, y: i32, sw: i32) -> bool {
+    const fn tile_contains(&self, x: i32, y: i32, sw: i32) -> bool {
         let (cx, cy) = self.collapsed_pos(sw);
         let m = DOCK_PAD;
         x >= cx - m && x < cx + DOCK_SIZE + m && y >= cy - m && y < cy + DOCK_SIZE + m
@@ -230,10 +230,7 @@ impl DockManager {
     }
 
     pub fn try_dock(&mut self, class_instance: Option<&str>) -> bool {
-        let ci = match class_instance {
-            Some(ci) => ci,
-            None => return false,
-        };
+        let Some(ci) = class_instance else { return false };
         is_dockapp_class(ci)
     }
 
@@ -257,7 +254,7 @@ impl DockManager {
         }
     }
 
-    pub fn is_dragging(&self) -> bool {
+    pub const fn is_dragging(&self) -> bool {
         self.drag_idx.is_some()
     }
 
@@ -268,9 +265,8 @@ impl DockManager {
         state: u16,
         point: Point,
     ) -> DockButtonResult {
-        let idx = match self.apps.iter().position(|a| a.window == window) {
-            Some(idx) => idx,
-            None => return DockButtonResult::None,
+        let Some(idx) = self.apps.iter().position(|a| a.window == window) else {
+            return DockButtonResult::None;
         };
         let ctrl = state & 0x4 != 0;
 
@@ -324,10 +320,7 @@ impl DockManager {
     }
 
     pub fn handle_release(&mut self, drop_target: Option<usize>) -> bool {
-        let idx = match self.drag_idx.take() {
-            Some(idx) => idx,
-            None => return false,
-        };
+        let Some(idx) = self.drag_idx.take() else { return false };
         self.drag_start = None;
         self.drag_origin = None;
 

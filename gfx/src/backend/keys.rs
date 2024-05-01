@@ -19,14 +19,14 @@ pub struct NormalizedKey {
 pub fn keysym_col(keycode: u8, col: usize, mapping: &KeyboardMapping) -> u32 {
     let start = 8usize;
     let base = (keycode as usize).saturating_sub(start) * mapping.keysyms_per_keycode as usize;
-    mapping.keysyms.get(base + col).cloned().unwrap_or(0)
+    mapping.keysyms.get(base + col).copied().unwrap_or(0)
 }
 
 pub fn base_keysym(keycode: u8, mapping: &KeyboardMapping) -> u32 {
     keysym_col(keycode, 0, mapping)
 }
 
-pub fn keysym_to_char(ks: u32) -> Option<char> {
+pub const fn keysym_to_char(ks: u32) -> Option<char> {
     match ks {
         0x20..=0x7E | 0xA0..=0xFF => std::char::from_u32(ks),
         0x0100_0000..=0x0110_FFFF => std::char::from_u32(ks - 0x0100_0000),
@@ -44,7 +44,7 @@ pub fn keycode_to_char(keycode: u8, shift: bool, mapping: &KeyboardMapping) -> O
 }
 
 #[allow(non_upper_case_globals)]
-fn map_keypad(ks: u32) -> u32 {
+const fn map_keypad(ks: u32) -> u32 {
     match ks {
         KEY_KP_Home => KEY_Home,
         KEY_KP_Left => KEY_Left,

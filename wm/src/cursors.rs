@@ -32,7 +32,7 @@ pub const CURSOR_SPECS: &[(u32, &str); idx::COUNT] = &[
     (108, "sb_h_double_arrow"),
 ];
 
-pub fn resize_edge_cursor(edge: &crate::wmstate::ResizeEdge) -> usize {
+pub const fn resize_edge_cursor(edge: &crate::wmstate::ResizeEdge) -> usize {
     use crate::wmstate::ResizeEdge;
     match edge {
         ResizeEdge::Left => idx::SIZE_LEFT,

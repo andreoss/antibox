@@ -97,7 +97,7 @@ impl XpmCursor {
         let file = File::open(path);
         if let Ok(file) = file {
             let reader = BufReader::new(file);
-            for line in reader.lines().filter_map(std::result::Result::ok) {
+            for line in reader.lines().map_while(std::result::Result::ok) {
                 let line = line.trim();
                 if line.starts_with("/*")
                     || line.starts_with("//")
@@ -248,7 +248,7 @@ impl Cursor {
     }
 
     pub fn path(&self) -> Option<&str> {
-        self.path.as_ref().map(|v| v.as_ref())
+        self.path.as_ref().map(AsRef::as_ref)
     }
 
     pub const fn glyph(&self) -> Option<u32> {
@@ -256,7 +256,7 @@ impl Cursor {
     }
 
     pub fn xname(&self) -> Option<&str> {
-        self.xname.as_ref().map(|v| v.as_ref())
+        self.xname.as_ref().map(AsRef::as_ref)
     }
 
     pub fn load_xpm(&self) -> Option<XpmCursor> {

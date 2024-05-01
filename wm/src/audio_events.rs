@@ -28,10 +28,10 @@ pub fn init() -> Option<RawFd> {
 pub fn drain(fd: RawFd) {
     let mut buf = [0u8; 1024];
     let n = unsafe { libc::read(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
-    if n > 0 {
-        CHANGED.store(true, Ordering::Relaxed);
-    } else if n == 0 {
-        ALIVE.store(false, Ordering::Relaxed);
+    match n.cmp(&0) {
+        std::cmp::Ordering::Greater => CHANGED.store(true, Ordering::Relaxed),
+        std::cmp::Ordering::Equal => ALIVE.store(false, Ordering::Relaxed),
+        std::cmp::Ordering::Less => {}
     }
 }
 

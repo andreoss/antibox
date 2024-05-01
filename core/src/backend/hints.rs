@@ -138,7 +138,7 @@ impl SizeHints {
         (w.max(1), h.max(1))
     }
 
-    pub fn is_fixed(&self) -> bool {
+    pub const fn is_fixed(&self) -> bool {
         use self::size_hints_flags::{P_MAX_SIZE, P_MIN_SIZE};
         self.flags & P_MIN_SIZE != 0
             && self.flags & P_MAX_SIZE != 0
@@ -230,13 +230,13 @@ impl MwmHints {
         })
     }
 
-    pub fn undecorated(&self) -> bool {
+    pub const fn undecorated(&self) -> bool {
         use self::mwm_decor::{ALL, BORDER, TITLE};
         use self::mwm_hints_flags::DECORATIONS;
         self.flags & DECORATIONS != 0 && self.decorations & (ALL | BORDER | TITLE) == 0
     }
 
-    pub fn allows(&self, func_bit: u32) -> bool {
+    pub const fn allows(&self, func_bit: u32) -> bool {
         use self::mwm_func::ALL;
         use self::mwm_hints_flags::FUNCTIONS;
         if self.flags & FUNCTIONS == 0 {

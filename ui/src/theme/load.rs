@@ -10,18 +10,18 @@ fn coord(v: &toml::Value, field: &str) -> Result<Coord> {
     let raw = v
         .get(field)
         .and_then(as_str)
-        .ok_or_else(|| Error::message(format!("missing coord {}", field)))?;
+        .ok_or_else(|| Error::message(format!("missing coord {field}")))?;
     parse_coord(raw)
-        .ok_or_else(|| Error::message(format!("bad coord {}: {}", field, raw)))
+        .ok_or_else(|| Error::message(format!("bad coord {field}: {raw}")))
 }
 
 fn colour(v: &toml::Value, field: &str) -> Result<ColourRef> {
     let raw = v
         .get(field)
         .and_then(as_str)
-        .ok_or_else(|| Error::message(format!("missing colour {}", field)))?;
+        .ok_or_else(|| Error::message(format!("missing colour {field}")))?;
     parse_colour_ref(raw)
-        .ok_or_else(|| Error::message(format!("bad colour {}: {}", field, raw)))
+        .ok_or_else(|| Error::message(format!("bad colour {field}: {raw}")))
 }
 
 fn parse_op(v: &toml::Value) -> Result<Op> {
@@ -50,21 +50,20 @@ fn parse_op(v: &toml::Value) -> Result<Op> {
         "gradient" => Ok(Op::Gradient {
             from: colour(v, "from")?,
             to: colour(v, "to")?,
-            vertical: v.get("vertical").and_then(|v| v.as_bool()).unwrap_or(true),
+            vertical: v.get("vertical").and_then(toml::Value::as_bool).unwrap_or(true),
             x: coord(v, "x")?,
             y: coord(v, "y")?,
             w: coord(v, "w")?,
             h: coord(v, "h")?,
         }),
         "bevel" => Ok(Op::Bevel {
-            raised: v.get("raised").and_then(|v| v.as_bool()).unwrap_or(true),
+            raised: v.get("raised").and_then(toml::Value::as_bool).unwrap_or(true),
             light: colour(v, "light")?,
             shadow: colour(v, "shadow")?,
             depth: coord(v, "depth")?,
         }),
         other => Err(Error::message(format!(
-            "unknown op {}",
-            other
+            "unknown op {other}"
         ))),
     }
 }
@@ -74,12 +73,14 @@ pub fn from_toml(text: &str) -> Result<ThemeDef> {
         Ok(d) => d,
         Err(e) => return Err(Error::message(e.to_string())),
     };
-    let mut def = ThemeDef::default();
-    def.name = doc
-        .get("name")
-        .and_then(as_str)
-        .unwrap_or("untitled")
-        .to_string();
+    let mut def = ThemeDef {
+        name: doc
+            .get("name")
+            .and_then(as_str)
+            .unwrap_or("untitled")
+            .to_string(),
+        ..ThemeDef::default()
+    };
 
     if let Some(t) = doc.get("colors").and_then(|v| v.as_table()) {
         for (k, v) in t {

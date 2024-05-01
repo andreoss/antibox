@@ -8,14 +8,14 @@ pub struct FrameStore {
 }
 
 impl Default for FrameStore {
-    fn default() -> FrameStore {
+    fn default() -> Self {
         Self::new()
     }
 }
 
 impl FrameStore {
-    pub fn new() -> FrameStore {
-        FrameStore {
+    pub fn new() -> Self {
+        Self {
             inner: HashMap::new(),
         }
     }
@@ -41,7 +41,7 @@ impl FrameStore {
     }
 
     pub fn keys(&self) -> impl Iterator<Item = ClientId> + '_ {
-        self.inner.keys().cloned()
+        self.inner.keys().copied()
     }
 
     pub fn values(&self) -> impl Iterator<Item = &FrameWindow> {

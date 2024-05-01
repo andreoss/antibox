@@ -36,8 +36,8 @@ pub enum MockCommand {
 }
 
 impl MockGraphics {
-    pub fn new(drawable: u32) -> MockGraphics {
-        MockGraphics {
+    pub fn new(drawable: u32) -> Self {
+        Self {
             drawable,
             fg_pixel: Arc::new(Mutex::new(0)),
             bg_pixel: Arc::new(Mutex::new(0)),
@@ -72,7 +72,7 @@ impl MockGraphics {
     }
 }
 
-fn covers(x: i16, y: i16, w: u16, h: u16, px: i32, py: i32) -> bool {
+const fn covers(x: i16, y: i16, w: u16, h: u16, px: i32, py: i32) -> bool {
     px >= x as i32 && px < x as i32 + w as i32 && py >= y as i32 && py < y as i32 + h as i32
 }
 
@@ -86,7 +86,7 @@ fn on_line(x1: i16, y1: i16, x2: i16, y2: i16, x: i16, y: i16) -> bool {
     }
 }
 
-fn on_outline(rx: i16, ry: i16, w: u16, h: u16, x: i16, y: i16) -> bool {
+const fn on_outline(rx: i16, ry: i16, w: u16, h: u16, x: i16, y: i16) -> bool {
     let left = rx as i32;
     let top = ry as i32;
     let right = left + w as i32;
@@ -98,7 +98,7 @@ fn on_outline(rx: i16, ry: i16, w: u16, h: u16, x: i16, y: i16) -> bool {
     ((x == left || x == right) && inside_y) || ((y == top || y == bottom) && inside_x)
 }
 
-fn paint_bounds(command: &MockCommand) -> Option<(i16, i16, u16, u16)> {
+const fn paint_bounds(command: &MockCommand) -> Option<(i16, i16, u16, u16)> {
     match command {
         MockCommand::FillRect(x, y, w, h) | MockCommand::ClearRect(x, y, w, h) => {
             Some((*x, *y, *w, *h))

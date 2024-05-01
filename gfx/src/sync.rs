@@ -16,8 +16,8 @@ pub mod atomic {
     unsafe impl<T: Send> Sync for LazyMutex<T> {}
 
     impl<T> LazyMutex<T> {
-        pub const fn new(initial: T) -> LazyMutex<T> {
-            LazyMutex {
+        pub const fn new(initial: T) -> Self {
+            Self {
                 once: Once::new(),
                 initial,
                 cell: UnsafeCell::new(None),
@@ -51,8 +51,8 @@ pub mod atomic {
     }
 
     impl<T: Copy + Default> Default for LazyMutex<T> {
-        fn default() -> LazyMutex<T> {
-            LazyMutex::new(T::default())
+        fn default() -> Self {
+            Self::new(T::default())
         }
     }
 
@@ -76,8 +76,8 @@ pub mod atomic {
     }
 
     impl<T> LazyLock<T> {
-        pub const fn new() -> LazyLock<T> {
-            LazyLock {
+        pub const fn new() -> Self {
+            Self {
                 once: Once::new(),
                 cell: UnsafeCell::new(None),
             }
@@ -107,8 +107,8 @@ pub mod atomic {
     }
 
     impl<T> LazyRwLock<T> {
-        pub const fn new() -> LazyRwLock<T> {
-            LazyRwLock {
+        pub const fn new() -> Self {
+            Self {
                 once: Once::new(),
                 cell: UnsafeCell::new(None),
             }

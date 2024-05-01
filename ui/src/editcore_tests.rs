@@ -18,9 +18,6 @@
     #[test]
     fn plain_display_borrows_logical_text() {
         let c = core("héllo", 0);
-        assert!(match c.display_text() {
-            Cow::Borrowed("héllo") => true,
-            _ => false,
-        });
+        assert!(matches!(c.display_text(), Cow::Borrowed("héllo")));
     }
 

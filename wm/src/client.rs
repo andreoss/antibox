@@ -17,8 +17,8 @@ pub enum WindowType {
 }
 
 impl WindowType {
-    pub const fn default_for_transient() -> WindowType {
-        WindowType::Dialog
+    pub const fn default_for_transient() -> Self {
+        Self::Dialog
     }
 }
 
@@ -53,9 +53,9 @@ pub struct ClientWindow {
 }
 
 impl ClientWindow {
-    pub fn new(xwindow: Box<dyn WindowHandle>) -> ClientWindow {
+    pub fn new(xwindow: Box<dyn WindowHandle>) -> Self {
         let _id = xwindow.id();
-        ClientWindow {
+        Self {
             id: ClientId::allocate(),
             xwindow,
             window_type: WindowType::Normal,
@@ -118,15 +118,15 @@ impl ClientWindow {
         &self.protocols
     }
 
-    pub fn wm_hints(&self) -> Option<&WmHints> {
+    pub const fn wm_hints(&self) -> Option<&WmHints> {
         self.wm_hints.as_ref()
     }
 
-    pub fn size_hints(&self) -> Option<&SizeHints> {
+    pub const fn size_hints(&self) -> Option<&SizeHints> {
         self.size_hints.as_ref()
     }
 
-    pub fn mwm_hints(&self) -> Option<&MwmHints> {
+    pub const fn mwm_hints(&self) -> Option<&MwmHints> {
         self.mwm_hints.as_ref()
     }
 
@@ -138,7 +138,7 @@ impl ClientWindow {
         self.user_time
     }
 
-    pub fn suppresses_map_focus(&self) -> bool {
+    pub const fn suppresses_map_focus(&self) -> bool {
         self.user_time_set && self.user_time == 0
     }
 
@@ -151,10 +151,10 @@ impl ClientWindow {
     }
 
     pub fn has_net_state(&self, atoms: &AtomManager, name: &str) -> bool {
-        atoms.get(name).map_or(false, |a| self.wm_state.contains(&a))
+        atoms.get(name).is_some_and(|a| self.wm_state.contains(&a))
     }
 
-    pub fn strut(&self) -> Option<&Strut> {
+    pub const fn strut(&self) -> Option<&Strut> {
         self.strut.as_ref()
     }
 
@@ -163,23 +163,23 @@ impl ClientWindow {
     }
 
     pub fn class_instance(&self) -> Option<&str> {
-        self.class_instance.as_ref().map(|v| v.as_ref())
+        self.class_instance.as_ref().map(AsRef::as_ref)
     }
 
-    pub fn is_xpra(&self) -> bool {
+    pub const fn is_xpra(&self) -> bool {
         self.is_xpra
     }
 
     pub fn client_id(&self) -> Option<&str> {
-        self.client_id.as_ref().map(|v| v.as_ref())
+        self.client_id.as_ref().map(AsRef::as_ref)
     }
 
     pub fn startup_id(&self) -> Option<&str> {
-        self.startup_id.as_ref().map(|v| v.as_ref())
+        self.startup_id.as_ref().map(AsRef::as_ref)
     }
 
     pub fn window_role(&self) -> Option<&str> {
-        self.window_role.as_ref().map(|v| v.as_ref())
+        self.window_role.as_ref().map(AsRef::as_ref)
     }
 
     pub const fn leader_window(&self) -> u32 {
@@ -190,7 +190,7 @@ impl ClientWindow {
 include!("client_props.rs");
 
 impl Default for ClientWindow {
-    fn default() -> ClientWindow {
+    fn default() -> Self {
         Self::new(Box::new(antibox_core::mock::MockWindow::new(0)))
     }
 }

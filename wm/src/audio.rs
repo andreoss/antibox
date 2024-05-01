@@ -102,9 +102,9 @@ impl PulseAudio {
 
     fn set_volume(cmd: &str, target: &str, delta_pct: i32) {
         let arg = if delta_pct >= 0 {
-            format!("+{}%", delta_pct)
+            format!("+{delta_pct}%")
         } else {
-            format!("{}%", delta_pct)
+            format!("{delta_pct}%")
         };
         let _ = run_ok("pactl", &[cmd, target, &arg]);
     }
@@ -118,7 +118,7 @@ impl AudioSystem for PulseAudio {
             .and_then(parse_percent)
             .unwrap_or(-1);
         let source_muted = Self::pactl(&["get-source-mute", "@DEFAULT_SOURCE@"])
-            .map_or(false, |s| s.contains("yes"));
+            .is_some_and(|s| s.contains("yes"));
         let readers = Self::pactl(&["list", "source-outputs"])
             .as_deref()
             .map(parse_readers)
@@ -186,11 +186,11 @@ impl AudioSystem for SndioAudio {
         let sink_muted = kv
             .get("output.mute")
             .and_then(|v| v.parse::<f64>().ok())
-            .map_or(false, |v| v >= 0.5);
+            .is_some_and(|v| v >= 0.5);
         let source_muted = kv
             .get("input.mute")
             .and_then(|v| v.parse::<f64>().ok())
-            .map_or(false, |v| v >= 0.5);
+            .is_some_and(|v| v >= 0.5);
         Some(AudioState {
             sink_muted,
             volume: (level * 100.0).round() as i32,

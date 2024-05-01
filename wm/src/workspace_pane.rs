@@ -98,7 +98,7 @@ impl WorkspacesPane {
                 | EventMask::ENTER_WINDOW
                 | EventMask::LEAVE_WINDOW,
         )?;
-        let mut pane = WorkspacesPane {
+        let mut pane = Self {
             window,
             buttons: Vec::new(),
             active_workspace: 0,

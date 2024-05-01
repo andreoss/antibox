@@ -2,7 +2,7 @@
 use antibox_core::libc;
 use super::bindings::*;
 use super::connection::XcbConnection;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
 #[derive(Clone)]
 pub struct XcbFont {
@@ -21,7 +21,7 @@ const FONTPROP_SIZE: usize = 8;
 const REPLY_HEADER_LEN: usize = 32;
 
 impl XcbFont {
-    fn glyph_index(&self, code: u32) -> Option<usize> {
+    const fn glyph_index(&self, code: u32) -> Option<usize> {
         if code > 0xFFFF {
             return None;
         }
@@ -78,15 +78,15 @@ pub enum ResolvedFont {
 impl ResolvedFont {
     pub fn text_width(&self, text: &str) -> u32 {
         match self {
-            ResolvedFont::Core(f) => f.text_width(text),
-            ResolvedFont::Ft(f) => f.text_width(text),
+            Self::Core(f) => f.text_width(text),
+            Self::Ft(f) => f.text_width(text),
         }
     }
 
     pub fn metrics(&self) -> (u16, u16, u16) {
         match self {
-            ResolvedFont::Core(f) => f.metrics(),
-            ResolvedFont::Ft(f) => f.metrics(),
+            Self::Core(f) => f.metrics(),
+            Self::Ft(f) => f.metrics(),
         }
     }
 }
@@ -141,7 +141,7 @@ fn list_font_names(conn: *mut xcb_connection_t, pattern: &str) -> Option<Vec<Str
     }
     let count = unsafe { (*r).names_len } as usize;
     let reply_len = REPLY_HEADER_LEN + (unsafe { (*r).length } as usize) * 4;
-    let start = std::mem::size_of::<xcb_list_fonts_reply_t>();
+    let start = size_of::<xcb_list_fonts_reply_t>();
     let avail = reply_len.saturating_sub(start);
     let data = unsafe { std::slice::from_raw_parts((r as *const u8).add(start), avail) };
     let names = parse_names(data, count);
@@ -168,10 +168,7 @@ fn parse_names(data: &[u8], count: usize) -> Vec<String> {
 }
 
 fn open_font(conn: *mut xcb_connection_t, id: u32, name: &str) -> bool {
-    let cname = match std::ffi::CString::new(name) {
-        Ok(c) => c,
-        Err(_) => return false,
-    };
+    let Ok(cname) = std::ffi::CString::new(name) else { return false };
     let len = (name.len()).min(u16::MAX as usize) as u16;
     unsafe { xcb_open_font(conn, id, len, cname.as_ptr()) };
     true
@@ -205,8 +202,8 @@ fn query_font_metrics(conn: *mut xcb_connection_t, id: u32) -> Option<FontMetric
     let properties_len = unsafe { (*r).properties_len } as usize;
     let default_width = unsafe { (*r).max_bounds.character_width };
     let reply_len = REPLY_HEADER_LEN + (unsafe { (*r).length } as usize) * 4;
-    let offset = std::mem::size_of::<xcb_query_font_reply_t>() + properties_len * FONTPROP_SIZE;
-    if offset + char_infos_len * std::mem::size_of::<xcb_charinfo_t>() > reply_len {
+    let offset = size_of::<xcb_query_font_reply_t>() + properties_len * FONTPROP_SIZE;
+    if offset + char_infos_len * size_of::<xcb_charinfo_t>() > reply_len {
         unsafe { libc::free(r as *mut libc::c_void) };
         return None;
     }
@@ -262,13 +259,8 @@ fn resolve(conn: &XcbConnection, family: &str, px: u16) -> Option<ResolvedFont> 
 type FontCache = Mutex<std::collections::HashMap<(String, u16), Option<ResolvedFont>>>;
 
 fn cache() -> &'static FontCache {
-    use std::sync::Once;
-    static INIT: Once = Once::new();
-    static mut CACHE: *const FontCache = std::ptr::null();
-    INIT.call_once(|| unsafe {
-        CACHE = Box::into_raw(Box::new(Mutex::new(std::collections::HashMap::new())));
-    });
-    unsafe { &*CACHE }
+    static CACHE: OnceLock<FontCache> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
 }
 
 fn open_xlfd(conn: &XcbConnection, pattern: &str) -> Option<XcbFont> {
@@ -315,10 +307,10 @@ fn resolve_uncached(conn: &XcbConnection, family: &str, px: u16) -> Option<Resol
 
 fn resolve_core_family(conn: &XcbConnection, family: &str, px: u16) -> Option<XcbFont> {
     let raw = conn.raw();
-    let unicode = format!("-*-{}-*-*-*-*-*-*-*-*-*-*-iso10646-1", family);
+    let unicode = format!("-*-{family}-*-*-*-*-*-*-*-*-*-*-iso10646-1");
     let mut names = list_font_names(raw, &unicode).unwrap_or_default();
     if names.is_empty() {
-        let pattern = format!("-*-{}-*-*-*-*-*-*-*-*-*-*-*-*", family);
+        let pattern = format!("-*-{family}-*-*-*-*-*-*-*-*-*-*-*-*");
         names = list_font_names(raw, &pattern).unwrap_or_default();
     }
     if names.is_empty() {
