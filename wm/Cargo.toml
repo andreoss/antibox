@@ -6,8 +6,8 @@ edition = "2021"
 [dependencies]
 antibox-core = { path = "../core" }
 antibox-ui = { path = "../ui" }
-toml = "=0.5.9"
-serde = "=1.0.152"
+toml = "=0.8.12"
+serde = "=1.0.199"
 
 [dev-dependencies]
 antibox-x11 = { path = "../x11" }
