@@ -1,4 +1,4 @@
-use antibox_gfx::colour::Colour;
+use antibox_gfx::colour::{lerp as mix_rgb, Colour};
 use std::collections::HashMap;
 
 #[derive(Clone, PartialEq, Debug)]
@@ -259,15 +259,6 @@ fn scale_rgb(c: u32, f: f32) -> u32 {
     let ch = |shift: u32| {
         let v = ((c >> shift) & 0xFF) as f32 * f;
         (v.clamp(0.0, 255.0) as u32) << shift
-    };
-    ch(16) | ch(8) | ch(0)
-}
-
-fn mix_rgb(a: u32, b: u32, t: f32) -> u32 {
-    let ch = |shift: u32| {
-        let av = ((a >> shift) & 0xFF) as f32;
-        let bv = ((b >> shift) & 0xFF) as f32;
-        (((av + (bv - av) * t).clamp(0.0, 255.0)) as u32) << shift
     };
     ch(16) | ch(8) | ch(0)
 }
