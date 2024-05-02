@@ -13,7 +13,7 @@ pub struct MockGraphics {
     text_width_calls: Arc<Mutex<usize>>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MockCommand {
     SetForeground(u32),
     SetBackground(u32),

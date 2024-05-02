@@ -1,7 +1,7 @@
 use crate::point::Point;
 use crate::rect::Rect;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BackendEvent {
     MapRequest {
         window: u32,

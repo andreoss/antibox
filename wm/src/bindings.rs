@@ -136,14 +136,14 @@ impl KeyBindings {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum KeymapAction {
     Dispatch(Action),
     Drag,
     Pop,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum KeymapLookup {
     Pass,
     Swallow,

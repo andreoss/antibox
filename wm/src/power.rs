@@ -1,7 +1,7 @@
 #![allow(unsafe_code)]
 pub const MAX_BATTERIES: usize = 3;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatteryInfo {
     pub percent: i32,
     pub charging: bool,

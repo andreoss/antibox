@@ -300,8 +300,7 @@ impl App {
         let pos = self
             .focus
             .and_then(|f| order.iter().position(|&i| i == f))
-            .map(|p| p as i32)
-            .unwrap_or(-1);
+            .map_or(-1, |p| p as i32);
         let next = (pos + dir).rem_euclid(order.len() as i32) as usize;
         self.set_focus(Some(order[next]));
     }
@@ -314,16 +313,14 @@ impl App {
                     let text = f
                         .bar
                         .as_ref()
-                        .map(|b| b.text().to_string())
-                        .unwrap_or_else(|| f.text.clone());
+                        .map_or_else(|| f.text.clone(), |b| b.text().to_string());
                     SettingValue::Text(text)
                 }
                 Kind::Int => {
                     let text = f
                         .bar
                         .as_ref()
-                        .map(|b| b.text().to_string())
-                        .unwrap_or_else(|| f.text.clone());
+                        .map_or_else(|| f.text.clone(), |b| b.text().to_string());
                     match text.trim().parse::<i64>() {
                         Ok(n) => SettingValue::Int(n),
                         Err(_) => continue,
@@ -395,7 +392,7 @@ impl App {
             let _ = draw_button_bevel(&*g, x, y, w, h, theme::face(), sunken);
             let _ = g.set_foreground(theme::text());
             let _ = g.set_background(theme::face());
-            let off = if sunken { 1 } else { 0 };
+            let off = i16::from(sunken);
             let tw = g.text_width(label).unwrap_or(0) as i16;
             let _ = g.draw_text(
                 x + (w as i16 - tw) / 2 + off,

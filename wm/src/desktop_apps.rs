@@ -31,7 +31,7 @@ fn expand_field_codes(tok: &str, name: &str, icon: &str) -> String {
         return tok.to_string();
     }
     let mut out = String::with_capacity(tok.len());
-    let mut chars = tok.chars().peekable();
+    let mut chars = tok.chars();
     while let Some(c) = chars.next() {
         if c != '%' {
             out.push(c);
