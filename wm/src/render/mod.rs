@@ -190,7 +190,7 @@ pub fn draw_frame(
     let bw = fw.effective_border();
     let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
     if bw > 0 {
-        draw_border(g, focused, 0, fw_w, fw_h, colours)?;
+        draw_border(g, focused, 0, fw_w, fw_h, colours);
     }
     draw_title_bar(
         g,
@@ -447,7 +447,7 @@ fn draw_frame_left_title(
     let bw = fw.effective_border();
     let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
     if bw > 0 {
-        draw_border(g, focused, 0, fw_w, fw_h, colours)?;
+        draw_border(g, focused, 0, fw_w, fw_h, colours);
     }
     let bandr = fw.band_rect();
     let band = bandr.w;
@@ -508,7 +508,7 @@ fn draw_frame_bottom_title(
     let bw = fw.effective_border();
     let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
     if bw > 0 {
-        draw_border(g, focused, 0, fw_w, fw_h, colours)?;
+        draw_border(g, focused, 0, fw_w, fw_h, colours);
     }
     let bandr = fw.band_rect();
     let (fill, urgent) = if fw.state().urgent && !focused {
@@ -737,7 +737,7 @@ pub(crate) fn draw_border(
     w: u16,
     h: u16,
     colours: &ThemeColors,
-) -> Result<()> {
+) {
     let border = if focused {
         colours.border_active
     } else {
@@ -758,7 +758,6 @@ pub(crate) fn draw_border(
         extent,
         focused,
     );
-    Ok(())
 }
 
 #[cfg(test)]

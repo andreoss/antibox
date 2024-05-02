@@ -534,7 +534,7 @@ fn drop_hidden_tab<H: DisplayBackend + 'static + ?Sized>(
 }
 
 fn hidden_tab_title_sync<H: DisplayBackend + 'static + ?Sized>(
-    wm: &mut WindowManager<H>,
+    wm: &WindowManager<H>,
     w: u32,
     a: u32,
 ) {
