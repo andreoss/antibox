@@ -41,7 +41,7 @@
     #[test]
     fn test_groups_expand_in_place_when_toggled() {
         let m = WindowActionMenu::for_focused_client(2, tc(), false);
-        let mut nodes = m.nodes.clone();
+        let mut nodes = m.nodes;
         let flat = crate::menu_tree::flatten_nodes(&nodes);
         let idx = flat
             .iter()

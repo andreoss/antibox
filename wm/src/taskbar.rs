@@ -358,8 +358,10 @@ impl TaskBar {
         let pos = self
             .conn
             .query_pointer(self.conn.root().read_id())
-            .map(|p| Point::new(p.root_x as i32, p.root_y as i32))
-            .unwrap_or_else(|_| Point::new(x + self.window_x, y + self.window_y));
+            .map_or_else(
+                |_| Point::new(x + self.window_x, y + self.window_y),
+                |p| Point::new(p.root_x as i32, p.root_y as i32),
+            );
         self.open_menu(nodes, pos);
     }
 
@@ -379,8 +381,10 @@ impl TaskBar {
         let pos = self
             .conn
             .query_pointer(self.conn.root().read_id())
-            .map(|p| Point::new(p.root_x as i32, p.root_y as i32))
-            .unwrap_or_else(|_| Point::new(self.window_x, self.window_y));
+            .map_or_else(
+                |_| Point::new(self.window_x, self.window_y),
+                |p| Point::new(p.root_x as i32, p.root_y as i32),
+            );
         self.open_menu(nodes, pos);
     }
 

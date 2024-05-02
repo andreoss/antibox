@@ -243,9 +243,10 @@ pub fn monitor_at<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManager<H>, a
                 && at.y < m.y as i32 + m.height as i32
         })
         .or_else(|| mons.first())
-        .map_or(Rect::new(0, 0, sw, sh), |m| {
-            Rect::new(m.x as i32, m.y as i32, m.width as i32, m.height as i32)
-        })
+        .map_or_else(
+            || Rect::new(0, 0, sw, sh),
+            |m| Rect::new(m.x as i32, m.y as i32, m.width as i32, m.height as i32),
+        )
 }
 
 pub fn snap_area<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManager<H>, at: Point) -> Rect {
