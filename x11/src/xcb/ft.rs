@@ -176,7 +176,7 @@ fn match_pattern(pattern: &str) -> Option<(String, i32, u16)> {
         return None;
     }
     let cpat = std::ffi::CString::new(pattern).ok()?;
-    let pat = unsafe { FcNameParse(cpat.as_ptr() as *const u8) };
+    let pat = unsafe { FcNameParse(cpat.as_ptr().cast::<u8>()) };
     if pat.is_null() {
         return None;
     }
@@ -193,7 +193,7 @@ fn match_pattern(pattern: &str) -> Option<(String, i32, u16)> {
     let file_obj = b"file\0";
     let mut s: *mut u8 = std::ptr::null_mut();
     let got_file =
-        unsafe { FcPatternGetString(matched, file_obj.as_ptr() as *const c_char, 0, &mut s) }
+        unsafe { FcPatternGetString(matched, file_obj.as_ptr().cast::<c_char>(), 0, &mut s) }
             == FC_RESULT_MATCH
             && !s.is_null();
     let file = if got_file {
@@ -205,10 +205,10 @@ fn match_pattern(pattern: &str) -> Option<(String, i32, u16)> {
     };
     let mut index: c_int = 0;
     let index_obj = b"index\0";
-    unsafe { FcPatternGetInteger(matched, index_obj.as_ptr() as *const c_char, 0, &mut index) };
+    unsafe { FcPatternGetInteger(matched, index_obj.as_ptr().cast::<c_char>(), 0, &mut index) };
     let mut px: f64 = 0.0;
     let px_obj = b"pixelsize\0";
-    unsafe { FcPatternGetDouble(matched, px_obj.as_ptr() as *const c_char, 0, &mut px) };
+    unsafe { FcPatternGetDouble(matched, px_obj.as_ptr().cast::<c_char>(), 0, &mut px) };
     unsafe { FcPatternDestroy(matched) };
     if file.is_empty() {
         return None;

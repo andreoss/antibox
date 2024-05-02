@@ -52,8 +52,8 @@ fn event_time(ev: &xcb_generic_event_t) -> Option<u32> {
         28 => 12,
         _ => return None,
     };
-    let base = ev as *const xcb_generic_event_t as *const u8;
-    Some(unsafe { std::ptr::read_unaligned(base.add(off) as *const u32) })
+    let base = (ev as *const xcb_generic_event_t).cast::<u8>();
+    Some(unsafe { std::ptr::read_unaligned(base.add(off).cast::<u32>()) })
 }
 
 fn render_init(conn: *mut xcb_connection_t) -> (u32, u32, u32) {
@@ -63,7 +63,7 @@ fn render_init(conn: *mut xcb_connection_t) -> (u32, u32, u32) {
     if vr.is_null() {
         return (0, 0, 0);
     }
-    unsafe { libc::free(vr as *mut libc::c_void) };
+    unsafe { libc::free(vr.cast::<libc::c_void>()) };
     let cookie = unsafe { xcb_render_query_pict_formats(conn) };
     let r = unsafe { xcb_render_query_pict_formats_reply(conn, cookie, &mut e) };
     if r.is_null() {
@@ -71,8 +71,7 @@ fn render_init(conn: *mut xcb_connection_t) -> (u32, u32, u32) {
     }
     let count = unsafe { (*r).num_formats } as usize;
     let base = unsafe {
-        (r as *const u8).add(size_of::<xcb_render_query_pict_formats_reply_t>())
-            as *const xcb_render_pictforminfo_t
+        (r as *const u8).add(size_of::<xcb_render_query_pict_formats_reply_t>()).cast::<xcb_render_pictforminfo_t>()
     };
     let (mut a8, mut rgb24, mut argb32) = (0u32, 0u32, 0u32);
     for i in 0..count {
@@ -91,7 +90,7 @@ fn render_init(conn: *mut xcb_connection_t) -> (u32, u32, u32) {
             argb32 = f.id;
         }
     }
-    unsafe { libc::free(r as *mut libc::c_void) };
+    unsafe { libc::free(r.cast::<libc::c_void>()) };
     (a8, rgb24, argb32)
 }
 
@@ -144,7 +143,7 @@ impl XcbConnection {
         let cursor_font = unsafe { xcb_generate_id(conn) };
         let font_name = b"cursor\0";
         unsafe {
-            xcb_open_font(conn, cursor_font, font_name.len() as u16, font_name.as_ptr() as *const _)
+            xcb_open_font(conn, cursor_font, font_name.len() as u16, font_name.as_ptr().cast())
         };
         let xkb_event_base = super::xkb::init(conn);
         let shape_event_base = shape_init(conn);
@@ -222,7 +221,7 @@ impl XcbConnection {
         let r = unsafe { xcb_intern_atom_reply(self.conn, cookie, &mut e) };
         let atom = if !r.is_null() {
             let a = unsafe { (*r).atom };
-            unsafe { libc::free(r as *mut libc::c_void) };
+            unsafe { libc::free(r.cast::<libc::c_void>()) };
             a
         } else {
             0
@@ -238,7 +237,7 @@ impl XcbConnection {
 
 fn shape_init(conn: *mut xcb_connection_t) -> u8 {
     let name = b"SHAPE";
-    let cookie = unsafe { xcb_query_extension(conn, name.len() as u16, name.as_ptr() as *const _) };
+    let cookie = unsafe { xcb_query_extension(conn, name.len() as u16, name.as_ptr().cast()) };
     let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
     let r = unsafe { xcb_query_extension_reply(conn, cookie, &mut e) };
     if r.is_null() {
@@ -246,7 +245,7 @@ fn shape_init(conn: *mut xcb_connection_t) -> u8 {
     }
     let present = unsafe { (*r).present != 0 };
     let first_event = unsafe { (*r).first_event };
-    unsafe { libc::free(r as *mut libc::c_void) };
+    unsafe { libc::free(r.cast::<libc::c_void>()) };
     if present {
         first_event
     } else {
@@ -269,7 +268,7 @@ impl XcbConnection {
         if r.is_null() {
             return false;
         }
-        unsafe { libc::free(r as *mut libc::c_void) };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         true
     }
 
@@ -283,7 +282,7 @@ impl XcbConnection {
         if r.is_null() {
             return false;
         }
-        unsafe { libc::free(r as *mut libc::c_void) };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         true
     }
 
@@ -418,7 +417,7 @@ impl RenderBackend for XcbConnection {
             PropMode::Append => XCB_PROP_MODE_APPEND,
         };
         unsafe {
-            xcb_change_property(self.conn, mode, window, atom, type_atom, 8, data.len() as u32, data.as_ptr() as *const _)
+            xcb_change_property(self.conn, mode, window, atom, type_atom, 8, data.len() as u32, data.as_ptr().cast())
         };
         Ok(())
     }
@@ -437,7 +436,7 @@ impl RenderBackend for XcbConnection {
             PropMode::Append => XCB_PROP_MODE_APPEND,
         };
         unsafe {
-            xcb_change_property(self.conn, mode, window, atom, type_atom, 32, data.len() as u32, data.as_ptr() as *const _)
+            xcb_change_property(self.conn, mode, window, atom, type_atom, 32, data.len() as u32, data.as_ptr().cast())
         };
         Ok(())
     }
@@ -471,7 +470,7 @@ impl RenderBackend for XcbConnection {
         } else {
             Vec::new()
         };
-        unsafe { libc::free(r as *mut libc::c_void) };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         if type_ == 0 {
             Ok(None)
         } else {
@@ -526,7 +525,7 @@ impl RenderBackend for XcbConnection {
                 propagate as u8,
                 destination,
                 event_mask,
-                &ev as *const xcb_client_message_event_t as *const c_char,
+                std::ptr::addr_of!(ev).cast::<c_char>(),
             )
         };
         Ok(())
@@ -576,7 +575,7 @@ impl DisplayBackend for XcbConnection {
             return Ok(None);
         }
         let event = unsafe { std::ptr::read(ev) };
-        unsafe { libc::free(ev as *mut libc::c_void) };
+        unsafe { libc::free(ev.cast::<libc::c_void>()) };
         if let Some(t) = event_time(&event) {
             self.last_event_time
                 .store(t, std::sync::atomic::Ordering::Relaxed);
@@ -636,7 +635,7 @@ impl DisplayBackend for XcbConnection {
         let data_ptr = unsafe { (r as *const u8).add(size_of::<xcb_get_atom_name_reply_t>()) };
         let bytes = unsafe { std::slice::from_raw_parts(data_ptr, len) };
         let name = String::from_utf8_lossy(bytes).into_owned();
-        unsafe { libc::free(r as *mut libc::c_void) };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         Ok(name)
     }
 
@@ -649,7 +648,7 @@ impl DisplayBackend for XcbConnection {
             return Err(err("query_extension failed"));
         }
         let present = unsafe { (*r).present != 0 };
-        unsafe { libc::free(r as *mut libc::c_void) };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         Ok(present)
     }
 
@@ -667,8 +666,8 @@ impl DisplayBackend for XcbConnection {
         let kpc = unsafe { (*r).keysyms_per_keycode } as usize;
         let total = count as usize * kpc;
         let data_ptr = unsafe { (r as *const u8).add(size_of::<xcb_get_keyboard_mapping_reply_t>()) };
-        let keysyms = unsafe { std::slice::from_raw_parts(data_ptr as *const u32, total).to_vec() };
-        unsafe { libc::free(r as *mut libc::c_void) };
+        let keysyms = unsafe { std::slice::from_raw_parts(data_ptr.cast::<u32>(), total).to_vec() };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         Ok(KeyboardMapping { keysyms_per_keycode: kpc as u8, keysyms })
     }
 
@@ -689,7 +688,7 @@ impl DisplayBackend for XcbConnection {
             let slice = unsafe { std::slice::from_raw_parts(data_ptr.add(m * kpm), kpm) };
             *slot = slice.to_vec();
         }
-        unsafe { libc::free(r as *mut libc::c_void) };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         Ok(ModifierMapping { keycodes_per_modifier })
     }
 
@@ -776,7 +775,7 @@ impl DisplayBackend for XcbConnection {
         let mut buf = [0u8; 32];
         unsafe {
             std::ptr::copy_nonoverlapping(
-                &ev as *const xcb_configure_notify_event_t as *const u8,
+                std::ptr::addr_of!(ev).cast::<u8>(),
                 buf.as_mut_ptr(),
                 size_of::<xcb_configure_notify_event_t>(),
             );
@@ -785,7 +784,7 @@ impl DisplayBackend for XcbConnection {
                 0,
                 window,
                 XCB_EVENT_MASK_STRUCTURE_NOTIFY,
-                buf.as_ptr() as *const c_char,
+                buf.as_ptr().cast::<c_char>(),
             )
         };
         Ok(())
@@ -805,7 +804,7 @@ impl DisplayBackend for XcbConnection {
         let root_x = unsafe { (*r).root_x };
         let root_y = unsafe { (*r).root_y };
         let mask = unsafe { (*r).mask };
-        unsafe { libc::free(r as *mut libc::c_void) };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         Ok(PointerState { root_x, root_y, mask: KeyButMask(mask) })
     }
 
@@ -886,7 +885,7 @@ impl DisplayBackend for XcbConnection {
         if r.is_null() {
             let msg = if !e.is_null() {
                 let code = unsafe { (*e).response_type };
-                unsafe { libc::free(e as *mut libc::c_void) };
+                unsafe { libc::free(e.cast::<libc::c_void>()) };
                 format!("get_selection_owner failed (X error response_type={code})")
             } else {
                 "get_selection_owner reply null".to_string()
@@ -896,7 +895,7 @@ impl DisplayBackend for XcbConnection {
             return Err(err(msg));
         }
         let owner = unsafe { (*r).owner };
-        unsafe { libc::free(r as *mut libc::c_void) };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         Ok(owner)
     }
     fn generate_id(&self) -> Result<u32> {
@@ -913,8 +912,8 @@ impl DisplayBackend for XcbConnection {
         let parent = unsafe { (*r).parent };
         let children_len = unsafe { (*r).children_len } as usize;
         let data_ptr = unsafe { (r as *const u8).add(size_of::<xcb_query_tree_reply_t>()) };
-        let children = unsafe { std::slice::from_raw_parts(data_ptr as *const u32, children_len).to_vec() };
-        unsafe { libc::free(r as *mut libc::c_void) };
+        let children = unsafe { std::slice::from_raw_parts(data_ptr.cast::<u32>(), children_len).to_vec() };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         Ok(QueryTreeResult { root, parent, children })
     }
     fn get_window_attributes(&self, window: u32) -> Result<WindowAttributes> {
@@ -927,7 +926,7 @@ impl DisplayBackend for XcbConnection {
         let map_state = map_state(unsafe { (*r).map_state });
         let override_redirect = unsafe { (*r).override_redirect != 0 };
         let depth = self.depth;
-        unsafe { libc::free(r as *mut libc::c_void) };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         Ok(WindowAttributes { override_redirect, map_state, depth })
     }
     fn query_monitors(&self) -> Result<Vec<MonitorInfo>> {
@@ -973,7 +972,7 @@ impl DisplayBackend for XcbConnection {
         let bytes = unsafe { (*r).length as usize * 4 };
         let data_ptr = unsafe { (r as *const u8).add(size_of::<xcb_get_image_reply_t>()) };
         let data = unsafe { std::slice::from_raw_parts(data_ptr, bytes).to_vec() };
-        unsafe { libc::free(r as *mut libc::c_void) };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         Ok((w, h, data))
     }
     fn send_selection_notify(&self, _r: u32, _s: u32, _t: u32, _p: u32, _time: u32) -> Result<()> {

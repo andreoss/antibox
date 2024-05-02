@@ -99,9 +99,9 @@ fn current_time_str(format: &str) -> String {
     let c_format = format.to_owned() + "\0";
     let n = unsafe {
         libc::strftime(
-            buf.as_mut_ptr() as *mut libc::c_char,
+            buf.as_mut_ptr().cast::<libc::c_char>(),
             buf.len(),
-            c_format.as_ptr() as *const libc::c_char,
+            c_format.as_ptr().cast::<libc::c_char>(),
             &tm as *const _,
         )
     };

@@ -8,7 +8,7 @@ extern "C" fn sigchld_handler(_sig: libc::c_int) {
     let fd = SIGNAL_WRITE_FD.load(Ordering::Relaxed);
     if fd >= 0 {
         let buf: [u8; 1] = [1];
-        let _ = unsafe { libc::write(fd as RawFd, buf.as_ptr() as *const _, 1) };
+        let _ = unsafe { libc::write(fd as RawFd, buf.as_ptr().cast(), 1) };
     }
 }
 
@@ -30,7 +30,7 @@ impl SignalHandler {
         let mut sa: libc::sigaction = unsafe { std::mem::zeroed() };
         sa.sa_sigaction = sigchld_handler as *const () as usize;
         sa.sa_flags = libc::SA_RESTART | libc::SA_NOCLDSTOP;
-        let ret = unsafe { libc::sigaction(libc::SIGCHLD, &sa as *const _, std::ptr::null_mut()) };
+        let ret = unsafe { libc::sigaction(libc::SIGCHLD, std::ptr::addr_of!(sa), std::ptr::null_mut()) };
         if ret != 0 {
             unsafe {
                 let _ = libc::close(read_fd);
@@ -51,7 +51,7 @@ impl SignalHandler {
             events: libc::POLLIN,
             revents: 0,
         };
-        let ret = unsafe { libc::poll(&mut pfd as *mut _, 1, 0) };
+        let ret = unsafe { libc::poll(std::ptr::addr_of_mut!(pfd), 1, 0) };
         ret > 0 && (pfd.revents & libc::POLLIN) != 0
     }
 
@@ -61,7 +61,7 @@ impl SignalHandler {
             let ret = unsafe {
                 libc::read(
                     self.read_fd,
-                    buf.as_mut_ptr() as *mut libc::c_void,
+                    buf.as_mut_ptr().cast::<libc::c_void>(),
                     buf.len(),
                 )
             };
@@ -74,7 +74,7 @@ impl SignalHandler {
     pub fn reap_children() {
         loop {
             let mut status: i32 = 0;
-            let ret = unsafe { libc::waitpid(-1, &mut status as *mut _, libc::WNOHANG) };
+            let ret = unsafe { libc::waitpid(-1, std::ptr::addr_of_mut!(status), libc::WNOHANG) };
             if ret <= 0 {
                 break;
             }

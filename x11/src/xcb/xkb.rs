@@ -6,7 +6,7 @@ use std::os::raw::c_uint;
 
 pub(crate) fn init(conn: *mut xcb_connection_t) -> u8 {
     let name = b"XKEYBOARD";
-    let cookie = unsafe { xcb_query_extension(conn, name.len() as u16, name.as_ptr() as *const _) };
+    let cookie = unsafe { xcb_query_extension(conn, name.len() as u16, name.as_ptr().cast()) };
     let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
     let r = unsafe { xcb_query_extension_reply(conn, cookie, &mut e) };
     if r.is_null() {
@@ -14,7 +14,7 @@ pub(crate) fn init(conn: *mut xcb_connection_t) -> u8 {
     }
     let present = unsafe { (*r).present != 0 };
     let first_event = unsafe { (*r).first_event };
-    unsafe { libc::free(r as *mut libc::c_void) };
+    unsafe { libc::free(r.cast::<libc::c_void>()) };
     if !present || first_event == 0 {
         return 0;
     }
@@ -24,7 +24,7 @@ pub(crate) fn init(conn: *mut xcb_connection_t) -> u8 {
         return 0;
     }
     let supported = unsafe { (*r).supported != 0 };
-    unsafe { libc::free(r as *mut libc::c_void) };
+    unsafe { libc::free(r.cast::<libc::c_void>()) };
     if !supported {
         return 0;
     }
@@ -51,7 +51,7 @@ fn current_group(conn: &XcbConnection) -> usize {
         return 0;
     }
     let group = unsafe { (*r).group } as usize;
-    unsafe { libc::free(r as *mut libc::c_void) };
+    unsafe { libc::free(r.cast::<libc::c_void>()) };
     group
 }
 
