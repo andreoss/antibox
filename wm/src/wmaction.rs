@@ -49,7 +49,7 @@ fn fullscreen_rect<H: DisplayBackend + 'static + ?Sized>(
     crate::snap::monitor_at(wm, crate::geom::center_of(fr))
 }
 
-fn cfg<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>, w: u32, r: &[u32]) {
+fn cfg<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManager<H>, w: u32, r: &[u32]) {
     if let Some(b) = wm.backend() {
         let _ = b.configure_window(w, r);
     }
@@ -746,7 +746,7 @@ pub(crate) fn publish_net_wm_state<H: DisplayBackend + 'static + ?Sized>(
 }
 
 pub(crate) fn close_client<H: DisplayBackend + 'static + ?Sized>(
-    wm: &mut WindowManager<H>,
+    wm: &WindowManager<H>,
     id: ClientId,
 ) {
     let cid = wm.xid_index.xid_of(id);
@@ -800,7 +800,7 @@ pub(crate) fn send_to_workspace<H: DisplayBackend + 'static + ?Sized>(
 }
 
 pub(crate) fn kill_client_id<H: DisplayBackend + 'static + ?Sized>(
-    wm: &mut WindowManager<H>,
+    wm: &WindowManager<H>,
     id: ClientId,
 ) {
     let cid = wm.xid_index.xid_of(id);

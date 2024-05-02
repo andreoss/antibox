@@ -842,7 +842,7 @@ impl App {
                 let ids: Vec<ClientId> = self.wm.frames.keys().collect();
                 for id in ids {
                     if self.omni.is_marked(self.wm.xid_index.xid_of(id)) {
-                        crate::wmaction::close_client(&mut self.wm, id);
+                        crate::wmaction::close_client(&self.wm, id);
                     }
                 }
             }
@@ -851,7 +851,7 @@ impl App {
                 let ids: Vec<ClientId> = self.wm.frames.keys().collect();
                 for id in ids {
                     if self.omni.is_marked(self.wm.xid_index.xid_of(id)) {
-                        crate::wmaction::kill_client_id(&mut self.wm, id);
+                        crate::wmaction::kill_client_id(&self.wm, id);
                     }
                 }
             }
@@ -862,8 +862,8 @@ impl App {
         use crate::omni::OmniWinOp;
         let Some(target) = self.wm.cid_for_xid(target) else { return };
         match op {
-            OmniWinOp::Close => crate::wmaction::close_client(&mut self.wm, target),
-            OmniWinOp::Kill => crate::wmaction::kill_client_id(&mut self.wm, target),
+            OmniWinOp::Close => crate::wmaction::close_client(&self.wm, target),
+            OmniWinOp::Kill => crate::wmaction::kill_client_id(&self.wm, target),
             OmniWinOp::SendTo(ws) => crate::wmaction::send_to_workspace(&mut self.wm, target, ws),
             OmniWinOp::Join(other) => {
                 if let Some(other_cid) = self.wm.cid_for_xid(other) {
