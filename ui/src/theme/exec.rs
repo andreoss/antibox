@@ -1,5 +1,6 @@
 use super::dsl::*;
 use antibox_gfx::backend::GraphicsContext;
+use antibox_gfx::colour::lerp;
 
 fn clamp_i16(v: i32) -> i16 {
     v.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16
@@ -150,13 +151,4 @@ pub fn draw_ops(
         }
     }
     painted
-}
-
-fn lerp(a: u32, b: u32, t: f32) -> u32 {
-    let ch = |shift: u32| {
-        let av = ((a >> shift) & 0xFF) as f32;
-        let bv = ((b >> shift) & 0xFF) as f32;
-        (((av + (bv - av) * t).clamp(0.0, 255.0)) as u32) << shift
-    };
-    ch(16) | ch(8) | ch(0)
 }
