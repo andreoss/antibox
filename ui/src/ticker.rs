@@ -1,12 +1,7 @@
 use antibox_gfx::backend::GraphicsContext;
 use std::borrow::Cow;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
-
-static ENABLED: AtomicBool = AtomicBool::new(true);
-static SCROLLED_PANEL: AtomicBool = AtomicBool::new(false);
-static SCROLLED_TITLE: AtomicBool = AtomicBool::new(false);
 
 const GAP: &str = "   ";
 
@@ -44,11 +39,11 @@ fn note_target(surface: Surface, target: u64) {
 }
 
 pub fn set_enabled(on: bool) {
-    ENABLED.store(on, Ordering::Relaxed);
+    ENABLED.with(|e| e.set(on));
 }
 
 pub fn enabled() -> bool {
-    ENABLED.load(Ordering::Relaxed)
+    ENABLED.with(Cell::get)
 }
 
 pub const fn interval() -> std::time::Duration {
@@ -61,8 +56,8 @@ fn speed_px_per_interval() -> usize {
 
 pub fn advance() -> Scrolled {
     Scrolled {
-        panel: SCROLLED_PANEL.swap(false, Ordering::Relaxed),
-        title: SCROLLED_TITLE.swap(false, Ordering::Relaxed),
+        panel: SCROLLED_PANEL.with(|c| c.replace(false)),
+        title: SCROLLED_TITLE.with(|c| c.replace(false)),
         panel_targets: PANEL_TARGETS.with(|c| c.borrow_mut().drain(..).collect()),
         title_targets: TITLE_TARGETS.with(|c| c.borrow_mut().drain(..).collect()),
     }
@@ -70,10 +65,10 @@ pub fn advance() -> Scrolled {
 
 pub fn rearm(s: Scrolled) {
     if s.panel {
-        SCROLLED_PANEL.store(true, Ordering::Relaxed);
+        SCROLLED_PANEL.with(|c| c.set(true));
     }
     if s.title {
-        SCROLLED_TITLE.store(true, Ordering::Relaxed);
+        SCROLLED_TITLE.with(|c| c.set(true));
     }
     PANEL_TARGETS.with(|c| {
         let mut v = c.borrow_mut();
@@ -90,7 +85,7 @@ pub fn rearm(s: Scrolled) {
 }
 
 pub fn active() -> bool {
-    SCROLLED_PANEL.load(Ordering::Relaxed) || SCROLLED_TITLE.load(Ordering::Relaxed)
+    SCROLLED_PANEL.with(Cell::get) || SCROLLED_TITLE.with(Cell::get)
 }
 
 pub fn phase() -> usize {
@@ -115,6 +110,9 @@ struct Metrics {
 const CACHE_LIMIT: usize = 512;
 
 thread_local! {
+    static ENABLED: Cell<bool> = const { Cell::new(true) };
+    static SCROLLED_PANEL: Cell<bool> = const { Cell::new(false) };
+    static SCROLLED_TITLE: Cell<bool> = const { Cell::new(false) };
     static METRICS: RefCell<HashMap<u64, HashMap<String, Metrics>>> = RefCell::new(HashMap::new());
     static PANEL_TARGETS: RefCell<Vec<u64>> = const { RefCell::new(Vec::new()) };
     static TITLE_TARGETS: RefCell<Vec<u64>> = const { RefCell::new(Vec::new()) };
@@ -224,8 +222,8 @@ pub fn fit_on_at<'a>(
         return Fit::Plain(Cow::Borrowed(""));
     }
     match surface {
-        Surface::Panel => SCROLLED_PANEL.store(true, Ordering::Relaxed),
-        Surface::Title => SCROLLED_TITLE.store(true, Ordering::Relaxed),
+        Surface::Panel => SCROLLED_PANEL.with(|c| c.set(true)),
+        Surface::Title => SCROLLED_TITLE.with(|c| c.set(true)),
     }
     note_target(surface, target);
     let (text, shift) = scroll_at(g, label, phase(), avail);
