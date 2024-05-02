@@ -35,6 +35,7 @@ pub mod tooltip;
 pub mod action {
     pub use antibox_ui::action::*;
 }
+#[macro_use]
 pub mod applet;
 pub mod bindings;
 pub mod config_watch;

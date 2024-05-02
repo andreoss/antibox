@@ -436,13 +436,7 @@ impl Applet for KeyboardApplet {
         None
     }
     impl_applet_tooltip!(tooltip);
-    fn set_geometry(&mut self, x: i16, y: i16, w: u16, h: u16) {
-        self.width = w;
-        self.height = h;
-        let _ = self
-            .window
-            .configure(Some(x as i32), Some(y as i32), Some(w), Some(h));
-    }
+    impl_applet_set_geometry!(width, height);
     fn owns_window(&self, id: u32) -> bool {
         self.window.id() == id || self.menu_window.as_ref().is_some_and(|w| w.id() == id)
     }

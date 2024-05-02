@@ -74,3 +74,16 @@ pub trait AppletContainer {
     fn add_applet(&mut self, applet: Box<dyn Applet>);
     fn remove_applet(&mut self, idx: usize);
 }
+
+#[macro_export]
+macro_rules! impl_applet_set_geometry {
+    ($w:ident, $h:ident) => {
+        fn set_geometry(&mut self, x: i16, y: i16, w: u16, h: u16) {
+            self.$w = w;
+            self.$h = h;
+            let _ = self
+                .window
+                .configure(Some(x as i32), Some(y as i32), Some(w), Some(h));
+        }
+    };
+}
