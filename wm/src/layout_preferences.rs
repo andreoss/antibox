@@ -180,10 +180,6 @@ pub fn set_minimize_animation(v: bool) {
     MINIMIZE_ANIMATION.store(v, Ordering::Relaxed);
 }
 
-pub fn minimize_animation() -> bool {
-    MINIMIZE_ANIMATION.load(Ordering::Relaxed)
-}
-
 pub fn set_title_height(base: i64) {
     TITLE_HEIGHT.store(base.clamp(-1, 128) as i16, Ordering::Relaxed);
 }

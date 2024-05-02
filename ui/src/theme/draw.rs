@@ -540,39 +540,6 @@ pub fn submenu_indicator(g: &dyn GraphicsContext, x: i16, cy: i16, size: i16, co
     }
 }
 
-pub fn etched_hline(g: &dyn GraphicsContext, x: i16, y: i16, w: u16) {
-    if w == 0 {
-        return;
-    }
-    let s = antibox_gfx::scale::scaled(1).max(1) as u16;
-    let _ = g.set_foreground(shadow());
-    let _ = g.fill_rect(x, y, w, s);
-    let _ = g.set_foreground(light());
-    let _ = g.fill_rect(x, y + s as i16, w, s);
-}
-
-pub fn etched_rect(g: &dyn GraphicsContext, x: i16, y: i16, w: u16, h: u16) {
-    if w < 2 || h < 2 {
-        return;
-    }
-    let s = hairline(w, h);
-    let si = s as i16;
-    let x1 = x + w as i16;
-    let y1 = y + h as i16;
-
-    let _ = g.set_foreground(light());
-    let _ = g.fill_rect(x + si, y + si, w.saturating_sub(s), s);
-    let _ = g.fill_rect(x + si, y + si, s, h.saturating_sub(s));
-    let _ = g.fill_rect(x + si, y1 - si, w.saturating_sub(s), s);
-    let _ = g.fill_rect(x1 - si, y + si, s, h.saturating_sub(s));
-
-    let _ = g.set_foreground(shadow());
-    let _ = g.fill_rect(x, y, w.saturating_sub(s), s);
-    let _ = g.fill_rect(x, y, s, h.saturating_sub(s));
-    let _ = g.fill_rect(x, y1 - si * 2, w.saturating_sub(s), s);
-    let _ = g.fill_rect(x1 - si * 2, y, s, h.saturating_sub(s));
-}
-
 pub fn etched_text(g: &dyn GraphicsContext, x: i16, y: i16, text: &str) {
     let (hi, dim) = disabled_colours(face(), super::text());
     let _ = g.set_foreground(hi);

@@ -69,13 +69,6 @@ pub fn combo_button(
     bx
 }
 
-pub fn focus_rect(g: &dyn GraphicsContext, x: i16, y: i16, w: u16, h: u16) {
-    if w < 2 || h < 2 {
-        return;
-    }
-    theme::dot_rect(g, x, y, w, h, theme::text());
-}
-
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum LabelAlign {
     Left,

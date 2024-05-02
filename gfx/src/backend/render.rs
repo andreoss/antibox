@@ -309,11 +309,6 @@ impl PixmapData {
         }
     }
 
-    pub fn with_mask(mut self, mask: Vec<u8>) -> Self {
-        self.mask = Some(mask);
-        self
-    }
-
     pub fn mask_from_alpha(&mut self) {
         let w = self.width as usize;
         let h = self.height as usize;
@@ -328,32 +323,6 @@ impl PixmapData {
             }
         }
         self.mask = Some(mask);
-    }
-
-    pub fn subimage(&self, x: u16, y: u16, w: u16, h: u16) -> Option<Self> {
-        if x.checked_add(w)? > self.width || y.checked_add(h)? > self.height || w == 0 || h == 0 {
-            return None;
-        }
-        let mut out = Vec::with_capacity(w as usize * h as usize * 4);
-        let row_bytes = self.width as usize * 4;
-        let start = y as usize * row_bytes + x as usize * 4;
-        for row in 0..h as usize {
-            let off = start + row * row_bytes;
-            out.extend_from_slice(&self.data[off..off + w as usize * 4]);
-        }
-        Some(Self::new(w, h, out))
-    }
-
-    pub fn vertical_offset(&self) -> u16 {
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let ai = (y as usize * self.width as usize + x as usize) * 4 + 3;
-                if self.data[ai] != 0 {
-                    return y;
-                }
-            }
-        }
-        self.height
     }
 
     #[must_use]

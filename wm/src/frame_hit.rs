@@ -9,22 +9,6 @@ impl FrameWindow {
         None
     }
 
-    pub fn handle_button_click(&mut self, button: u8) {
-        match button {
-            2 => self.close(),
-            4 => self.maximize(),
-            5 | 0 => self.minimize(),
-            1 => {
-                self.state.maximized = false;
-                self.state.max_vert = false;
-                self.state.max_horz = false;
-                self.state.minimized = false;
-            }
-            6 | 3 => self.shade(),
-            _ => {}
-        }
-    }
-
     pub fn hit_test_edge(&self, p: antibox_core::point::Point) -> ResizeEdge {
         if self.state().shaded {
             return ResizeEdge::None;

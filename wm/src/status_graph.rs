@@ -94,22 +94,6 @@ impl Plot {
         }
     }
 
-    pub fn bar_up(
-        &self,
-        g: &dyn antibox_core::backend::GraphicsContext,
-        x: i16,
-        y: i16,
-        barh: i16,
-        colour: antibox_core::colour::Colour,
-    ) -> i16 {
-        if barh > 0 {
-            let _ = g.set_foreground(colour);
-            let _ = g.fill_rect(x, y - barh + 1, self.cw, barh as u16);
-            y - barh
-        } else {
-            y
-        }
-    }
 }
 
 pub struct Samples<T> {

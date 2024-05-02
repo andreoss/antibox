@@ -122,18 +122,12 @@ impl EventFilter {
     }
 
     pub fn set(&mut self, ev: &BackendEvent, enabled: bool) {
-        if let Some(idx) = variant_index(ev) {
-            self.enabled[idx] = enabled;
-        }
+        self.enabled[ev.variant_index()] = enabled;
     }
 
-    pub fn is_enabled(&self, ev: &BackendEvent) -> bool {
-        variant_index(ev).is_some_and(|idx| self.enabled[idx])
+    pub const fn is_enabled(&self, ev: &BackendEvent) -> bool {
+        self.enabled[ev.variant_index()]
     }
-}
-
-const fn variant_index(ev: &BackendEvent) -> Option<usize> {
-    Some(ev.variant_index())
 }
 
 pub fn set_atom_resolver(f: impl Fn(u32) -> Option<String> + Send + Sync + 'static) {

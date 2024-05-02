@@ -29,10 +29,6 @@ impl WinLayer {
         }
     }
 
-    pub const fn to_i32(self) -> i32 {
-        self as i32
-    }
-
     pub const fn default_for_window_type(window_type: crate::client::WindowType) -> Self {
         match window_type {
             crate::client::WindowType::Desktop => Self::Desktop,

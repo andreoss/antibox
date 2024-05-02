@@ -1,5 +1,5 @@
 use super::window::{Lifecycle, LifecycleLog, MockWindow};
-use crate::backend::{BackendEvent, EventQueue};
+use crate::backend::EventQueue;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -53,10 +53,6 @@ impl MockDisplay {
             lifecycle,
             broken: Arc::new(Mutex::new(std::collections::HashSet::new())),
         }
-    }
-
-    pub fn push_event(&self, event: BackendEvent) {
-        self.events.lock().unwrap().push(event);
     }
 
     pub fn get_window(&self, id: u32) -> Option<MockWindow> {
