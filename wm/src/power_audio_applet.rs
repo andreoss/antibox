@@ -272,13 +272,7 @@ impl Applet for PowerAudioApplet {
         crate::tooltip::tip_pending(&self.tooltip)
     }
 
-    fn set_geometry(&mut self, x: i16, y: i16, w: u16, h: u16) {
-        self.w = w;
-        self.h = h;
-        let _ = self
-            .window
-            .configure(Some(x as i32), Some(y as i32), Some(w), Some(h));
-    }
+    impl_applet_set_geometry!(w, h);
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
