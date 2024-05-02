@@ -239,14 +239,6 @@ impl Cursor {
         }
     }
 
-    pub const fn from_glyph(glyph: u32) -> Self {
-        Self {
-            path: None,
-            glyph: Some(glyph),
-            xname: None,
-        }
-    }
-
     pub fn path(&self) -> Option<&str> {
         self.path.as_ref().map(AsRef::as_ref)
     }

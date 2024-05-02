@@ -53,15 +53,6 @@ pub fn update_client_list_stacking<H: DisplayBackend + 'static + ?Sized>(
     );
 }
 
-pub fn set_active_window<H: DisplayBackend + 'static + ?Sized>(
-    backend: &H,
-    atoms: &antibox_core::backend::AtomManager,
-    window: u32,
-) {
-    set_active_window_prop(backend, atoms, window);
-    let _ = backend.set_input_focus(1, window, 0);
-}
-
 pub fn set_active_window_prop<H: DisplayBackend + 'static + ?Sized>(
     backend: &H,
     atoms: &antibox_core::backend::AtomManager,

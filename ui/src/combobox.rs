@@ -1,7 +1,5 @@
 use crate::editcore::EditCore;
 use crate::listcore::ListCore;
-use crate::{metrics, theme, widget};
-use antibox_gfx::backend::{FontSpec, GraphicsContext};
 
 pub struct ComboBox {
     pub items: Vec<String>,
@@ -131,41 +129,6 @@ impl ComboBox {
         self.first_visible = core.first_visible();
     }
 
-    pub fn paint_dropdown(&self, g: &dyn GraphicsContext) {
-        if !self.open {
-            return;
-        }
-        let (dx, dy, dw, dh) = self.dropdown_rect();
-        let _ = g.set_foreground(theme::list_bg());
-        let _ = g.fill_rect(dx, dy, dw, dh);
-        let _ = g.set_font(&FontSpec::ui(metrics::font_pt()));
-        let pad = metrics::pad() as i16;
-        for (row, (i, it)) in self
-            .items
-            .iter()
-            .enumerate()
-            .skip(self.first_visible)
-            .take(self.max_visible)
-            .enumerate()
-        {
-            let ry = dy + row as i16 * self.h as i16;
-            let sel = self.selected == Some(i);
-            let (fg, bg) = if sel {
-                theme::fill_selection(g, dx, ry, dw, self.h);
-                (theme::sel_fg(), theme::sel_bg())
-            } else {
-                (theme::text(), theme::list_bg())
-            };
-            let _ = g.set_foreground(fg);
-            let _ = g.set_background(bg);
-            let avail = (dw as i16 - pad * 2).max(0) as u16;
-            let shown = widget::fit_label(g, it, avail);
-            let bl = metrics::baseline(ry as i32, self.h as i32) as i16;
-            let _ = g.draw_text(dx + pad, bl, &shown);
-        }
-        let _ = g.set_foreground(theme::dark());
-        let _ = g.draw_rect(dx, dy, dw, dh);
-    }
 }
 
 #[cfg(test)]

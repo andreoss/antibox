@@ -24,13 +24,6 @@ pub const fn center_of(r: Rect) -> Point {
     Point::new(r.x + r.w / 2, r.y + r.h / 2)
 }
 
-pub const fn center_in(inner: Rect, area: Rect) -> Point {
-    Point::new(
-        area.x + (area.w - inner.w) / 2,
-        area.y + (area.h - inner.h) / 2,
-    )
-}
-
 #[cfg(test)]
 #[path = "geom_tests.rs"]
 mod tests;

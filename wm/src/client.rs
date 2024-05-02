@@ -17,9 +17,6 @@ pub enum WindowType {
 }
 
 impl WindowType {
-    pub const fn default_for_transient() -> Self {
-        Self::Dialog
-    }
 }
 
 pub struct ClientWindow {

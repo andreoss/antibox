@@ -438,23 +438,6 @@ impl TaskBar {
         }
     }
 
-    pub fn set_position(&mut self, position: TaskBarPosition) -> bool {
-        if self.position == position {
-            return false;
-        }
-        self.position = position;
-        let screen_h = self.conn.screen_height();
-        let y = match position {
-            TaskBarPosition::Bottom => screen_h as i32 - self.height as i32,
-            _ => 0,
-        };
-        self.window_y = y;
-        let _ = self.window.move_window(Point::new(0, y));
-        self.update_strut();
-        let _ = self.conn.flush();
-        true
-    }
-
     pub fn fit_to_screen(&mut self) {
         let screen_w = self.conn.screen_width();
         let screen_h = self.conn.screen_height();

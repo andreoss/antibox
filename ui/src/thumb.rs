@@ -74,16 +74,6 @@ impl Thumb {
         }
     }
 
-    pub fn press(&self, track: i32, p: i32) -> (i32, i32) {
-        let (s, l) = self.rect(track);
-        if p >= s && p < s + l {
-            (p - s, self.first)
-        } else {
-            let g = l / 2;
-            (g, self.first_at(track, p - g))
-        }
-    }
-
     pub fn drag(&self, track: i32, p: i32, grab: i32) -> i32 {
         self.first_at(track, p - grab)
     }

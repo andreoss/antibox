@@ -193,10 +193,6 @@ pub fn slot_margin() -> i16 {
     antibox_ui::metrics::gap() as i16
 }
 
-pub fn stroke_w() -> i16 {
-    (antibox_core::scale::scaled(2) as i16).max(2)
-}
-
 pub fn glyph_top() -> i16 {
     slot_margin()
 }
