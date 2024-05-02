@@ -97,6 +97,7 @@ pub mod proc_reader;
 pub mod render;
 pub mod settings_io;
 pub mod resize_popup;
+pub mod run;
 pub mod snap;
 pub mod status_graph;
 pub mod taskbar;
