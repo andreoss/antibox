@@ -580,13 +580,10 @@ impl<T: Clone> ListView<T> {
         p: Point,
         button: u8,
     ) -> bool {
-        use crate::searchbar::SearchEvent;
         let Some(bar) = self.bar.as_mut() else { return false };
-        if !bar.owns_window(window) {
+        let Some(changed) = bar.click(window, p, button) else {
             return false;
-        }
-        let changed = bar.handle_button(window, p.x, p.y, button) == SearchEvent::Changed;
-        bar.repaint();
+        };
         if changed {
             self.refilter(conn);
         }
