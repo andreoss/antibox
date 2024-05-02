@@ -25,23 +25,6 @@ pub fn detect() -> Box<dyn AudioSystem> {
     }
 }
 
-fn capture_output(cmd: &str, args: &[&str]) -> Option<String> {
-    std::process::Command::new(cmd)
-        .args(args)
-        .output()
-        .ok()
-        .filter(|o| o.status.success())
-        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
-}
-
-fn run_ok(cmd: &str, args: &[&str]) -> bool {
-    std::process::Command::new(cmd)
-        .args(args)
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
-}
-
 fn parse_percent(s: &str) -> Option<i32> {
     for tok in s.split(&[' ', '/', ',', '\t'][..]) {
         if let Some(num) = tok.trim().strip_suffix('%') {
@@ -88,7 +71,7 @@ pub struct PulseAudio;
 
 impl PulseAudio {
     fn pactl(args: &[&str]) -> Option<String> {
-        capture_output("pactl", args)
+        crate::run::capture("pactl", args)
     }
 
     fn toggle(target: &str) {
@@ -97,7 +80,7 @@ impl PulseAudio {
         } else {
             "@DEFAULT_SOURCE@"
         };
-        let _ = run_ok("pactl", &[target, sink_or_source, "toggle"]);
+        let _ = crate::run::ok("pactl", &[target, sink_or_source, "toggle"]);
     }
 
     fn set_volume(cmd: &str, target: &str, delta_pct: i32) {
@@ -106,7 +89,7 @@ impl PulseAudio {
         } else {
             format!("{delta_pct}%")
         };
-        let _ = run_ok("pactl", &[cmd, target, &arg]);
+        let _ = crate::run::ok("pactl", &[cmd, target, &arg]);
     }
 }
 
@@ -170,14 +153,14 @@ impl SndioAudio {
         } else {
             format!("{}=-{:.2}", control, frac)
         };
-        let _ = run_ok("sndioctl", &[&arg]);
+        let _ = crate::run::ok("sndioctl", &[&arg]);
     }
 }
 
 #[cfg(target_os = "openbsd")]
 impl AudioSystem for SndioAudio {
     fn read(&self) -> Option<AudioState> {
-        let out = capture_output(
+        let out = crate::run::capture(
             "sndioctl",
             &["output.level", "output.mute", "input.mute"],
         )?;
@@ -200,11 +183,11 @@ impl AudioSystem for SndioAudio {
     }
 
     fn toggle_sink_mute(&self) {
-        let _ = run_ok("sndioctl", &["output.mute=!"]);
+        let _ = crate::run::ok("sndioctl", &["output.mute=!"]);
     }
 
     fn toggle_source_mute(&self) {
-        let _ = run_ok("sndioctl", &["input.mute=!"]);
+        let _ = crate::run::ok("sndioctl", &["input.mute=!"]);
     }
 
     fn nudge_sink_volume(&self, delta_pct: i32) {

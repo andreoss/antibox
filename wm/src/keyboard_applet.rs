@@ -9,22 +9,6 @@ fn menu_item_h() -> u16 {
     antibox_ui::metrics::menu_item_height() as u16
 }
 
-fn capture_output(cmd: &str, args: &[&str]) -> Option<String> {
-    std::process::Command::new(cmd)
-        .args(args)
-        .output()
-        .ok()
-        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
-}
-
-fn run_ok(cmd: &str, args: &[&str]) -> bool {
-    std::process::Command::new(cmd)
-        .args(args)
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
-}
-
 fn detect_layout(conn: &Arc<dyn DisplayBackend>) -> (String, String) {
     if let Some(info) = conn.keyboard_info() {
         let active = info
@@ -60,7 +44,7 @@ fn format_xkb_tooltip(info: &KeyboardInfo) -> String {
 fn detect_layout_info() -> (String, String) {
     let mut layout = String::new();
     let mut tooltip = String::new();
-    if let Some(s) = capture_output("setxkbmap", &["-query"]) {
+    if let Some(s) = crate::run::capture("setxkbmap", &["-query"]) {
         for line in s.lines() {
             if let Some(rest) = line.strip_prefix("layout:") {
                 layout = rest.trim().to_uppercase();
@@ -151,7 +135,7 @@ impl KeyboardApplet {
             (layouts, false)
         };
         if !xkb_groups && !same_layout_set(&xkb_layouts(conn), &layouts) {
-            let _ = run_ok("setxkbmap", &["-layout", &layouts.join(",")]);
+            let _ = crate::run::ok("setxkbmap", &["-layout", &layouts.join(",")]);
         }
         let (layout, tooltip_text) = detect_layout(conn);
         let w = estimate_width();
@@ -216,7 +200,7 @@ impl KeyboardApplet {
         if self.xkb_groups {
             self.conn.set_keyboard_group(index);
         } else {
-            let _ = run_ok("setxkbmap", &["-layout", &layout_spec(&self.layouts, index)]);
+            let _ = crate::run::ok("setxkbmap", &["-layout", &layout_spec(&self.layouts, index)]);
         }
         self.layout = new_layout.to_uppercase();
         self.tooltip_text = format!("Layout: {}", self.layout);
