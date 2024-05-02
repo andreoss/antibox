@@ -259,7 +259,7 @@ impl App {
             self.handle_screen_resize(*width, *height);
             return;
         }
-        if let BackendEvent::KeyboardChanged = event {
+        if matches!(event, BackendEvent::KeyboardChanged) {
             crate::bindings::invalidate_keymap();
             if let Some(ref mut tb) = self.taskbar {
                 let dirty = tb.update_keyboard();
@@ -1210,6 +1210,8 @@ fn settings_command() -> String {
         .ok()
         .and_then(|p| p.parent().map(|d| d.join("antibox-settings")))
         .filter(|p| p.is_file())
-        .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "antibox-settings".to_string())
+        .map_or_else(
+            || "antibox-settings".to_string(),
+            |p| p.to_string_lossy().into_owned(),
+        )
 }

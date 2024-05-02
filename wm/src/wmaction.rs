@@ -1363,14 +1363,10 @@ pub(crate) fn apply_tab_frame_size<H: DisplayBackend + 'static + ?Sized>(
 fn untab_window<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
     let Some(focused) = wm.focused_window else { return };
     let step = antibox_core::scale::scaled(24);
-    let at = wm
-        .frames
-        .get(&focused)
-        .map(|fw| {
-            let r = fw.frame_rect();
-            Point::new(r.x + step, r.y + step)
-        })
-        .unwrap_or(Point::new(0, 0));
+    let at = wm.frames.get(&focused).map_or_else(Point::default, |fw| {
+        let r = fw.frame_rect();
+        Point::new(r.x + step, r.y + step)
+    });
     detach_tab(wm, focused, focused, at);
 }
 

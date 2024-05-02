@@ -318,7 +318,7 @@ impl KeyboardApplet {
                 let label = layout.to_uppercase();
                 let tw = g
                     .text_width(&label)
-                    .unwrap_or(metrics::text_w(label.chars().count()) as u32)
+                    .unwrap_or_else(|_| metrics::text_w(label.chars().count()) as u32)
                     as i16;
                 let x = ((mw as i16 - tw) / 2).max(2);
                 let baseline = metrics::baseline(y as i32, ih as i32) as i16;
@@ -405,7 +405,8 @@ impl Applet for KeyboardApplet {
         let label = antibox_ui::widget::fit_label(g, &self.layout, avail);
         let tw = g
             .text_width(&label)
-            .unwrap_or(metrics::text_w(label.chars().count()) as u32) as i16;
+            .unwrap_or_else(|_| metrics::text_w(label.chars().count()) as u32)
+            as i16;
         let x = ((self.width as i16 - tw) / 2).max(pad as i16);
         let baseline = metrics::baseline(0, self.height as i32) as i16;
         let _ = g.draw_text_transparent(x, baseline, &label);

@@ -320,12 +320,10 @@ fn resolve_core_family(conn: &XcbConnection, family: &str, px: u16) -> Option<Xc
     let nearest = nearest_strike(&names, px);
     let scalable = names.iter().find(|n| strike_px(n) == Some(0)).cloned();
     let (target, fallback) = match &nearest {
-        Some((strike, name)) if *strike + 2 >= px => (name.clone(), first.clone()),
+        Some((strike, name)) if *strike + 2 >= px => (name.clone(), first),
         _ => {
             let fb = nearest
-                .as_ref()
-                .map(|(_, n)| n.clone())
-                .unwrap_or_else(|| first.clone());
+                .as_ref().map_or_else(|| first.clone(), |(_, n)| n.clone());
             match scalable {
                 Some(s) => (with_pixel_size(&s, px), fb),
                 None => (fb.clone(), fb),
