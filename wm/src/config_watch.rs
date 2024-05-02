@@ -56,7 +56,7 @@ pub fn init_watch() -> Option<RawFd> {
 pub fn drain(fd: RawFd) {
     let mut buf = [0u8; 4096];
     loop {
-        let n = unsafe { libc::read(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
+        let n = unsafe { libc::read(fd, buf.as_mut_ptr().cast::<libc::c_void>(), buf.len()) };
         if n <= 0 {
             break;
         }

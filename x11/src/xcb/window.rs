@@ -140,7 +140,7 @@ impl WindowHandle for XcbWindow {
         }
         let w = unsafe { (*r).width };
         let h = unsafe { (*r).height };
-        unsafe { libc::free(r as *mut libc::c_void) };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         Ok((w, h))
     }
 
@@ -159,7 +159,7 @@ impl WindowHandle for XcbWindow {
                 (*r).height as i32,
             )
         };
-        unsafe { libc::free(r as *mut libc::c_void) };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         Ok(rect)
     }
 
@@ -205,7 +205,7 @@ impl WindowHandle for XcbWindow {
         }
         let x = unsafe { (*r).dst_x };
         let y = unsafe { (*r).dst_y };
-        unsafe { libc::free(r as *mut libc::c_void) };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         Ok(Point::new(x as i32, y as i32))
     }
 
@@ -276,7 +276,7 @@ impl WindowHandle for XcbWindow {
             return Ok(false);
         }
         let shaped = unsafe { (*r).bounding_shaped != 0 };
-        unsafe { libc::free(r as *mut libc::c_void) };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         Ok(shaped)
     }
 }

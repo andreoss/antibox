@@ -145,7 +145,7 @@ fn list_font_names(conn: *mut xcb_connection_t, pattern: &str) -> Option<Vec<Str
     let avail = reply_len.saturating_sub(start);
     let data = unsafe { std::slice::from_raw_parts((r as *const u8).add(start), avail) };
     let names = parse_names(data, count);
-    unsafe { libc::free(r as *mut libc::c_void) };
+    unsafe { libc::free(r.cast::<libc::c_void>()) };
     Some(names)
 }
 
@@ -204,15 +204,15 @@ fn query_font_metrics(conn: *mut xcb_connection_t, id: u32) -> Option<FontMetric
     let reply_len = REPLY_HEADER_LEN + (unsafe { (*r).length } as usize) * 4;
     let offset = size_of::<xcb_query_font_reply_t>() + properties_len * FONTPROP_SIZE;
     if offset + char_infos_len * size_of::<xcb_charinfo_t>() > reply_len {
-        unsafe { libc::free(r as *mut libc::c_void) };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
         return None;
     }
-    let ci_ptr = unsafe { (r as *const u8).add(offset) as *const xcb_charinfo_t };
+    let ci_ptr = unsafe { (r as *const u8).add(offset).cast::<xcb_charinfo_t>() };
     let mut widths = Vec::with_capacity(char_infos_len);
     for i in 0..char_infos_len {
         widths.push(unsafe { (*ci_ptr.add(i)).character_width });
     }
-    unsafe { libc::free(r as *mut libc::c_void) };
+    unsafe { libc::free(r.cast::<libc::c_void>()) };
     Some(FontMetrics {
         ascent,
         descent,

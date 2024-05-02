@@ -34,7 +34,7 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
     let code = ev.response_type & 0x7f;
     if conn.xkb_event_base() != 0 && code == conn.xkb_event_base() {
         if ev.pad0 == XCB_XKB_STATE_NOTIFY {
-            let group = unsafe { *(ev as *const xcb_generic_event_t as *const u8).add(13) };
+            let group = unsafe { *(ev as *const xcb_generic_event_t).cast::<u8>().add(13) };
             if conn.xkb_group_changed(group as u32) {
                 return Some(BackendEvent::KeyboardChanged);
             }
@@ -43,7 +43,7 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
     }
     if conn.shape_event_base() != 0 && code == conn.shape_event_base() + XCB_SHAPE_NOTIFY {
         let e = unsafe {
-            &*(ev as *const xcb_generic_event_t as *const xcb_shape_notify_event_t)
+            &*(ev as *const xcb_generic_event_t).cast::<xcb_shape_notify_event_t>()
         };
         return Some(BackendEvent::ShapeNotify {
             window: e.affected_window,
@@ -52,11 +52,11 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
     }
     match code {
         XCB_MAP_REQUEST => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_map_request_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_map_request_event_t>() };
             Some(BackendEvent::MapRequest { window: e.window })
         }
         XCB_CONFIGURE_REQUEST => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_configure_request_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_configure_request_event_t>() };
             Some(BackendEvent::ConfigureRequest {
                 window: e.window,
                 parent: e.parent,
@@ -66,26 +66,26 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
             })
         }
         XCB_DESTROY_NOTIFY => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_destroy_notify_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_destroy_notify_event_t>() };
             Some(BackendEvent::DestroyNotify { window: e.window })
         }
         XCB_UNMAP_NOTIFY => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_unmap_notify_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_unmap_notify_event_t>() };
             Some(BackendEvent::UnmapNotify { window: e.window })
         }
         XCB_MAP_NOTIFY => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_map_notify_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_map_notify_event_t>() };
             Some(BackendEvent::MapNotify { window: e.window })
         }
         XCB_EXPOSE => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_expose_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_expose_event_t>() };
             Some(BackendEvent::Expose {
                 window: e.window,
                 rect: Rect::new(e.x as i32, e.y as i32, e.width as i32, e.height as i32),
             })
         }
         XCB_PROPERTY_NOTIFY => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_property_notify_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_property_notify_event_t>() };
             Some(BackendEvent::PropertyNotify {
                 window: e.window,
                 atom: e.atom,
@@ -93,7 +93,7 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
             })
         }
         XCB_CLIENT_MESSAGE => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_client_message_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_client_message_event_t>() };
             Some(BackendEvent::ClientMessage {
                 window: e.window,
                 message_type: e.type_,
@@ -102,7 +102,7 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
             })
         }
         XCB_BUTTON_PRESS => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_button_press_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_button_press_event_t>() };
             Some(BackendEvent::ButtonPress {
                 window: e.event,
                 event: e.event,
@@ -113,7 +113,7 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
             })
         }
         XCB_BUTTON_RELEASE => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_button_press_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_button_press_event_t>() };
             Some(BackendEvent::ButtonRelease {
                 window: e.event,
                 point: Point::new(e.event_x as i32, e.event_y as i32),
@@ -121,7 +121,7 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
             })
         }
         XCB_MOTION_NOTIFY => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_motion_notify_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_motion_notify_event_t>() };
             Some(BackendEvent::MotionNotify {
                 window: e.event,
                 point: Point::new(e.event_x as i32, e.event_y as i32),
@@ -130,7 +130,7 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
             })
         }
         XCB_KEY_PRESS => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_key_press_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_key_press_event_t>() };
             Some(BackendEvent::KeyPress {
                 window: e.event,
                 event: e.event,
@@ -139,7 +139,7 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
             })
         }
         XCB_KEY_RELEASE => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_key_press_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_key_press_event_t>() };
             Some(BackendEvent::KeyRelease {
                 window: e.event,
                 keycode: e.detail as u32,
@@ -147,23 +147,23 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
             })
         }
         XCB_ENTER_NOTIFY => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_enter_notify_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_enter_notify_event_t>() };
             Some(BackendEvent::EnterNotify { window: e.event, mode: e.mode })
         }
         XCB_LEAVE_NOTIFY => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_leave_notify_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_leave_notify_event_t>() };
             Some(BackendEvent::LeaveNotify { window: e.event, mode: e.mode })
         }
         XCB_FOCUS_IN => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_focus_in_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_focus_in_event_t>() };
             Some(BackendEvent::FocusIn { window: e.event })
         }
         XCB_FOCUS_OUT => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_focus_out_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_focus_out_event_t>() };
             Some(BackendEvent::FocusOut { window: e.event })
         }
         XCB_CREATE_NOTIFY => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_create_notify_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_create_notify_event_t>() };
             Some(BackendEvent::CreateNotify {
                 window: e.window,
                 parent: e.parent,
@@ -172,7 +172,7 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
             })
         }
         XCB_REPARENT_NOTIFY => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_reparent_notify_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_reparent_notify_event_t>() };
             Some(BackendEvent::ReparentNotify {
                 window: e.window,
                 parent: e.parent,
@@ -181,14 +181,14 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
             })
         }
         XCB_CONFIGURE_NOTIFY => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_configure_notify_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_configure_notify_event_t>() };
             Some(BackendEvent::ConfigureNotify {
                 window: e.window,
                 rect: Rect::new(e.x as i32, e.y as i32, e.width as i32, e.height as i32),
             })
         }
         XCB_MAPPING_NOTIFY => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_mapping_notify_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_mapping_notify_event_t>() };
             Some(BackendEvent::MappingNotify {
                 request: e.request,
                 first_keycode: e.first_keycode,
@@ -196,7 +196,7 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
             })
         }
         XCB_SELECTION_NOTIFY => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_selection_notify_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_selection_notify_event_t>() };
             Some(BackendEvent::SelectionNotify {
                 requestor: e.requestor,
                 selection: e.selection,
@@ -206,7 +206,7 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
             })
         }
         XCB_SELECTION_REQUEST => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_selection_request_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_selection_request_event_t>() };
             Some(BackendEvent::SelectionRequest {
                 owner: e.owner,
                 requestor: e.requestor,
@@ -217,7 +217,7 @@ pub fn convert(ev: &xcb_generic_event_t, conn: &XcbConnection) -> Option<Backend
             })
         }
         XCB_SELECTION_CLEAR => {
-            let e = unsafe { &*(ev as *const xcb_generic_event_t as *const xcb_selection_clear_event_t) };
+            let e = unsafe { &*(ev as *const xcb_generic_event_t).cast::<xcb_selection_clear_event_t>() };
             Some(BackendEvent::SelectionClear {
                 owner: e.owner,
                 selection: e.selection,

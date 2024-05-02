@@ -39,7 +39,7 @@ impl XcbEventLoop {
                         let r = unsafe {
                             libc::read(
                                 fd,
-                                buf.as_mut_ptr() as *mut libc::c_void,
+                                buf.as_mut_ptr().cast::<libc::c_void>(),
                                 buf.len(),
                             )
                         };
