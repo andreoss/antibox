@@ -220,37 +220,23 @@ pub fn bevel(g: &dyn GraphicsContext, x: i16, y: i16, w: u16, h: u16, sunken: bo
     let si = s as i16;
     let x1 = x + w as i16;
     let y1 = y + h as i16;
-    if sunken {
-        let _ = g.set_foreground(shadow());
-        let _ = g.fill_rect(x, y, w, s);
-        let _ = g.fill_rect(x, y, s, h);
-        let _ = g.set_foreground(light());
-        let _ = g.fill_rect(x, y1 - si, w, s);
-        let _ = g.fill_rect(x1 - si, y, s, h);
-        let _ = g.set_foreground(dark());
-        let _ = g.fill_rect(x + si, y + si, w.saturating_sub(2 * s), s);
-        let _ = g.fill_rect(x + si, y + si, s, h.saturating_sub(2 * s));
-        let _ = g.set_foreground(face());
-        let _ = g.fill_rect(x + si, y1 - si * 2, w.saturating_sub(2 * s), s);
-        let _ = g.fill_rect(x1 - si * 2, y + si, s, h.saturating_sub(2 * s));
+    let (outer_tl, outer_br, inner_tl, inner_br) = if sunken {
+        (shadow(), light(), dark(), face())
     } else {
-        let _ = g.set_foreground(light());
-        let _ = g.fill_rect(x, y, w, s);
-        let _ = g.fill_rect(x, y, s, h);
-        let _ = g.set_foreground(dark());
-        let _ = g.fill_rect(x, y1 - si, w, s);
-        let _ = g.fill_rect(x1 - si, y, s, h);
-        let _ = g.set_foreground(face_light());
-        let _ = g.fill_rect(x + si, y + si, w.saturating_sub(2 * s), s);
-        let _ = g.fill_rect(x + si, y + si, s, h.saturating_sub(2 * s));
-        let _ = g.set_foreground(shadow());
-        let _ = g.fill_rect(x + si, y1 - si * 2, w.saturating_sub(2 * s), s);
-        let _ = g.fill_rect(x1 - si * 2, y + si, s, h.saturating_sub(2 * s));
-    }
-}
-
-pub fn panel_button_surface(g: &dyn GraphicsContext, r: Rect, style: Fill) {
-    button_surface(g, r, style);
+        (light(), dark(), face_light(), shadow())
+    };
+    let _ = g.set_foreground(outer_tl);
+    let _ = g.fill_rect(x, y, w, s);
+    let _ = g.fill_rect(x, y, s, h);
+    let _ = g.set_foreground(outer_br);
+    let _ = g.fill_rect(x, y1 - si, w, s);
+    let _ = g.fill_rect(x1 - si, y, s, h);
+    let _ = g.set_foreground(inner_tl);
+    let _ = g.fill_rect(x + si, y + si, w.saturating_sub(2 * s), s);
+    let _ = g.fill_rect(x + si, y + si, s, h.saturating_sub(2 * s));
+    let _ = g.set_foreground(inner_br);
+    let _ = g.fill_rect(x + si, y1 - si * 2, w.saturating_sub(2 * s), s);
+    let _ = g.fill_rect(x1 - si * 2, y + si, s, h.saturating_sub(2 * s));
 }
 
 
