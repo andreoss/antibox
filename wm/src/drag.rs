@@ -16,6 +16,94 @@ fn root_pointer<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManager<H>) -> 
         .map(|ps| Point::new(ps.root_x as i32, ps.root_y as i32))
 }
 
+fn dock_button_press<H: DisplayBackend + 'static + ?Sized>(
+    wm: &mut WindowManager<H>,
+    client_id: ClientId,
+    button: u8,
+    state: u16,
+    p: Point,
+) -> bool {
+    if !wm.dock_manager.is_dock_app(wm.xid_index.xid_of(client_id)) {
+        return false;
+    }
+    if wm.dock_manager.is_collapsed() {
+        wm.dock_manager.expand();
+        if let Some(b) = wm.backend.clone() {
+            wm.dock_manager.adapt_with(&*b);
+        }
+        return true;
+    }
+    match wm
+        .dock_manager
+        .handle_button(wm.xid_index.xid_of(client_id), button, state, p)
+    {
+        crate::dock::DockButtonResult::GrabPointer => {
+            if let Some(backend) = wm.backend.as_ref().map(AsRef::as_ref) {
+                let (gx, gy) = wm.dock_manager.dragged_grid_pos(backend);
+                wm.dock_manager.set_drag_origin(gx, gy);
+                let _ = backend.grab_pointer(PointerGrab {
+                    cursor: wm.cursors[crate::cursors::idx::MOVE],
+                    ..PointerGrab::new(
+                        wm.xid_index.xid_of(client_id),
+                        EventMask::BUTTON_RELEASE
+                            | EventMask::POINTER_MOTION
+                            | EventMask::BUTTON_MOTION,
+                    )
+                });
+            }
+        }
+        crate::dock::DockButtonResult::CloseWindow(w) => {
+            if let Some(cid) = wm.cid_for_xid(w) {
+                if let Some(fw) = wm.frame(cid) {
+                    if fw
+                        .client()
+                        .has_protocol(wm.atoms.get("WM_DELETE_WINDOW").unwrap_or(0))
+                    {
+                        crate::ewmh::close_window(wm.backend().unwrap(), &wm.atoms, w);
+                    } else if let Some(b) = wm.backend() {
+                        let _ = b.destroy_window(w);
+                    }
+                }
+            }
+            wm.dock_manager.adapt_with(wm.backend().unwrap());
+        }
+        crate::dock::DockButtonResult::RotateForward
+        | crate::dock::DockButtonResult::RotateBackward => {
+            wm.dock_manager.adapt_with(wm.backend().unwrap());
+        }
+        crate::dock::DockButtonResult::ShowMenu => {
+            let mut items: Vec<crate::dockmenu::DockMenuAction> = Vec::new();
+            let dockids: Vec<u32> = wm.dock_manager.iter().collect();
+            for &id in &dockids {
+                let label = wm
+                    .cid_for_xid(id)
+                    .and_then(|cid| wm.frames.get(&cid))
+                    .map_or_else(
+                        || format!("<{id}>"),
+                        |fw| {
+                            let ci = fw.client().class_instance();
+                            let title = fw.client().title();
+                            ci.unwrap_or(title).to_string()
+                        },
+                    );
+                items.push(crate::dockmenu::DockMenuAction { label, window: id });
+            }
+            if !items.is_empty() {
+                let mut menu = crate::dockmenu::dock_menu(items);
+                if let Some(b) = wm.backend() {
+                    menu.show(b, p);
+                    if let Some(rb) = wm.render_backend.as_ref() {
+                        menu.enable_filter(rb);
+                    }
+                    wm.dock_menu = Some(menu);
+                }
+            }
+        }
+        crate::dock::DockButtonResult::None => {}
+    }
+    true
+}
+
 pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
     wm: &mut WindowManager<H>,
     w: u32,
@@ -43,82 +131,7 @@ pub fn button_press<H: DisplayBackend + 'static + ?Sized>(
             }
             return;
         };
-    if wm.dock_manager.is_dock_app(wm.xid_index.xid_of(client_id)) {
-        if wm.dock_manager.is_collapsed() {
-            wm.dock_manager.expand();
-            if let Some(b) = wm.backend.clone() {
-                wm.dock_manager.adapt_with(&*b);
-            }
-            return;
-        }
-        match wm
-            .dock_manager
-            .handle_button(wm.xid_index.xid_of(client_id), button, state, p)
-        {
-            crate::dock::DockButtonResult::GrabPointer => {
-                if let Some(backend) = wm.backend.as_ref().map(AsRef::as_ref) {
-                    let (gx, gy) = wm.dock_manager.dragged_grid_pos(backend);
-                    wm.dock_manager.set_drag_origin(gx, gy);
-                    let _ = backend.grab_pointer(PointerGrab {
-                        cursor: wm.cursors[crate::cursors::idx::MOVE],
-                        ..PointerGrab::new(
-                            wm.xid_index.xid_of(client_id),
-                            EventMask::BUTTON_RELEASE
-                                | EventMask::POINTER_MOTION
-                                | EventMask::BUTTON_MOTION,
-                        )
-                    });
-                }
-            }
-            crate::dock::DockButtonResult::CloseWindow(w) => {
-                if let Some(cid) = wm.cid_for_xid(w) {
-                    if let Some(fw) = wm.frame(cid) {
-                        if fw
-                            .client()
-                            .has_protocol(wm.atoms.get("WM_DELETE_WINDOW").unwrap_or(0))
-                        {
-                            crate::ewmh::close_window(wm.backend().unwrap(), &wm.atoms, w);
-                        } else if let Some(b) = wm.backend() {
-                            let _ = b.destroy_window(w);
-                        }
-                    }
-                }
-                wm.dock_manager.adapt_with(wm.backend().unwrap());
-            }
-            crate::dock::DockButtonResult::RotateForward
-            | crate::dock::DockButtonResult::RotateBackward => {
-                wm.dock_manager.adapt_with(wm.backend().unwrap());
-            }
-            crate::dock::DockButtonResult::ShowMenu => {
-                let mut items: Vec<crate::dockmenu::DockMenuAction> = Vec::new();
-                let dockids: Vec<u32> = wm.dock_manager.iter().collect();
-                for &id in &dockids {
-                    let label = wm
-                        .cid_for_xid(id)
-                        .and_then(|cid| wm.frames.get(&cid))
-                        .map_or_else(
-                            || format!("<{id}>"),
-                            |fw| {
-                                let ci = fw.client().class_instance();
-                                let title = fw.client().title();
-                                ci.unwrap_or(title).to_string()
-                            },
-                        );
-                    items.push(crate::dockmenu::DockMenuAction { label, window: id });
-                }
-                if !items.is_empty() {
-                    let mut menu = crate::dockmenu::dock_menu(items);
-                    if let Some(b) = wm.backend() {
-                        menu.show(b, p);
-                        if let Some(rb) = wm.render_backend.as_ref() {
-                            menu.enable_filter(rb);
-                        }
-                        wm.dock_menu = Some(menu);
-                    }
-                }
-            }
-            _ => {}
-        }
+    if dock_button_press(wm, client_id, button, state, p) {
         return;
     }
     let cid = client_id;
