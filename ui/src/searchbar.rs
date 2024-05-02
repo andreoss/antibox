@@ -170,6 +170,15 @@ impl SearchBar {
         }
     }
 
+    pub fn click(&mut self, window: u32, p: antibox_gfx::point::Point, button: u8) -> Option<bool> {
+        if !self.owns_window(window) {
+            return None;
+        }
+        let changed = self.handle_button(window, p.x, p.y, button) == SearchEvent::Changed;
+        self.repaint();
+        Some(changed)
+    }
+
     pub fn repaint(&self) {
         let Ok(g) = self.conn.create_graphics(self.window.id()) else { return };
         use crate::theme;
