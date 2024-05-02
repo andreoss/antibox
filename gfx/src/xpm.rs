@@ -123,11 +123,8 @@ fn is_indirect_xpm_ref(first_line: &str) -> Option<String> {
     if !bytes[0].is_ascii_lowercase() {
         return None;
     }
-    if !trimmed.ends_with(".xpm") && !trimmed.ends_with(".XPM") && !trimmed.ends_with(".Xpm") {
-        let lower = trimmed.to_ascii_lowercase();
-        if !lower.ends_with(".xpm") {
-            return None;
-        }
+    if !trimmed.to_ascii_lowercase().ends_with(".xpm") {
+        return None;
     }
     for &b in &bytes[1..bytes.len() - 4] {
         if !b.is_ascii_alphanumeric() && b != b'-' && b != b'_' {

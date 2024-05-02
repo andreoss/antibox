@@ -682,7 +682,7 @@ impl<T: Clone> ListView<T> {
     }
 
     pub fn window_id(&self) -> u32 {
-        self.window.as_ref().map(|w| w.id()).unwrap_or(0)
+        self.window.as_ref().map_or(0, |w| w.id())
     }
 
     pub fn bar_key(&mut self, keycode: u32, state: u16, mapping: &KeyboardMapping) -> u8 {

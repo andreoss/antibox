@@ -156,7 +156,7 @@ pub fn map_request_ex<H: DisplayBackend + 'static + ?Sized>(
                 if wo.has_option(WindowFlags::ALL_WORKSPACES) {
                     fw.set_workspace(!0);
                 }
-                fw.set_layer(wo.placement.layer.unwrap_or(fw.layer()));
+                fw.set_layer(wo.placement.layer.unwrap_or_else(|| fw.layer()));
                 if wo.has_option(WindowFlags::IGNORE_TASKBAR)
                     || wo.has_option(WindowFlags::IGNORE_OVERRIDE_REDIRECT)
                 {

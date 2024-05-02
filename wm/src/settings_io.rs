@@ -33,16 +33,12 @@ pub fn save_to(path: &Path, values: &[(&str, &str, SettingValue)]) -> std::io::R
     for (section, key, value) in values {
         let entry = root
             .entry((*section).to_string())
-            .or_insert_with(|| toml::Value::Table(Default::default()));
-        let table = match entry {
-            toml::Value::Table(t) => t,
-            other => {
-                *other = toml::Value::Table(Default::default());
-                match other {
-                    toml::Value::Table(t) => t,
-                    _ => continue,
-                }
-            }
+            .or_insert_with(|| toml::Value::Table(toml::value::Table::default()));
+        if !entry.is_table() {
+            *entry = toml::Value::Table(toml::value::Table::default());
+        }
+        let Some(table) = entry.as_table_mut() else {
+            continue;
         };
         let v = match value {
             SettingValue::Text(s) => toml::Value::String(s.clone()),
