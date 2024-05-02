@@ -55,14 +55,12 @@ pub fn combo_button(
     let bx = field_x + field_w as i16 - bw as i16 - 1;
     let by = y + 1;
     let bh = h.saturating_sub(2);
-    let off = if theme::themed_combo_button(g, bx, by, bw, bh, pressed) {
-        pressed as i16
-    } else {
+    if !theme::themed_combo_button(g, bx, by, bw, bh, pressed) {
         let _ = g.set_foreground(theme::face());
         let _ = g.fill_rect(bx, by, bw, bh);
         theme::bevel(g, bx, by, bw, bh, pressed);
-        pressed as i16
-    };
+    }
+    let off = i16::from(pressed);
     let cx = bx + bw as i16 / 2 + off;
     let cy = by + bh as i16 / 2 - 2 + off;
     down_arrow(g, cx, cy, theme::arrow_colour());
