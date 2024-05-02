@@ -234,7 +234,7 @@ impl Applet for WorkspacesPane {
             } else {
                 face
             };
-            antibox_ui::theme::panel_button_surface(
+            antibox_ui::theme::button_surface(
                 g,
                 Rect::px(x, y, w, h),
                 antibox_ui::theme::Fill::new(bg, btn.active),

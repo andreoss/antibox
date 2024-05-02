@@ -127,7 +127,7 @@ pub fn panel_button(g: &dyn GraphicsContext, b: &PanelButton<'_>, target: u32) {
     } = *b;
     let (fill, label_fg) = theme::press_colours(face, fg, sunken);
     if on_bar {
-        theme::panel_button_surface(g, Rect::px(x, y, w, h), theme::Fill::new(fill, sunken));
+        theme::button_surface(g, Rect::px(x, y, w, h), theme::Fill::new(fill, sunken));
     } else {
         theme::button_surface(g, Rect::px(x, y, w, h), theme::Fill::new(fill, sunken));
         theme::round_button_corners(g, x, y, w, h, theme::face());
