@@ -247,6 +247,8 @@ impl LoopTiming {
     }
 }
 
+const AUDIO_REFRESH_FLOOR: Duration = Duration::from_millis(200);
+
 pub struct App {
     pub backend: Arc<dyn DisplayBackend>,
     pub event_loop: Box<dyn EventLoopTrait>,
@@ -258,6 +260,7 @@ pub struct App {
     pub group_menu: Option<crate::menu::MenuView<u32>>,
     pub root_menu: Option<crate::menu::MenuView<Action>>,
     pub last_pager_sync: Instant,
+    pub last_audio_refresh: Instant,
     pub taskbar: Option<TaskBar>,
     pub(crate) keyboard_layouts_pref: String,
     pub running: bool,
@@ -536,6 +539,7 @@ impl App {
             group_menu: None,
             root_menu: None,
             last_pager_sync: Instant::now(),
+            last_audio_refresh: Instant::now(),
             taskbar,
             keyboard_layouts_pref: prefs.keyboard.layouts.clone(),
             running: true,
@@ -663,7 +667,10 @@ impl App {
 
     fn tick_taskbar(&mut self, tickers: &mut AppletTickers, work: &mut LoopWork) {
         let Some(ref mut tb) = self.taskbar else { return };
-        if crate::audio_events::take_changed() {
+        if crate::audio_events::take_changed()
+            && self.last_audio_refresh.elapsed() >= AUDIO_REFRESH_FLOOR
+        {
+            self.last_audio_refresh = Instant::now();
             for wid in tb.update_power_audio() {
                 work.repaint_applets.push(wid);
             }
