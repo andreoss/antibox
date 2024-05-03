@@ -12,6 +12,8 @@ static CHILD: LazyRwLock<Option<Child>> = LazyRwLock::new();
 pub fn init() -> Option<RawFd> {
     let child = Command::new("pactl")
         .arg("subscribe")
+        .env("LC_ALL", "C")
+        .env("LANGUAGE", "C")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
