@@ -1,8 +1,13 @@
 use std::process::Command;
 
+fn command(cmd: &str, args: &[&str]) -> Command {
+    let mut c = Command::new(cmd);
+    c.args(args).env("LC_ALL", "C").env("LANGUAGE", "C");
+    c
+}
+
 pub fn capture(cmd: &str, args: &[&str]) -> Option<String> {
-    Command::new(cmd)
-        .args(args)
+    command(cmd, args)
         .output()
         .ok()
         .filter(|o| o.status.success())
@@ -10,8 +15,5 @@ pub fn capture(cmd: &str, args: &[&str]) -> Option<String> {
 }
 
 pub fn ok(cmd: &str, args: &[&str]) -> bool {
-    Command::new(cmd)
-        .args(args)
-        .status()
-        .is_ok_and(|s| s.success())
+    command(cmd, args).status().is_ok_and(|s| s.success())
 }
