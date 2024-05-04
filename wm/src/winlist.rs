@@ -202,7 +202,6 @@ impl WinListMenu {
                     let _ = c.change_property32(PropMode::Replace, id, state, 4, &[skip]);
                 }
                 if let Some(mwm) = atoms_mwm {
-                    use antibox_core::backend::hints::{mwm_func, mwm_hints_flags};
                     let _ = c.change_property32(
                         PropMode::Replace,
                         id,
