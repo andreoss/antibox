@@ -1,4 +1,5 @@
  use antibox_core::error::Result;
+use std::mem::size_of;
 
 use antibox_core::libc;
 use super::bindings::*;
