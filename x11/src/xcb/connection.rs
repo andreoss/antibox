@@ -396,9 +396,15 @@ impl RenderBackend for XcbConnection {
 
     fn create_graphics(&self, drawable: u32) -> Result<Box<dyn GraphicsContext>> {
         let gc = self.alloc_id();
-        let vals = [self.screen().black_pixel, self.screen().white_pixel];
+        let vals = [self.screen().black_pixel, self.screen().white_pixel, 0];
         unsafe {
-            xcb_create_gc(self.conn, gc, drawable, XCB_GC_FOREGROUND | XCB_GC_BACKGROUND, vals.as_ptr())
+            xcb_create_gc(
+                self.conn,
+                gc,
+                drawable,
+                XCB_GC_FOREGROUND | XCB_GC_BACKGROUND | XCB_GC_GRAPHICS_EXPOSURES,
+                vals.as_ptr(),
+            )
         };
         let conn = super::arcs::get_arc(self.conn);
         Ok(Box::new(XcbGraphics::new(conn, drawable, gc, self.depth)))
