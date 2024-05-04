@@ -355,6 +355,11 @@ impl RenderBackend for XcbConnection {
             WmWindowClass::InputOnly => XCB_WINDOW_CLASS_INPUT_ONLY,
             WmWindowClass::CopyFromParent => XCB_WINDOW_CLASS_COPY_FROM_PARENT,
         };
+        let (depth, visual) = if class == XCB_WINDOW_CLASS_INPUT_ONLY {
+            (0, 0)
+        } else {
+            (self.depth, self.screen().root_visual)
+        };
         let mut mask = 0u32;
         let mut vals: Vec<u32> = Vec::with_capacity(2);
         if override_redirect {
@@ -366,7 +371,7 @@ impl RenderBackend for XcbConnection {
         unsafe {
             xcb_create_window(
                 self.conn,
-                self.depth,
+                depth,
                 wid,
                 parent,
                 rect.x as i16,
@@ -375,7 +380,7 @@ impl RenderBackend for XcbConnection {
                 rect.h as u16,
                 0,
                 class,
-                self.screen().root_visual,
+                visual,
                 mask,
                 vals.as_ptr(),
             )
