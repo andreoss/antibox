@@ -7,8 +7,7 @@
     ) {
         use crate::client::ClientWindow;
         use crate::frame::FrameWindow;
-        use crate::manager::WindowManager;
-        use antibox_core::backend::{EventMask, WmWindowClass};
+        use antibox_core::backend::WmWindowClass;
         use antibox_core::mock::MockDisplay;
         use std::sync::Arc;
 
