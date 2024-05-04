@@ -161,6 +161,7 @@ pub fn glyph_h(cell_h: i16) -> i16 {
 
 macro_rules! impl_status_applet {
     ($t:ty) => {
+        #[allow(unused_qualifications)]
         impl crate::applet::Applet for $t {
             fn window(&self) -> &dyn antibox_core::backend::WindowHandle {
                 &*self.window
