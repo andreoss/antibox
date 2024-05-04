@@ -714,6 +714,52 @@ pub(crate) fn send_client_configure<H: DisplayBackend + 'static + ?Sized>(
     let _ = b.send_configure_notify(fw.client_xid(), cr, 0);
 }
 
+pub(crate) fn paint_frame_title_strip<H: DisplayBackend + 'static + ?Sized>(
+    fw: &crate::frame::FrameWindow,
+    b: &H,
+    focused: bool,
+    theme: &crate::render::ThemeColors,
+    gradients: bool,
+) {
+    let fr = fw.frame_rect();
+    let (w, h) = (fr.w as u16, fr.h as u16);
+    if w == 0 || h == 0 || fw.title_offset() || fw.tab_strip_h() > 0 {
+        paint_frame_decorations(fw, b, focused, theme, gradients);
+        return;
+    }
+    let bw = fw.effective_border().max(0) as u16;
+    let top = (bw + crate::frame::title_bar_height() as u16).min(h);
+    if !fw.decorated() || fw.title_vertical() || fw.title_on_bottom() {
+        paint_frame_decorations(fw, b, focused, theme, gradients);
+        return;
+    }
+    let (text_x, title_right) = fw.title_text_span();
+    let span = (title_right - text_x).max(0) as u16;
+    if span == 0 {
+        return;
+    }
+    let Ok(pm) = b.create_pixmap(w, top, b.screen_depth()) else {
+        return;
+    };
+    if let Ok(pg) = b.create_graphics(pm) {
+        let _ = crate::render::draw_title_scroll(fw, &*pg, focused, theme, gradients);
+        let mut cache = fw.gfx.borrow_mut();
+        if cache.is_none() {
+            if let Ok(g) = b.create_graphics(fw.frame().id()) {
+                *cache = Some(g);
+            }
+        }
+        if let Some(wg) = cache.as_ref().map(AsRef::as_ref) {
+            let _ = wg.copy_from(
+                pm,
+                Rect::px(text_x as i16, 0, span, top),
+                Point::new(text_x, 0),
+            );
+        }
+    }
+    let _ = b.free_pixmap(pm);
+}
+
 pub(crate) fn paint_frame_decorations<H: DisplayBackend + 'static + ?Sized>(
     fw: &crate::frame::FrameWindow,
     b: &H,

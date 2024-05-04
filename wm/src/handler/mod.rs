@@ -649,7 +649,7 @@ pub fn redraw_scrolled_frames<H: DisplayBackend + 'static + ?Sized>(
         let id = ClientId(*raw);
         if let Some(fw) = wm.frames.get(&id) {
             let focused = wm.focused_window == Some(id);
-            crate::drag::paint_frame_decorations(
+            crate::drag::paint_frame_title_strip(
                 fw,
                 b,
                 focused,

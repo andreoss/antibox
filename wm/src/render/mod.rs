@@ -169,6 +169,29 @@ pub(crate) fn brighten_colour(
     antibox_core::colour::tint(c, factor)
 }
 
+pub fn draw_title_scroll(
+    fw: &FrameWindow,
+    g: &dyn GraphicsContext,
+    focused: bool,
+    colours: &ThemeColors,
+    gradients_enabled: bool,
+) -> Result<()> {
+    let fw_w = fw.frame_rect().w as u16;
+    let bw = fw.effective_border();
+    let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
+    draw_title_bar(
+        g,
+        focused,
+        fw.state().urgent,
+        fw.client().is_xpra(),
+        TitleBarDims { fw_w, bw },
+        colours,
+        gradients_enabled,
+    )?;
+    let (text_x, title_right) = fw.title_text_span();
+    draw_title_text(fw, g, focused, colours, text_x as i16, title_right as i16)
+}
+
 pub fn draw_frame(
     fw: &FrameWindow,
     g: &dyn GraphicsContext,
