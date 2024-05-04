@@ -1,5 +1,6 @@
     use super::parse_names;
     use super::super::bindings::{xcb_charinfo_t, xcb_query_font_reply_t};
+    use std::mem::size_of;
 
     #[test]
     fn query_font_reply_matches_wire_layout() {

@@ -2,6 +2,7 @@
 use antibox_core::libc;
 use super::bindings::*;
 use super::connection::XcbConnection;
+use std::mem::size_of;
 use std::sync::{Mutex, OnceLock};
 
 #[derive(Clone)]
