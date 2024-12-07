@@ -29,7 +29,10 @@
 )]
 
 pub mod buffers;
+pub mod glyphs;
+pub mod graphics;
 pub mod shared;
 
 pub use buffers::BufferStore;
+pub use graphics::WaylandGraphics;
 pub use shared::Shared;
