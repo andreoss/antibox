@@ -4,6 +4,7 @@ members = [
     "gfx",
     "core",
     "x11",
+    "wayland",
     "ui",
     "wm",
     "antibox",
