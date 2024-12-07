@@ -513,7 +513,7 @@ impl Omni {
             .view
             .selected
             .and_then(|i| self.view.items.get(i))
-            .and_then(|r| r.payload())
+            .and_then(antibox_ui::menu_tree::FlatRow::payload)
         {
             Some(OmniAct::Window(id)) => *id,
             _ => return OmniOutcome::Consumed,
@@ -923,7 +923,7 @@ impl Omni {
             .view
             .selected
             .and_then(|i| self.view.items.get(i))
-            .and_then(|r| r.payload())
+            .and_then(antibox_ui::menu_tree::FlatRow::payload)
         {
             Some(OmniAct::Launch(cmd)) => Self::command_line_argv(cmd),
             _ => return false,
