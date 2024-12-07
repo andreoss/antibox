@@ -11,8 +11,17 @@ Features
 - Pager with window previews 
 - Alt+Tab switching
 
+Wayland
+-------
+
+Work in progress. The antibox-wayland crate implements the display and
+graphics backends over a software window model. No compositor yet, so it
+cannot run a session.
+
 Building
 --------
+
+Rust 1.70 (pinned in rust-toolchain.toml).
 
 Linux (needs libxcb, freetype, fontconfig):
 
