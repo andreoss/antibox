@@ -6,10 +6,18 @@ A window manager for X11 (xcb)
 Features
 --------
 
-- Stacking window managment 
-- Taskbar 
-- Pager with window previews 
+- Stacking window management
+- Workspace layouts
+- Tiling and snapping
+- Window tabs
+- Taskbar with applets
+- System tray
+- Dock
+- Pager with window previews
 - Alt+Tab switching
+- Omni launcher
+- Themes
+- Settings dialog
 
 Wayland
 -------
