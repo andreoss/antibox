@@ -33,6 +33,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "antibox-wayland"
+version = "1.2.0"
+dependencies = [
+ "antibox-core",
+]
+
+[[package]]
 name = "antibox-wm"
 version = "1.2.0"
 dependencies = [
