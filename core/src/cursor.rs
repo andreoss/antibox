@@ -134,7 +134,7 @@ impl XpmCursor {
     fn guess_hotspot(path: &Path, width: u16, height: u16) -> Hotspot {
         let name = path
             .file_stem()
-            .and_then(|s| s.to_str())
+            .and_then(std::ffi::OsStr::to_str)
             .unwrap_or("")
             .to_lowercase();
 

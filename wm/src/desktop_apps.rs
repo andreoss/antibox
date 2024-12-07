@@ -195,10 +195,10 @@ pub fn scan() -> Vec<DesktopApp> {
         let Ok(read) = std::fs::read_dir(&dir) else { continue };
         for entry in read.flatten() {
             let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) != Some("desktop") {
+            if path.extension().and_then(std::ffi::OsStr::to_str) != Some("desktop") {
                 continue;
             }
-            let id = match path.file_name().and_then(|n| n.to_str()) {
+            let id = match path.file_name().and_then(std::ffi::OsStr::to_str) {
                 Some(n) => n.to_string(),
                 None => continue,
             };

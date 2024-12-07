@@ -82,7 +82,7 @@ pub fn from_toml(text: &str) -> Result<ThemeDef> {
         ..ThemeDef::default()
     };
 
-    if let Some(t) = doc.get("colors").and_then(|v| v.as_table()) {
+    if let Some(t) = doc.get("colors").and_then(toml::Value::as_table) {
         for (k, v) in t {
             if let Some(s) = v.as_str() {
                 if let Some(c) = parse_hex(s) {
@@ -91,25 +91,25 @@ pub fn from_toml(text: &str) -> Result<ThemeDef> {
             }
         }
     }
-    if let Some(t) = doc.get("metrics").and_then(|v| v.as_table()) {
+    if let Some(t) = doc.get("metrics").and_then(toml::Value::as_table) {
         for (k, v) in t {
             if let Some(n) = v.as_integer() {
                 def.metrics.insert(k.clone(), n);
             }
         }
     }
-    if let Some(t) = doc.get("strings").and_then(|v| v.as_table()) {
+    if let Some(t) = doc.get("strings").and_then(toml::Value::as_table) {
         for (k, v) in t {
             if let Some(s) = v.as_str() {
                 def.strings.insert(k.clone(), s.to_string());
             }
         }
     }
-    if let Some(t) = doc.get("elements").and_then(|v| v.as_table()) {
+    if let Some(t) = doc.get("elements").and_then(toml::Value::as_table) {
         for (name, v) in t {
             let ops = v
                 .get("ops")
-                .and_then(|v| v.as_array())
+                .and_then(toml::Value::as_array)
                 .map(|arr| arr.iter().filter_map(|o| parse_op(o).ok()).collect())
                 .unwrap_or_default();
             def.elements.insert(name.clone(), ops);

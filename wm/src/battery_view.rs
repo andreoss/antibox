@@ -34,6 +34,7 @@ impl BatteryView {
         Self::from_status(read_status(), vertical)
     }
 
+    #[allow(clippy::missing_const_for_fn)]
     pub fn from_status(st: crate::power::PowerStatus, vertical: bool) -> Self {
         Self {
             batteries: st.batteries,
