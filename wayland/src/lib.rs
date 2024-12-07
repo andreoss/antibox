@@ -27,12 +27,14 @@
     clippy::unnested_or_patterns,
     clippy::use_self
 )]
-
+pub mod backend;
 pub mod buffers;
 pub mod glyphs;
 pub mod graphics;
 pub mod shared;
 
+pub use backend::{WaylandCompositor, WaylandWindow};
 pub use buffers::BufferStore;
 pub use graphics::WaylandGraphics;
 pub use shared::Shared;
+
