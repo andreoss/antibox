@@ -33,7 +33,7 @@ impl PreviewWindow {
     pub fn show(&mut self, conn: &Arc<dyn DisplayBackend>, wm: &WindowManager<dyn DisplayBackend>) {
         self.ws_count = wm.config.workspace_count;
         let cols = 2;
-        let rows = (self.ws_count as u16 + cols - 1) / cols;
+        let rows = (self.ws_count as u16).div_ceil(cols);
         let pw = cols * (WS_W + 8) + 4;
         let ph = rows * (WS_H + 8) + 4;
         if let Ok(win) = conn.create_window(
