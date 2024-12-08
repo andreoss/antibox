@@ -15,6 +15,7 @@ path = "src/main.rs"
 antibox-core = { path = "../core" }
 antibox-ui = { path = "../ui" }
 antibox-x11 = { path = "../x11" }
+antibox-wayland = { path = "../wayland" }
 antibox-wm = { path = "../wm" }
 
 [[bin]]
