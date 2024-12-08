@@ -1,4 +1,4 @@
-msrv = "1.70"
+msrv = "1.80.1"
 allow-dbg-in-tests = false
 allow-print-in-tests = false
 allow-unwrap-in-tests = false

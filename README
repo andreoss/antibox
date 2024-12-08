@@ -29,7 +29,7 @@ cannot run a session.
 Building
 --------
 
-Rust 1.70 (pinned in rust-toolchain.toml).
+Rust 1.80.1 (pinned in rust-toolchain.toml).
 
 Linux (needs libxcb, freetype, fontconfig):
 

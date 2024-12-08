@@ -47,7 +47,7 @@ fn err(msg: impl Into<String>) -> antibox_core::error::Error {
     antibox_core::error::Error::message(msg.into())
 }
 
-fn event_time(ev: &xcb_generic_event_t) -> Option<u32> {
+const fn event_time(ev: &xcb_generic_event_t) -> Option<u32> {
     let off = match ev.response_type & 0x7f {
         2..=8 | 29 | 30 | 31 => 4,
         28 => 12,
