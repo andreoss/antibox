@@ -223,6 +223,15 @@ struct GlyphState {
     uploaded: bool,
 }
 
+pub struct Glyph {
+    pub width: u16,
+    pub height: u16,
+    pub left: i16,
+    pub top: i16,
+    pub advance: u16,
+    pub coverage: Vec<u8>,
+}
+
 pub struct FtFont {
     face: *mut FT_FaceRec,
     ascent: i16,
@@ -342,37 +351,55 @@ impl FtFont {
         }
     }
 
-    fn upload_glyph(&self, conn: &XcbConnection, gs: u32, code: u32) -> u16 {
-        let Ok(guard) = ft_lib().lock() else { return 0 };
-        if guard.is_none() {
-            return 0;
-        }
+    pub fn rasterize(&self, code: u32) -> Option<Glyph> {
+        let guard = ft_lib().lock().ok()?;
+        guard.as_ref()?;
         if unsafe { FT_Load_Char(self.face, code as c_ulong, FT_LOAD_RENDER) } != 0 {
-            return 0;
+            return None;
         }
         let slot = unsafe { (*self.face).glyph };
         if slot.is_null() {
-            return 0;
+            return None;
         }
         let advance = (unsafe { (*slot).advance.x } >> 6).max(0) as u16;
         let bm = unsafe { &(*slot).bitmap };
         let w = bm.width as usize;
         let h = bm.rows as usize;
-        let stride = (w + 3) & !3;
-        let mut data = vec![0u8; stride * h];
+        let mut coverage = vec![0u8; w * h];
         if !bm.buffer.is_null() && w > 0 {
             for row in 0..h {
                 let src = unsafe { bm.buffer.offset(row as isize * bm.pitch as isize) };
                 let src = unsafe { std::slice::from_raw_parts(src, w) };
-                data[row * stride..row * stride + w].copy_from_slice(src);
+                coverage[row * w..row * w + w].copy_from_slice(src);
             }
         }
-        let info = xcb_render_glyphinfo_t {
+        Some(Glyph {
             width: w as u16,
             height: h as u16,
-            x: -(unsafe { (*slot).bitmap_left } as i16),
-            y: unsafe { (*slot).bitmap_top } as i16,
-            x_off: advance as i16,
+            left: unsafe { (*slot).bitmap_left } as i16,
+            top: unsafe { (*slot).bitmap_top } as i16,
+            advance,
+            coverage,
+        })
+    }
+
+    fn upload_glyph(&self, conn: &XcbConnection, gs: u32, code: u32) -> u16 {
+        let Some(g) = self.rasterize(code) else {
+            return 0;
+        };
+        let w = g.width as usize;
+        let h = g.height as usize;
+        let stride = (w + 3) & !3;
+        let mut data = vec![0u8; stride * h];
+        for row in 0..h {
+            data[row * stride..row * stride + w].copy_from_slice(&g.coverage[row * w..row * w + w]);
+        }
+        let info = xcb_render_glyphinfo_t {
+            width: g.width,
+            height: g.height,
+            x: -g.left,
+            y: g.top,
+            x_off: g.advance as i16,
             y_off: 0,
         };
         unsafe {
@@ -386,6 +413,6 @@ impl FtFont {
                 data.as_ptr(),
             )
         };
-        advance
+        g.advance
     }
 }
