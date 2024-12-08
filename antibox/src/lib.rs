@@ -82,3 +82,5 @@ fn parse_config() {
         }
     }
 }
+
+pub mod wayland_glyphs;

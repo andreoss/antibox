@@ -8,6 +8,7 @@ version = "1.2.0"
 dependencies = [
  "antibox-core",
  "antibox-ui",
+ "antibox-wayland",
  "antibox-wm",
  "antibox-x11",
 ]
