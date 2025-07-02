@@ -5,7 +5,8 @@ use smithay::utils::{Point, Rectangle, Size};
 
 use crate::shared::{Intent, WinKind, WinRec, ROOT_WINDOW};
 
-use super::state::Compositor;
+use super::state::{window_wl_surface, Compositor};
+use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 
 pub(crate) const MIN_KEYCODE: u8 = 8;
 pub(crate) const MAX_KEYCODE: u8 = 255;
@@ -68,8 +69,13 @@ impl Compositor {
             );
             id
         };
+        let ready = window.x11_surface().is_some() || (rect.w > 1 && rect.h > 1);
         self.clients.insert(id, window);
-        self.synth(BackendEvent::MapRequest { window: id });
+        if ready {
+            self.synth(BackendEvent::MapRequest { window: id });
+        } else {
+            self.pending_map.insert(id);
+        }
         id
     }
 
@@ -215,5 +221,65 @@ impl Compositor {
             .get(&focus)
             .and_then(super::state::KeyboardFocusTarget::for_window);
         keyboard.set_focus(self, target, serial);
+    }
+}
+
+impl Compositor {
+    pub(crate) fn sync_client_geometry(&mut self, surface: &WlSurface) {
+        let Some(id) = self.clients.iter().find_map(|(id, w)| {
+            (window_wl_surface(w).as_ref() == Some(surface)).then_some(*id)
+        }) else {
+            return;
+        };
+        let size = {
+            let Some(w) = self.clients.get(&id) else {
+                return;
+            };
+            w.on_commit();
+            let g = w.geometry();
+            (g.size.w, g.size.h)
+        };
+        if size.0 <= 0 || size.1 <= 0 {
+            return;
+        }
+        let announce = self.pending_map.remove(&id);
+        {
+            let mut s = self.shared.lock();
+            if let Some(rec) = s.windows.get_mut(&id) {
+                if announce {
+                    rec.rect.w = size.0;
+                    rec.rect.h = size.1;
+                }
+            }
+        }
+        self.sync_toplevel_props(id, surface);
+        if announce {
+            self.synth(BackendEvent::MapRequest { window: id });
+        }
+    }
+}
+
+impl Compositor {
+    pub(crate) fn sync_toplevel_props(&mut self, id: u32, surface: &WlSurface) {
+        use smithay::wayland::compositor::with_states;
+        use smithay::wayland::shell::xdg::XdgToplevelSurfaceData;
+        let (title, app_id) = with_states(surface, |states| {
+            states
+                .data_map
+                .get::<XdgToplevelSurfaceData>()
+                .and_then(|d| d.lock().ok().map(|g| (g.title.clone(), g.app_id.clone())))
+                .unwrap_or((None, None))
+        });
+        if let Some(title) = title {
+            self.put_prop(id, "_NET_WM_NAME", title.as_bytes().to_vec());
+            self.put_prop(id, "WM_NAME", title.into_bytes());
+        }
+        if let Some(app_id) = app_id {
+            let mut data = app_id.clone().into_bytes();
+            data.push(0);
+            data.extend_from_slice(app_id.as_bytes());
+            data.push(0);
+            self.put_prop(id, "WM_CLASS", data);
+        }
     }
 }

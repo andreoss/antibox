@@ -117,9 +117,12 @@ fn window_type_atom_name(surface: &X11Surface) -> &'static str {
 }
 
 impl Compositor {
-    fn put_prop(&self, id: u32, name: &str, data: Vec<u8>) {
+    pub(crate) fn put_prop(&self, id: u32, name: &str, data: Vec<u8>) {
         let mut s = self.shared.lock();
         let atom = s.atoms.intern(name);
+        if s.props.get(&(id, atom)) == Some(&data) {
+            return;
+        }
         s.props.insert((id, atom), data);
         s.events.push(BackendEvent::PropertyNotify {
             window: id,

@@ -105,6 +105,7 @@ impl CompositorHandler for Compositor {
             }
         }
         handle_commit(&mut self.popups, &self.space, surface);
+        self.sync_client_geometry(surface);
         self.shared.request_redraw();
     }
 }
