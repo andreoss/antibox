@@ -42,6 +42,7 @@ pub struct Compositor {
     pub shared: Shared,
     pub buffers: Arc<BufferStore>,
     pub clients: HashMap<u32, Window>,
+    pub pending_map: std::collections::HashSet<u32>,
 
     pub xwayland_shell_state: XWaylandShellState,
     pub xwm: Option<X11Wm>,
@@ -94,6 +95,7 @@ impl Compositor {
             shared,
             buffers,
             clients: HashMap::new(),
+            pending_map: std::collections::HashSet::new(),
             xwayland_shell_state,
             xwm: None,
             winit: None,
