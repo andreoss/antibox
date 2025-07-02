@@ -44,7 +44,7 @@ checksum = "fc7eb209b1518d6bb87b283c20095f5228ecda460da70b44f0802523dea6da04"
 
 [[package]]
 name = "antibox"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "antibox-core",
  "antibox-ui",
@@ -55,18 +55,18 @@ dependencies = [
 
 [[package]]
 name = "antibox-core"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "antibox-gfx",
 ]
 
 [[package]]
 name = "antibox-gfx"
-version = "1.2.0"
+version = "1.3.0"
 
 [[package]]
 name = "antibox-ui"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "antibox-core",
  "antibox-gfx",
@@ -75,7 +75,7 @@ dependencies = [
 
 [[package]]
 name = "antibox-wayland"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "antibox-core",
  "smithay",
@@ -83,7 +83,7 @@ dependencies = [
 
 [[package]]
 name = "antibox-wm"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "antibox-core",
  "antibox-ui",
@@ -94,7 +94,7 @@ dependencies = [
 
 [[package]]
 name = "antibox-x11"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "antibox-core",
 ]
