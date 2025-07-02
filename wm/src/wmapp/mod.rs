@@ -676,7 +676,9 @@ impl App {
             }
         }
         let ws = self.wm.active_workspace();
-        tb.set_active_workspace(ws);
+        if let Some(wid) = tb.set_active_workspace(ws) {
+            work.repaint_applets.push(wid);
+        }
         match tb.sync_task_pane(&self.wm) {
             crate::taskbar::BarRepaint::Full => work.repaint_taskbar = true,
             crate::taskbar::BarRepaint::Applet(wid) => work.repaint_applets.push(wid),

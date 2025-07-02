@@ -204,11 +204,15 @@ impl WorkspacesPane {
         changed
     }
 
-    pub fn set_active(&mut self, idx: u32) {
+    pub fn set_active(&mut self, idx: u32) -> bool {
+        if self.active_workspace == idx && self.buttons.iter().enumerate().all(|(i, b)| b.active == (i as u32 == idx)) {
+            return false;
+        }
         for (i, btn) in self.buttons.iter_mut().enumerate() {
             btn.active = i as u32 == idx;
         }
         self.active_workspace = idx;
+        true
     }
 }
 

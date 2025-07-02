@@ -461,13 +461,14 @@ impl TaskBar {
         let _ = self.conn.flush();
     }
 
-    pub fn set_active_workspace(&mut self, ws: u32) {
+    pub fn set_active_workspace(&mut self, ws: u32) -> Option<u32> {
         for applet in &mut self.applets {
             if let Some(pane) = applet.as_any_mut().downcast_mut::<WorkspacesPane>() {
-                pane.set_active(ws);
-                return;
+                let changed = pane.set_active(ws);
+                return changed.then(|| applet.window().id());
             }
         }
+        None
     }
 
     pub fn set_workspace_names(&mut self, names: &[String]) -> bool {
