@@ -33,6 +33,9 @@ pub mod glyphs;
 pub mod graphics;
 pub mod shared;
 
+#[cfg(feature = "smithay")]
+pub mod comp;
+
 pub use backend::{WaylandCompositor, WaylandWindow};
 pub use buffers::BufferStore;
 pub use graphics::WaylandGraphics;
