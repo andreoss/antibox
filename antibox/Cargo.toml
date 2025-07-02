@@ -21,3 +21,12 @@ antibox-wm = { path = "../wm" }
 [[bin]]
 name = "antibox-settings"
 path = "src/bin/antibox-settings.rs"
+
+[features]
+default = []
+wayland = ["antibox-wayland/smithay"]
+
+[[bin]]
+name = "antibox-wayland"
+path = "src/bin/antibox-wayland.rs"
+required-features = ["wayland"]
