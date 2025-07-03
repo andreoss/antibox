@@ -1,7 +1,7 @@
 antibox
 =======
 
-A window manager for X11 (xcb)
+A window manager for X11 & Wayland
 
 Features
 --------
