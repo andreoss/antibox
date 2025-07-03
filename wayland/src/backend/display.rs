@@ -214,9 +214,18 @@ impl DisplayBackend for WaylandCompositor {
         Ok(())
     }
     fn destroy_window(&self, window: u32) -> R {
-        self.shared.lock().windows.remove(&window);
-        self.buffers.remove(window);
-        self.push_intent(Intent::Destroy(window));
+        let ids = {
+            let mut s = self.shared.lock();
+            let ids = s.subtree(window);
+            for id in &ids {
+                s.windows.remove(id);
+            }
+            ids
+        };
+        for id in ids {
+            self.buffers.remove(id);
+            self.push_intent(Intent::Destroy(id));
+        }
         Ok(())
     }
     fn kill_client(&self, resource: u32) -> R {
