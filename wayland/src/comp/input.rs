@@ -334,5 +334,66 @@ impl Compositor {
         };
         pointer.axis(self, frame);
         pointer.frame(self);
+        self.synth_wheel_buttons(vertical, v_discrete, horizontal, h_discrete);
+    }
+
+    fn synth_wheel_buttons(
+        &mut self,
+        vertical: f64,
+        v_discrete: Option<f64>,
+        horizontal: f64,
+        h_discrete: Option<f64>,
+    ) {
+        let (px, py, mask) = {
+            let s = self.shared.lock();
+            (
+                i32::from(s.pointer_x),
+                i32::from(s.pointer_y),
+                s.pointer_mask | s.key_mods,
+            )
+        };
+        let pos = Point::from((px as f64, py as f64));
+        let client_under = self.surface_under(pos);
+        let wm_target = if let Some((surface, _)) = client_under.as_ref() {
+            self.client_id_for_surface(surface)
+        } else {
+            self.wm_window_at(px, py).and_then(|w| {
+                self.shared
+                    .lock()
+                    .propagate_event_target(w, EventMask::BUTTON_PRESS.bits())
+            })
+        };
+        let Some(win) = wm_target else {
+            return;
+        };
+        let emit = |button: u8, steps: usize| {
+            let point = self.local_point(win, px, py);
+            for _ in 0..steps {
+                self.synth(BackendEvent::ButtonPress {
+                    window: win,
+                    event: win,
+                    point,
+                    root: WmPoint::new(px, py),
+                    button,
+                    state: mask,
+                });
+                self.synth(BackendEvent::ButtonRelease {
+                    window: win,
+                    point,
+                    button,
+                });
+            }
+        };
+        let steps = |amount: f64, discrete: Option<f64>| {
+            discrete.map_or(usize::from(amount != 0.0), |d| {
+                ((d.abs() / 120.0).round() as usize).max(1)
+            })
+        };
+        if vertical != 0.0 {
+            emit(if vertical < 0.0 { 4 } else { 5 }, steps(vertical, v_discrete));
+        }
+        if horizontal != 0.0 {
+            emit(if horizontal < 0.0 { 6 } else { 7 }, steps(horizontal, h_discrete));
+        }
     }
 }
