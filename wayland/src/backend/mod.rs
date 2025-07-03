@@ -109,9 +109,18 @@ impl WindowHandle for WaylandWindow {
         Ok(())
     }
     fn destroy(&self) -> R {
-        self.shared.lock().windows.remove(&self.id);
-        self.buffers.remove(self.id);
-        self.shared.lock().intents.push(Intent::Destroy(self.id));
+        let ids = {
+            let mut s = self.shared.lock();
+            let ids = s.subtree(self.id);
+            for id in &ids {
+                s.windows.remove(id);
+            }
+            ids
+        };
+        for id in ids {
+            self.buffers.remove(id);
+            self.shared.lock().intents.push(Intent::Destroy(id));
+        }
         Ok(())
     }
     fn configure(&self, x: Option<i32>, y: Option<i32>, w: Option<u16>, h: Option<u16>) -> R {
