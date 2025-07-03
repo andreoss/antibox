@@ -238,10 +238,42 @@ impl SharedState {
         (x, y)
     }
 
+    pub fn subtree(&self, id: u32) -> Vec<u32> {
+        let mut out = vec![id];
+        let mut i = 0;
+        while i < out.len() {
+            let cur = out[i];
+            i += 1;
+            for (kid, rec) in &self.windows {
+                if rec.parent == cur && !out.contains(kid) {
+                    out.push(*kid);
+                }
+            }
+        }
+        out
+    }
+
+    pub fn viewable(&self, id: u32) -> bool {
+        let mut cur = id;
+        for _ in 0..32 {
+            let Some(rec) = self.windows.get(&cur) else {
+                return false;
+            };
+            if !rec.mapped && !matches!(rec.kind, WinKind::Root) {
+                return false;
+            }
+            if rec.parent == ROOT_WINDOW {
+                return true;
+            }
+            cur = rec.parent;
+        }
+        false
+    }
+
     pub fn window_at(&self, x: i32, y: i32) -> Option<u32> {
         let mut best: Option<(u32, i64)> = None;
         for (id, rec) in &self.windows {
-            if !rec.mapped || matches!(rec.kind, WinKind::Client | WinKind::Root) {
+            if !self.viewable(*id) || matches!(rec.kind, WinKind::Client | WinKind::Root) {
                 continue;
             }
             let (ax, ay) = self.absolute_origin(*id);
