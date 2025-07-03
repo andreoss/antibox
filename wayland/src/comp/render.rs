@@ -133,7 +133,7 @@ fn decoration_element(
     let (ax, ay, mapped, kind) = {
         let s = state.shared.lock();
         let rec = s.windows.get(&id)?;
-        let (mapped, kind) = (rec.mapped, rec.kind);
+        let (mut mapped, kind) = (rec.mapped, rec.kind);
         let (mut x, mut y) = (rec.rect.x, rec.rect.y);
         let mut parent = rec.parent;
         let mut guard = 0;
@@ -141,6 +141,7 @@ fn decoration_element(
             let Some(pr) = s.windows.get(&parent) else {
                 break;
             };
+            mapped = mapped && pr.mapped;
             x += pr.rect.x;
             y += pr.rect.y;
             parent = pr.parent;
