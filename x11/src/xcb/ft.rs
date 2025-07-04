@@ -6,6 +6,7 @@ use std::os::raw::{c_char, c_int, c_long, c_uint, c_ulong, c_ushort, c_void};
 use std::sync::{Mutex, OnceLock};
 
 const FT_LOAD_RENDER: i32 = 4;
+const FT_PIXEL_MODE_MONO: u8 = 1;
 
 #[repr(C)]
 struct FT_Vector {
@@ -369,8 +370,17 @@ impl FtFont {
         if !bm.buffer.is_null() && w > 0 {
             for row in 0..h {
                 let src = unsafe { bm.buffer.offset(row as isize * bm.pitch as isize) };
-                let src = unsafe { std::slice::from_raw_parts(src, w) };
-                coverage[row * w..row * w + w].copy_from_slice(src);
+                if bm.pixel_mode == FT_PIXEL_MODE_MONO {
+                    let bytes = unsafe { std::slice::from_raw_parts(src, (w + 7) / 8) };
+                    for x in 0..w {
+                        if bytes[x >> 3] & (0x80 >> (x & 7)) != 0 {
+                            coverage[row * w + x] = 0xFF;
+                        }
+                    }
+                } else {
+                    let src = unsafe { std::slice::from_raw_parts(src, w) };
+                    coverage[row * w..row * w + w].copy_from_slice(src);
+                }
             }
         }
         Some(Glyph {
