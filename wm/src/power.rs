@@ -141,7 +141,7 @@ mod openbsd {
     const APM_AC_ON: u8 = 1;
     const MINUTES_LEFT_UNKNOWN: u32 = 0xffff_ffff;
 
-    pub fn read() -> PowerStatus {
+    pub(crate) fn read() -> PowerStatus {
         let path = match std::ffi::CString::new("/dev/apm") {
             Ok(p) => p,
             Err(_) => return PowerStatus::default(),
