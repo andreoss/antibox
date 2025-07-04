@@ -7,7 +7,7 @@ pub type sighandler_t = usize;
 #[cfg(target_os = "linux")]
 pub type nfds_t = u64;
 #[cfg(not(target_os = "linux"))]
-pub type nfds_t = std::os::raw::c_uint;
+pub type nfds_t = c_uint;
 
 pub const POLLIN: i16 = 0x001;
 pub const POLLHUP: i16 = 0x010;
