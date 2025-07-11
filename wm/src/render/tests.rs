@@ -14,7 +14,11 @@
             false,
             true,
             false,
-            TitleBarDims { fw_w: 300, bw: 1 },
+            TitleBarDims {
+                fw_w: 300,
+                bw: 1,
+                split: 280,
+            },
             &tc,
             true,
         )
