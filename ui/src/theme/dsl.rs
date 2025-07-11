@@ -10,6 +10,7 @@ pub enum Coord {
     Add(Box<Coord>, Box<Coord>),
     Sub(Box<Coord>, Box<Coord>),
     Mul(Box<Coord>, Box<Coord>),
+    Div(Box<Coord>, Box<Coord>),
 }
 
 impl Coord {
@@ -22,6 +23,33 @@ impl Coord {
             Self::Add(a, b) => a.eval(w, h, s) + b.eval(w, h, s),
             Self::Sub(a, b) => a.eval(w, h, s) - b.eval(w, h, s),
             Self::Mul(a, b) => a.eval(w, h, s) * b.eval(w, h, s),
+            Self::Div(a, b) => a.eval(w, h, s) / b.eval(w, h, s).max(1),
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
+pub enum GradKind {
+    #[default]
+    Vertical,
+    Horizontal,
+    Diagonal,
+}
+
+impl GradKind {
+    pub fn parse(name: &str) -> Self {
+        match name {
+            "horizontal" => Self::Horizontal,
+            "diagonal" => Self::Diagonal,
+            _ => Self::Vertical,
+        }
+    }
+
+    pub fn at(self, fx: f32, fy: f32) -> f32 {
+        match self {
+            Self::Vertical => fy,
+            Self::Horizontal => fx,
+            Self::Diagonal => (fx + fy) * 0.5,
         }
     }
 }
@@ -29,6 +57,7 @@ impl Coord {
 #[derive(Clone, PartialEq, Debug)]
 pub enum ColourRef {
     Named(String),
+    Literal(u32),
     Scale(String, f32),
     Blend(String, String, f32),
 }
@@ -37,6 +66,10 @@ pub enum ColourRef {
 pub enum Op {
     Fill {
         colour: ColourRef,
+        x: Coord,
+        y: Coord,
+        w: Coord,
+        h: Coord,
     },
     Outline {
         colour: ColourRef,
@@ -55,11 +88,15 @@ pub enum Op {
     Gradient {
         from: ColourRef,
         to: ColourRef,
-        vertical: bool,
+        kind: GradKind,
         x: Coord,
         y: Coord,
         w: Coord,
         h: Coord,
+    },
+    Polygon {
+        colour: ColourRef,
+        points: Vec<(Coord, Coord)>,
     },
     Bevel {
         raised: bool,
@@ -75,6 +112,8 @@ pub struct ThemeDef {
     pub colours: HashMap<String, u32>,
     pub metrics: HashMap<String, i64>,
     pub strings: HashMap<String, String>,
+    pub flags: HashMap<String, bool>,
+    pub glyphs: HashMap<String, Vec<u16>>,
     pub elements: HashMap<String, Vec<Op>>,
 }
 
@@ -89,6 +128,14 @@ impl ThemeDef {
 
     pub fn string(&self, name: &str) -> Option<&str> {
         self.strings.get(name).map(String::as_str)
+    }
+
+    pub fn flag(&self, name: &str) -> Option<bool> {
+        self.flags.get(name).copied()
+    }
+
+    pub fn glyph(&self, name: &str) -> Option<&[u16]> {
+        self.glyphs.get(name).map(Vec::as_slice)
     }
 
     pub fn element(&self, name: &str) -> Option<&[Op]> {
@@ -153,10 +200,12 @@ fn parse_mul(src: &str, pos: &mut usize) -> Option<Coord> {
         while *pos < bytes.len() && bytes[*pos] == b' ' {
             *pos += 1;
         }
-        if *pos < bytes.len() && bytes[*pos] == b'*' {
+        if *pos < bytes.len() && (bytes[*pos] == b'*' || bytes[*pos] == b'/') {
+            let div = bytes[*pos] == b'/';
             *pos += 1;
             let right = parse_primary(src, pos)?;
-            left = Coord::Mul(Box::new(left), Box::new(right));
+            let (a, b) = (Box::new(left), Box::new(right));
+            left = if div { Coord::Div(a, b) } else { Coord::Mul(a, b) };
         } else {
             *pos = save;
             return Some(left);
@@ -210,6 +259,9 @@ pub fn parse_coord(src: &str) -> Option<Coord> {
 
 pub fn parse_colour_ref(src: &str) -> Option<ColourRef> {
     let s = src.trim();
+    if let Some(hex) = s.strip_prefix('#') {
+        return u32::from_str_radix(hex, 16).ok().map(ColourRef::Literal);
+    }
     if let Some(idx) = s.find('~') {
         let (a, rest) = s.split_at(idx);
         let rest = &rest[1..];
@@ -241,17 +293,16 @@ pub fn parse_hex(src: &str) -> Option<u32> {
 }
 
 pub fn resolve_colour(def: &ThemeDef, r: &ColourRef) -> Option<Colour> {
+    resolve_colour_on(def, r, None)
+}
+
+pub fn resolve_colour_on(def: &ThemeDef, r: &ColourRef, bg: Option<Colour>) -> Option<Colour> {
+    let base = |n: &String| def.colour(n).or(bg);
     match r {
-        ColourRef::Named(n) => def.colour(n),
-        ColourRef::Scale(n, f) => {
-            let base = def.colour(n)?;
-            Some(scale_rgb(base, *f))
-        }
-        ColourRef::Blend(a, b, f) => {
-            let ca = def.colour(a)?;
-            let cb = def.colour(b)?;
-            Some(mix_rgb(ca, cb, *f))
-        }
+        ColourRef::Named(n) => base(n),
+        ColourRef::Literal(c) => Some(*c),
+        ColourRef::Scale(n, f) => Some(scale_rgb(base(n)?, *f)),
+        ColourRef::Blend(a, b, f) => Some(mix_rgb(base(a)?, base(b)?, *f)),
     }
 }
 
