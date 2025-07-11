@@ -667,6 +667,7 @@ impl FrameWindow {
             2 + antibox_core::scale::scaled(antibox_ui::theme::title_end_pad_base() as i32)
         };
         let btn_y = bw + ((title_bar_height() - btn_h) / 2).max(0);
+        let min_gap = antibox_ui::theme::symmetric_title_buttons();
         let mut seen: Vec<char> = Vec::new();
         let mut lx = bw + pad;
         for code in crate::layout_preferences::title_buttons_left().chars() {
@@ -677,7 +678,7 @@ impl FrameWindow {
             if let Some((id, sym, pix)) = self.title_button_for(code) {
                 out.push((id, sym, pix, Rect::new(lx, btn_y, btn, btn_h)));
                 lx += btn;
-                if code == 'x' {
+                if code == 'x' || (min_gap && code == 'i') {
                     lx += close_gap;
                 }
             }
@@ -690,6 +691,9 @@ impl FrameWindow {
             }
             seen.push(code);
             if let Some((id, sym, pix)) = self.title_button_for(code) {
+                if min_gap && code == 'i' {
+                    x -= close_gap;
+                }
                 out.push((id, sym, pix, Rect::new(x, btn_y, btn, btn_h)));
                 span_right = span_right.min(x);
                 x -= btn;
@@ -699,6 +703,11 @@ impl FrameWindow {
             }
         }
 
+        let span_right = if min_gap {
+            span_right - close_gap
+        } else {
+            span_right
+        };
         (out, (lx + antibox_core::scale::scaled(2), span_right))
     }
 

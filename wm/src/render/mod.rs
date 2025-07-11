@@ -184,7 +184,11 @@ pub fn draw_title_scroll(
         focused,
         fw.state().urgent,
         fw.client().is_xpra(),
-        TitleBarDims { fw_w, bw },
+        TitleBarDims {
+            fw_w,
+            bw,
+            split: fw.title_text_span().1,
+        },
         colours,
         gradients_enabled,
     )?;
@@ -220,7 +224,11 @@ pub fn draw_frame(
         focused,
         fw.state().urgent,
         fw.client().is_xpra(),
-        TitleBarDims { fw_w, bw },
+        TitleBarDims {
+            fw_w,
+            bw,
+            split: fw.title_text_span().1,
+        },
         colours,
         gradients_enabled,
     )?;
@@ -264,6 +272,7 @@ pub(crate) fn draw_tab_strip(fw: &FrameWindow, g: &dyn GraphicsContext) {
 
 #[derive(Clone, Copy)]
 struct TitleBarDims {
+    split: i32,
     fw_w: u16,
     bw: i32,
 }
@@ -277,9 +286,18 @@ fn draw_title_bar(
     colours: &ThemeColors,
     gradients_enabled: bool,
 ) -> Result<()> {
-    let TitleBarDims { fw_w, bw, .. } = dims;
+    let TitleBarDims { fw_w, bw, split } = dims;
     let bar_h = title_bar_height() as u16;
-    let (bx, by, bar_w, grad_h) = if (crate::frame::title_top_inset() > 0
+    let outlined = antibox_ui::theme::outlined();
+    let s = antibox_core::scale::scaled(1).max(1);
+    let (bx, by, bar_w, grad_h) = if outlined {
+        (
+            (s * 2) as i16,
+            (s * 2) as i16,
+            (split - s * 3).max(1) as u16,
+            (bw + bar_h as i32 - s * 3).max(1) as u16,
+        )
+    } else if (crate::frame::title_top_inset() > 0
         || antibox_ui::theme::title_overlap_base() > 0)
         && bw > 0
     {
@@ -318,12 +336,29 @@ fn draw_title_bar(
         (colours.inactive_title_top, colours.inactive_title_bottom)
     };
     if gradients_enabled && left != right {
-        g.fill_gradient_h(bx, by, bar_w, grad_h, left, right)?;
+        if antibox_ui::theme::title_gradient_vertical() {
+            g.fill_gradient_v(bx, by, bar_w, grad_h, left, right)?;
+        } else {
+            g.fill_gradient_h(bx, by, bar_w, grad_h, left, right)?;
+        }
     } else {
         g.set_foreground(left)?;
         g.fill_rect(bx, by, bar_w, grad_h)?;
     }
     let _ = antibox_ui::theme::themed_title_bar(g, bx, by, bar_w, grad_h, left, focused);
+    if outlined {
+        let strip_x = bx + bar_w as i16;
+        g.set_foreground(darken_colour(left, 0.5))?;
+        g.fill_rect(strip_x, by, s as u16, grad_h)?;
+        let face_x = strip_x + s as i16;
+        let face_w = (fw_w as i32 - s * 2 - face_x as i32).max(0) as u16;
+        g.set_foreground(colours.button_bg)?;
+        g.fill_rect(face_x, by, face_w, grad_h)?;
+        g.set_foreground(antibox_ui::theme::light())?;
+        g.fill_rect(strip_x, s as i16, (face_w as i32 + s * 2) as u16, s as u16)?;
+        g.set_foreground(colours.title_line)?;
+        g.fill_rect(bx, by + grad_h as i16, fw_w.saturating_sub((bx as u16) * 2), 1)?;
+    }
     Ok(())
 }
 
@@ -447,7 +482,12 @@ fn draw_title_text(
         let s = antibox_core::scale::scaled(1).max(1);
         let sx = tx + tw as i16 + gap;
         let sw = (text_right - gap - sx).max(0) as u16;
-        let (sy, sh) = if crate::frame::title_top_inset() > 0 && fw.effective_border() > 0 {
+        let (sy, sh) = if antibox_ui::theme::outlined() {
+            (
+                (s * 2) as i16,
+                (fw.effective_border() + title_bar_height() - s * 3).max(1) as u16,
+            )
+        } else if crate::frame::title_top_inset() > 0 && fw.effective_border() > 0 {
             (bar_top as i16, (title_bar_height() - s * 5).max(1) as u16)
         } else {
             (fw.effective_border() as i16, title_bar_height() as u16 - 1)
@@ -592,6 +632,9 @@ fn draw_buttons(
     focused: bool,
     colours: &ThemeColors,
 ) -> Result<()> {
+    if !focused && antibox_ui::theme::hide_buttons_inactive() {
+        return Ok(());
+    }
     let pressed = fw.pressed_button();
     let (bg, glyph_fg) = (colours.button_bg, colours.button_fg);
 
