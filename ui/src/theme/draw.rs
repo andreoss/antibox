@@ -241,39 +241,86 @@ pub fn bevel(g: &dyn GraphicsContext, x: i16, y: i16, w: u16, h: u16, sunken: bo
 
 
 
+pub fn has_themed_title_button(key: &str) -> bool {
+    element_ops(&["title_", key].concat()).is_some()
+}
+
 pub fn themed_title_button(
-    _g: &dyn GraphicsContext,
-    _key: &str,
-    _r: Rect,
-    _bg: Colour,
-    _focused: bool,
-    _sunken: bool,
+    g: &dyn GraphicsContext,
+    key: &str,
+    r: Rect,
+    bg: Colour,
+    focused: bool,
+    sunken: bool,
 ) -> bool {
-    false
+    let (x, y, w, h) = r.as_px();
+    let active = ["title_", key].concat();
+    let name = if focused {
+        active
+    } else {
+        let inactive = [&active, "_inactive"].concat();
+        if element_ops(&inactive).is_some() {
+            inactive
+        } else {
+            active
+        }
+    };
+    let pressed = [&name, "_pressed"].concat();
+    let ops = if sunken {
+        element_ops(&pressed).or_else(|| element_ops(&name))
+    } else {
+        element_ops(&name)
+    };
+    let Some(ops) = ops else { return false };
+    let off = if sunken && element_ops(&pressed).is_none() {
+        hairline(w, h) as i16
+    } else {
+        0
+    };
+    paint_element(g, &ops, x + off, y + off, w, h, bg);
+    true
 }
 
 pub fn themed_title_bar(
-    _g: &dyn GraphicsContext,
-    _x: i16,
-    _y: i16,
-    _w: u16,
-    _h: u16,
-    _bg: Colour,
-    _focused: bool,
+    g: &dyn GraphicsContext,
+    x: i16,
+    y: i16,
+    w: u16,
+    h: u16,
+    bg: Colour,
+    focused: bool,
 ) -> bool {
-    false
+    let key = if focused {
+        "title_bar"
+    } else {
+        "title_bar_inactive"
+    };
+    let Some(ops) = element_ops(key) else {
+        return false;
+    };
+    paint_element(g, &ops, x, y, w, h, bg);
+    true
 }
 
 
 pub fn themed_combo_button(
-    _g: &dyn GraphicsContext,
-    _x: i16,
-    _y: i16,
-    _w: u16,
-    _h: u16,
-    _pressed: bool,
+    g: &dyn GraphicsContext,
+    x: i16,
+    y: i16,
+    w: u16,
+    h: u16,
+    pressed: bool,
 ) -> bool {
-    false
+    let key = if pressed {
+        "combo_button_pressed"
+    } else {
+        "combo_button"
+    };
+    let Some(ops) = element_ops(key).or_else(|| element_ops("combo_button")) else {
+        return false;
+    };
+    paint_element(g, &ops, x, y, w, h, face());
+    true
 }
 
 pub const fn pressed_dither(sunken: bool) -> bool {
@@ -299,10 +346,60 @@ impl Fill {
     }
 }
 
+fn grad_button_frame(g: &dyn GraphicsContext, x: i16, y: i16, w: u16, h: u16, bg: Colour, sunken: bool) {
+    let key = if sunken { "button_pressed" } else { "button" };
+    if let Some(ops) = element_ops(key) {
+        paint_element(g, &ops, x, y, w, h, bg);
+        return;
+    }
+    let (grad_top, grad_bottom) = if sunken {
+        (scale_rgb(bg, 0.77), scale_rgb(bg, 1.3))
+    } else {
+        (scale_rgb(bg, 1.3), scale_rgb(bg, 0.77))
+    };
+    let s = hairline(w, h);
+    let si = s as i16;
+    let x1 = x + w as i16;
+    let y1 = y + h as i16;
+    let _ = g.fill_gradient_v(
+        x + si,
+        y + si,
+        w.saturating_sub(s * 2),
+        h.saturating_sub(s * 2),
+        grad_top,
+        grad_bottom,
+    );
+    let (bev_tl, bev_br) = if sunken {
+        (scale_rgb(bg, 0.67), scale_rgb(bg, 1.5))
+    } else {
+        (scale_rgb(bg, 1.5), scale_rgb(bg, 0.67))
+    };
+    let _ = g.set_foreground(bev_tl);
+    let _ = g.fill_rect(x + si, y + si, w.saturating_sub(s * 2), s);
+    let _ = g.fill_rect(x + si, y + si, s, h.saturating_sub(s * 2));
+    let _ = g.set_foreground(bev_br);
+    let _ = g.fill_rect(x + si, y1 - si * 2, w.saturating_sub(s * 2), s);
+    let _ = g.fill_rect(x1 - si * 2, y + si, s, h.saturating_sub(s * 2));
+    let _ = g.set_foreground(scale_rgb(bg, 0.45));
+    let _ = g.draw_rect(x, y, w.saturating_sub(s), h.saturating_sub(s));
+}
+
 pub fn button_surface(g: &dyn GraphicsContext, r: Rect, style: Fill) {
     let (x, y, w, h) = r.as_px();
     let fill = style.colour;
     let sunken = style.sunken;
+    if grad_buttons() && w >= 6 && h >= 6 {
+        grad_button_frame(g, x, y, w, h, fill, sunken);
+        return;
+    }
+    if chrome_override() && w >= 4 && h >= 4 {
+        let key = if sunken { "button_pressed" } else { "button" };
+        if let Some(ops) = element_ops(key) {
+            paint_element(g, &ops, x, y, w, h, fill);
+            round_button_corners(g, x, y, w, h, face());
+            return;
+        }
+    }
     if pressed_dither(sunken) {
         let _ = g.set_foreground(face());
         let _ = g.fill_rect(x, y, w, h);
@@ -343,15 +440,15 @@ pub fn title_glyph_bitmap(
             }
         }
     };
-    blit(rows);
+    blit(&rows);
 
     if let Some(hi) = title_glyph(&format!("{key}_hi")) {
         let _ = g.set_foreground(face_light());
-        blit(hi);
+        blit(&hi);
     }
     if let Some(sh) = title_glyph(&format!("{key}_sh")) {
         let _ = g.set_foreground(shadow());
-        blit(sh);
+        blit(&sh);
     }
     true
 }
@@ -365,6 +462,34 @@ pub fn title_button(
     sunken: bool,
 ) -> (u32, i16) {
     let (x, y, w, h) = r.as_px();
+    if grad_buttons() && !equal_tabs() {
+        button_surface(g, Rect::px(x, y, w, h), Fill::new(bg, sunken));
+        return (fg, i16::from(sunken));
+    }
+    if grad_buttons() {
+        let (top, bot) = if sunken {
+            (scale_rgb(bg, 0.9), scale_rgb(bg, 1.06))
+        } else {
+            (scale_rgb(bg, 1.12), scale_rgb(bg, 0.95))
+        };
+        let _ = g.fill_gradient_v(x, y, w, h, top, bot);
+        let s = hairline(w, h);
+        let si = s as i16;
+        let (hi, sh) = if sunken {
+            (scale_rgb(bg, 0.62), scale_rgb(bg, 1.2))
+        } else {
+            (scale_rgb(bg, 1.25), scale_rgb(bg, 0.72))
+        };
+        let _ = g.set_foreground(hi);
+        let _ = g.fill_rect(x + si, y + si, w.saturating_sub(s * 2), s);
+        let _ = g.fill_rect(x + si, y + si, s, h.saturating_sub(s * 2));
+        let _ = g.set_foreground(sh);
+        let _ = g.fill_rect(x + si, y + h as i16 - si * 2, w.saturating_sub(s * 2), s);
+        let _ = g.fill_rect(x + w as i16 - si * 2, y + si, s, h.saturating_sub(s * 2));
+        let _ = g.set_foreground(scale_rgb(bg, 0.5));
+        let _ = g.draw_rect(x, y, w, h);
+        return (fg, i16::from(sunken));
+    }
     let face = if sunken { scale_rgb(bg, 0.85) } else { bg };
     let _ = g.set_foreground(face);
     let _ = g.fill_rect(x, y, w, h);
@@ -381,12 +506,20 @@ pub fn window_frame(
     top: i16,
     size: Dimension,
     border: Colour,
-    _title: Colour,
-    _title_h: u16,
-    _focused: bool,
+    title: Colour,
+    title_h: u16,
+    focused: bool,
 ) {
     let (w, h) = size.as_px();
     let bh = h.saturating_sub(top.max(0) as u16);
+    if outlined() && w >= 4 && bh >= 4 {
+        outlined_window_frame(g, top, Dimension::px(w, bh), border, title, title_h, focused);
+        return;
+    }
+    if element_ops("frame_left").is_some() {
+        element_window_frame(g, top, w, bh, focused);
+        return;
+    }
     let _ = g.set_foreground(border);
     let _ = g.fill_rect(0, top, w, bh);
     if w < 2 || bh < 2 {
@@ -409,9 +542,168 @@ pub fn window_frame(
     let _ = g.set_foreground(shadow());
     let _ = g.fill_rect(wi - si * 2, y0 + si, s, bh.saturating_sub(s * 2));
     let _ = g.fill_rect(si, yb - si * 2, w.saturating_sub(s * 2), s);
+
+    if frame_outline() {
+        let _ = g.set_foreground(dark());
+        let _ = g.draw_rect(0, y0, w.saturating_sub(1), bh.saturating_sub(1));
+    }
 }
 
-pub fn title_stipple(_g: &dyn GraphicsContext, _x: i16, _y: i16, _w: u16, _h: u16, _base: u32) {}
+fn element_window_frame(g: &dyn GraphicsContext, top: i16, w: u16, bh: u16, focused: bool) {
+    let s = hairline(w, bh);
+    let wi = w as i16;
+    let y0 = top;
+    let yb = top + bh as i16;
+    let bw = antibox_gfx::scale::scaled(i32::from(border_base())).max(i32::from(s)) as u16;
+    let bb = antibox_gfx::scale::scaled(i32::from(border_bottom_base())).max(i32::from(s)) as u16;
+    let _ = g.set_foreground(face());
+    let _ = g.fill_rect(0, y0, w, bh);
+    let strips: [(&str, i16, i16, u16, u16); 4] = [
+        ("frame_left", 0, y0, bw, bh),
+        ("frame_right", wi - bw as i16, y0, bw, bh),
+        ("frame_top", 0, y0, w, bw),
+        ("frame_bottom", 0, yb - bb as i16, w, bb),
+    ];
+    for (key, sx, sy, sw, sh) in strips {
+        let ops = if focused {
+            element_ops(key)
+        } else {
+            element_ops(&[key, "_inactive"].concat()).or_else(|| element_ops(key))
+        };
+        if let Some(ops) = ops {
+            paint_element(g, &ops, sx, sy, sw, sh, face());
+        }
+    }
+}
+
+fn outlined_window_frame(
+    g: &dyn GraphicsContext,
+    top: i16,
+    size: Dimension,
+    border: Colour,
+    title: Colour,
+    title_h: u16,
+    focused: bool,
+) {
+    let (w, bh) = size.as_px();
+    let s = hairline(w, bh);
+    let si = s as i16;
+    let wi = w as i16;
+    let y0 = top;
+    let yb = top + bh as i16;
+    let bw = (antibox_gfx::scale::scaled(i32::from(border_base())) as i16).max(si * 2);
+    let th = title_h as i16;
+    let dk = scale_rgb(border, 0.5);
+    let mid = scale_rgb(border, 0.83);
+
+    let _ = g.set_foreground(border);
+    let _ = g.fill_rect(0, y0, w, bh);
+
+    let tail = antibox_gfx::scale::scaled(26) as i16;
+    let lfs = if yb - y0 > bw * 2 + th + tail {
+        y0 + bw + th + tail
+    } else {
+        y0 + bw + th
+    };
+    let _ = g.set_foreground(scale_rgb(title, 1.5));
+    let _ = g.fill_rect(si, y0 + si, w.saturating_sub(s * 2), s);
+    let _ = g.fill_rect(si, y0 + si, s, (lfs - y0 - si).max(0) as u16);
+    let _ = g.set_foreground(scale_rgb(title, 0.83));
+    let _ = g.fill_rect(si * 2, y0 + bw + th, s, (lfs - si - (y0 + bw + th)).max(0) as u16);
+    let _ = g.set_foreground(light());
+    let _ = g.fill_rect(si, lfs + si, s, (yb - si - lfs - si).max(0) as u16);
+    let bb = (antibox_gfx::scale::scaled(i32::from(border_bottom_base())) as i16).max(bw);
+    let _ = g.set_foreground(dk);
+    let _ = g.fill_rect(wi - si * 2, y0 + si, s, (yb - bb - y0 - si).max(0) as u16);
+
+    let cy = y0 + bw + th - si;
+    let cw = w.saturating_sub((bw - si) as u16 * 2);
+    let _ = g.set_foreground(dk);
+    let _ = g.fill_rect(bw - si, cy, cw, s);
+    let _ = g.fill_rect(bw - si, yb - bb, cw, s);
+    let _ = g.fill_rect(bw - si, cy, s, (yb - bb - cy + si).max(0) as u16);
+    let _ = g.fill_rect(wi - bw, cy, s, (yb - bb - cy + si).max(0) as u16);
+
+    let gy = yb - bb + si;
+    let gh = (bb - si * 2).max(si) as u16;
+    let cl = antibox_gfx::scale::scaled(20) as i16;
+    let sections: &[(i16, i16, bool)] = &if wi > cl * 4 {
+        [
+            (si, cl, false),
+            (cl + si, wi - cl - si, true),
+            (wi - cl, wi - si, false),
+        ]
+    } else {
+        [(si, wi - si, true), (0, 0, false), (0, 0, false)]
+    };
+    for &(sx, ex, middle) in sections {
+        let sw = (ex - sx).max(0) as u16;
+        if sw == 0 {
+            continue;
+        }
+        let fill = if middle && focused { border } else { mid };
+        let _ = g.set_foreground(fill);
+        let _ = g.fill_rect(sx, gy, sw, gh);
+        let _ = g.set_foreground(light());
+        let _ = g.fill_rect(sx, gy, sw, s);
+        let _ = g.fill_rect(sx, gy, s, gh);
+        let _ = g.set_foreground(dk);
+        let _ = g.fill_rect(sx, gy + gh as i16 - si, sw, s);
+        let _ = g.fill_rect(ex - si, gy, s, gh);
+    }
+
+    let _ = g.set_foreground(0x0000_0000);
+    let _ = g.fill_rect(0, y0, w, s);
+    let _ = g.fill_rect(0, y0, s, bh);
+    let _ = g.fill_rect(wi - si, y0, s, bh);
+    let _ = g.fill_rect(0, yb - si, w, s);
+    let _ = g.fill_rect(si, lfs, s, s);
+    let _ = g.fill_rect(si * 2, lfs - si, s, s);
+}
+
+pub fn title_stipple(g: &dyn GraphicsContext, x: i16, y: i16, w: u16, h: u16, base: u32) {
+    let s = antibox_gfx::scale::scaled(1).max(1) as i16;
+    if (w as i16) < s * 4 || (h as i16) < s * 6 {
+        return;
+    }
+    if title_stripes() {
+        let lite = match title_stripe_hi() {
+            0 => tint_rgb(base, 0.9),
+            c => c,
+        };
+        let dk = match title_stripe_sh() {
+            0 => scale_rgb(base, 0.5),
+            c => c,
+        };
+        let mut yy = y + s * 2;
+        let y1 = y + h as i16 - s * 2;
+        let mut i = 0;
+        while yy <= y1 {
+            let _ = g.set_foreground(if i % 2 == 0 { lite } else { dk });
+            let _ = g.fill_rect(x, yy, w, s as u16);
+            yy += s;
+            i += 1;
+        }
+        return;
+    }
+    if !title_stipple_enabled() {
+        return;
+    }
+    let x1 = x + w as i16 - s * 2;
+    let y1 = y + h as i16 - s * 2;
+    for (colour, dx) in [(scale_rgb(base, 1.5), 0), (scale_rgb(base, 0.667), s)] {
+        let _ = g.set_foreground(colour);
+        let mut yy = y + s * 2;
+        while yy <= y1 {
+            let mut xx = x + dx;
+            while xx <= x1 {
+                let _ = g.fill_rect(xx, yy + dx, s as u16, s as u16);
+                xx += s * 3;
+            }
+            yy += s * 4;
+        }
+    }
+}
 
 pub fn panel_edge_height() -> u16 {
     antibox_gfx::scale::scaled(1).max(1) as u16 * 2
