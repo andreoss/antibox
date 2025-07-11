@@ -118,3 +118,21 @@
         assert!(crate::theme::draw_element(&g, "button", 0, 0, 20, 20));
         assert!(!crate::theme::draw_element(&g, "nope", 0, 0, 20, 20));
     }
+
+#[test]
+fn all_builtin_themes_parse() {
+    for (name, text) in crate::theme::BUILTIN_THEMES {
+        let def = crate::theme::load::from_toml(text)
+            .unwrap_or_else(|e| panic!("theme {name} failed to parse: {e:?}"));
+        assert_eq!(def.name, *name, "theme {name} has a mismatched name field");
+        for (el, ops) in &def.elements {
+            assert!(
+                !ops.is_empty(),
+                "theme {name} declares element {el} with no ops"
+            );
+        }
+        for c in ["face", "text", "title_active", "title_inactive"] {
+            assert!(def.colours.contains_key(c), "theme {name} lacks colour {c}");
+        }
+    }
+}

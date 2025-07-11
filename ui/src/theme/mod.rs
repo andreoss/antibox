@@ -15,6 +15,19 @@ static LOADED: LazyRwLock<Option<ThemeDef>> = LazyRwLock::new();
 
 pub const NT_THEME: &str = include_str!("../../../share/themes/nt.toml");
 pub const K3_THEME: &str = include_str!("../../../share/themes/2k3.toml");
+pub const KDE_THEME: &str = include_str!("../../../share/themes/kde.toml");
+pub const MACOS9_THEME: &str = include_str!("../../../share/themes/macos9.toml");
+pub const SERENITY_THEME: &str = include_str!("../../../share/themes/serenity.toml");
+
+pub const BUILTIN_THEMES: &[(&str, &str)] = &[
+    ("nt", NT_THEME),
+    ("2k3", K3_THEME),
+    ("kde", KDE_THEME),
+    ("macos9", MACOS9_THEME),
+    ("serenity", SERENITY_THEME),
+];
+
+pub const BUILTIN_THEME_NAMES: &[&str] = &["nt", "2k3", "kde", "macos9", "serenity"];
 
 pub fn install(def: ThemeDef) {
     if let Ok(mut g) = LOADED.write() {
@@ -23,10 +36,10 @@ pub fn install(def: ThemeDef) {
 }
 
 pub fn install_named(name: &str) -> bool {
-    let text = match name {
-        "2k3" => K3_THEME,
-        _ => NT_THEME,
-    };
+    let text = BUILTIN_THEMES
+        .iter()
+        .find(|(n, _)| *n == name)
+        .map_or(NT_THEME, |(_, t)| *t);
     match load::from_toml(text) {
         Ok(def) => {
             install(def);
@@ -104,6 +117,65 @@ fn metric_or<T: FromI64>(name: &str, fallback: T) -> T {
         Some(d) => d.metric(name).and_then(T::from_i64).unwrap_or(fallback),
         None => fallback,
     }
+}
+
+fn flag_or(name: &str, fallback: bool) -> bool {
+    match current() {
+        Some(d) => d.flag(name).unwrap_or(fallback),
+        None => fallback,
+    }
+}
+
+pub fn chrome_override() -> bool {
+    flag_or("override_chrome", false)
+}
+
+pub fn outlined() -> bool {
+    flag_or("outlined", false)
+}
+
+pub fn grad_buttons() -> bool {
+    flag_or("grad_buttons", false)
+}
+
+pub fn equal_tabs() -> bool {
+    flag_or("equal_tabs", false)
+}
+
+pub fn symmetric_title_buttons() -> bool {
+    flag_or("symmetric_buttons", false)
+}
+
+pub fn title_gradient_vertical() -> bool {
+    flag_or("title_grad_vertical", false)
+}
+
+pub fn title_stipple_enabled() -> bool {
+    flag_or("title_stipple", false)
+}
+
+pub fn title_stripes() -> bool {
+    flag_or("title_stripes", false)
+}
+
+pub fn title_icon() -> bool {
+    flag_or("title_icon", false)
+}
+
+pub fn hide_buttons_inactive() -> bool {
+    flag_or("hide_buttons_inactive", false)
+}
+
+pub fn frame_outline() -> bool {
+    flag_or("frame_outline", false)
+}
+
+pub fn title_stripe_hi() -> Colour {
+    colour_or("title_stripe_hi", 0)
+}
+
+pub fn title_stripe_sh() -> Colour {
+    colour_or("title_stripe_sh", 0)
 }
 
 fn string_or(name: &str, fallback: &str) -> String {
@@ -278,8 +350,32 @@ const NT_GLYPHS: &[(&str, &[u16])] = &[
     ),
 ];
 
-pub fn title_glyph(key: &str) -> Option<&'static [u16]> {
-    NT_GLYPHS.iter().find(|(k, _)| *k == key).map(|(_, v)| *v)
+pub fn title_glyph(key: &str) -> Option<Vec<u16>> {
+    if let Some(rows) = current().and_then(|d| d.glyph(key).map(<[u16]>::to_vec)) {
+        return Some(rows);
+    }
+    NT_GLYPHS
+        .iter()
+        .find(|(k, _)| *k == key)
+        .map(|(_, v)| v.to_vec())
+}
+
+pub(crate) fn element_ops(name: &str) -> Option<Vec<dsl::Op>> {
+    current().and_then(|d| d.element(name).map(<[dsl::Op]>::to_vec))
+}
+
+pub(crate) fn paint_element(
+    g: &dyn antibox_gfx::backend::GraphicsContext,
+    ops: &[dsl::Op],
+    x: i16,
+    y: i16,
+    w: u16,
+    h: u16,
+    bg: Colour,
+) {
+    let Some(def) = current() else { return };
+    let s = antibox_gfx::scale::scaled(1).max(1) as i16;
+    exec::draw_ops_on(g, &def, ops, x, y, w as i16, h as i16, s, Some(bg));
 }
 
 pub fn pad_base() -> u16 {

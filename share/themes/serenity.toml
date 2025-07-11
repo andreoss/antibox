@@ -1,0 +1,70 @@
+name = "serenity"
+
+[colors]
+face = "#D4D0C8"
+field = "#FFFFFF"
+text = "#000000"
+disabled = "#808080"
+sel_bg = "#84351A"
+sel_fg = "#FFFFFF"
+menu_sel_bg = "#D2C0B6"
+menu_sel_fg = "#000000"
+light = "#FFFFFF"
+face_light = "#E3DFDB"
+button_face = "#D4D0C8"
+shadow = "#808080"
+dark = "#404040"
+tooltip_bg = "#FFFFE1"
+tooltip_fg = "#000000"
+sel_line = "#84351A"
+title_active = "#6E2209"
+title_text = "#FFFFFF"
+title_inactive = "#808080"
+title_text_inactive = "#D5D0C7"
+title_gradient = "#F4CA9E"
+title_gradient_inactive = "#C0C0C0"
+graph_bg = "#FFFFFF"
+graph1 = "#A00000"
+graph2 = "#00A0A0"
+graph3 = "#84351A"
+graph4 = "#404040"
+
+[metrics]
+corner_radius = 0
+pad = 4
+gap = 2
+item_gap = 2
+title_height = 19
+border = 4
+border_bottom = 4
+button_base = 15
+button_inset = 3
+title_justify = 0
+sunken_depth = 1
+
+[strings]
+title_buttons = "xmi"
+taskbar_justify = "left"
+
+[flags]
+flat = false
+dotted_sel = false
+underline_focus = false
+override_chrome = true
+tab_title = false
+sculpted = false
+outlined = false
+coloured_frame = false
+menu_glyph = false
+title_stipple = false
+title_grad_vertical = false
+grad_buttons = false
+equal_tabs = false
+title_stripes = true
+
+[glyphs]
+minimize = [0x0000, 0x0000, 0x0000, 0x01FE, 0x00FC, 0x0078, 0x0030, 0x0000, 0x0000, 0x0000]
+maximize = [0x0000, 0x0000, 0x0000, 0x0030, 0x0078, 0x00FC, 0x01FE, 0x0000, 0x0000, 0x0000]
+restore = [0x0000, 0x0000, 0x0030, 0x0078, 0x01FE, 0x0000, 0x01FE, 0x0078, 0x0030, 0x0000]
+close = [0x0000, 0x0303, 0x0186, 0x00CC, 0x0078, 0x0078, 0x00CC, 0x0186, 0x0303, 0x0000]
+
