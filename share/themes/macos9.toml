@@ -1,0 +1,268 @@
+name = "macos9"
+
+[colors]
+face = "#DDDDDD"
+field = "#FFFFFF"
+text = "#000000"
+disabled = "#999999"
+sel_bg = "#CCCCFF"
+sel_fg = "#000000"
+menu_sel_bg = "#3366CC"
+menu_sel_fg = "#FFFFFF"
+menu_bg = "#FFFFFF"
+tab_page = "#EEEEEE"
+light = "#FFFFFF"
+face_light = "#EEEEEE"
+button_face = "#DDDDDD"
+shadow = "#999999"
+dark = "#000000"
+tooltip_bg = "#FFFFCC"
+tooltip_fg = "#000000"
+sel_line = "#3366CC"
+title_active = "#CCCCCC"
+title_text = "#000000"
+title_inactive = "#DDDDDD"
+title_text_inactive = "#888888"
+title_gradient = "#CCCCCC"
+title_gradient_inactive = "#DDDDDD"
+title_stripe_hi = "#FFFFFF"
+title_stripe_sh = "#777777"
+scrollbar_track = "#AAAAAA"
+graph_bg = "#000000"
+graph1 = "#3366CC"
+graph2 = "#CCCCFF"
+graph3 = "#999999"
+graph4 = "#FFFFFF"
+
+[metrics]
+corner_radius = 0
+button_radius = 7
+title_inset = 2
+pad = 4
+gap = 2
+item_gap = 2
+title_height = 20
+border = 6
+border_bottom = 6
+scrollbar_base = 16
+button_base = 16
+button_inset = 3
+title_justify = 50
+sunken_depth = 1
+
+[strings]
+title_buttons = "xmi"
+title_layout_left = "x"
+title_layout_right = "im"
+taskbar_justify = "left"
+
+[flags]
+tab_flush = true
+tab_bold = true
+flat = false
+dotted_sel = false
+underline_focus = false
+override_chrome = true
+tab_title = false
+sculpted = false
+outlined = false
+coloured_frame = false
+frame_outline = true
+menu_glyph = false
+menu_text_only = true
+title_stipple = false
+title_stripes = true
+hide_buttons_inactive = true
+title_icon = true
+title_grad_vertical = false
+grad_buttons = true
+equal_tabs = false
+scroll_arrows_bottom = true
+bilevel_text = true
+
+[glyphs]
+close = [0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000]
+minimize = [0x03FF, 0x0201, 0x0201, 0x03FF, 0x0201, 0x0201, 0x0201, 0x0201, 0x0201, 0x03FF]
+maximize = [0x03FF, 0x0201, 0x021F, 0x0213, 0x021F, 0x0201, 0x0201, 0x0201, 0x0201, 0x03FF]
+restore = [0x03FF, 0x0201, 0x021F, 0x0213, 0x021F, 0x0201, 0x0201, 0x0201, 0x0201, 0x03FF]
+
+[elements.button]
+ops = [
+    { op = "fill", x = "s", y = "s", w = "w-2*s", h = "h-2*s", colour = "face" },
+    { op = "fill", x = "2*s", y = "2*s", w = "w-4*s", h = "s", colour = "light" },
+    { op = "fill", x = "2*s", y = "2*s", w = "s", h = "h-4*s", colour = "light" },
+    { op = "fill", x = "2*s", y = "h-3*s", w = "w-4*s", h = "s", colour = "#AAAAAA" },
+    { op = "fill", x = "2*s", y = "h-2*s", w = "w-4*s", h = "s", colour = "#777777" },
+    { op = "outline", x = "0", y = "0", w = "w-s", h = "h-s", colour = "dark" },
+]
+
+[elements.button_pressed]
+ops = [
+    { op = "gradient", x = "s", y = "s", w = "w-2*s", h = "h-2*s", from = "face*0.78", to = "face*0.9", kind = "vertical" },
+    { op = "fill", x = "s", y = "s", w = "w-2*s", h = "s", colour = "face*0.68" },
+    { op = "outline", x = "0", y = "0", w = "w-s", h = "h-s", colour = "shadow*0.42" },
+]
+
+[elements.tab]
+ops = [
+    { op = "polygon", points = [["h/4", "0"], ["w-h/4", "0"], ["w", "h"], ["0", "h"]], colour = "dark" },
+    { op = "polygon", points = [["h/4+s", "s"], ["w-h/4-s", "s"], ["w", "h"], ["0", "h"]], colour = "#CCCCCC" },
+]
+
+[elements.tab_active]
+ops = [
+    { op = "polygon", points = [["h/4", "0"], ["w-h/4", "0"], ["w", "h"], ["0", "h"]], colour = "dark" },
+    { op = "polygon", points = [["h/4+s", "s"], ["w-h/4-s", "s"], ["w", "h"], ["0", "h"]], colour = "tab_page" },
+    { op = "line", x1 = "h/4+s", y1 = "s", x2 = "w-h/4-s", y2 = "s", colour = "light" },
+]
+
+[elements.scroll_button]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "face" },
+    { op = "fill", x = "s", y = "s", w = "w-2*s", h = "s", colour = "light" },
+    { op = "outline", x = "0", y = "0", w = "w-s", h = "h-s", colour = "dark" },
+]
+
+[elements.scroll_thumb]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "#9999FF" },
+    { op = "fill", x = "s", y = "s", w = "w-2*s", h = "s", colour = "#CCCCFF" },
+    { op = "fill", x = "s", y = "s", w = "s", h = "h-2*s", colour = "#CCCCFF" },
+    { op = "fill", x = "3*s", y = "h/2-2*s", w = "w-6*s", h = "s", colour = "#6666CC" },
+    { op = "fill", x = "3*s", y = "h/2", w = "w-6*s", h = "s", colour = "#6666CC" },
+    { op = "fill", x = "3*s", y = "h/2+2*s", w = "w-6*s", h = "s", colour = "#6666CC" },
+    { op = "outline", x = "0", y = "0", w = "w-s", h = "h-s", colour = "#6666CC" },
+]
+
+[elements.title_bar]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "#CCCCCC" },
+    { op = "fill", x = "0", y = "h-2*s", w = "w", h = "s", colour = "#999999" },
+    { op = "fill", x = "0", y = "h-s", w = "w", h = "s", colour = "#000000" },
+]
+
+[elements.frame_left]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "s", h = "h", colour = "#000000" },
+    { op = "fill", x = "s", y = "0", w = "s", h = "h", colour = "#FFFFFF" },
+    { op = "fill", x = "2*s", y = "0", w = "w-4*s", h = "h", colour = "#CCCCCC" },
+    { op = "fill", x = "w-2*s", y = "0", w = "s", h = "h", colour = "#999999" },
+    { op = "fill", x = "w-s", y = "0", w = "s", h = "h", colour = "#000000" },
+]
+
+[elements.frame_right]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "s", h = "h", colour = "#000000" },
+    { op = "fill", x = "w-s", y = "0", w = "s", h = "h", colour = "#000000" },
+    { op = "fill", x = "s", y = "0", w = "s", h = "h", colour = "#FFFFFF" },
+    { op = "fill", x = "2*s", y = "0", w = "w-4*s", h = "h", colour = "#CCCCCC" },
+    { op = "fill", x = "w-2*s", y = "0", w = "s", h = "h", colour = "#999999" },
+]
+
+[elements.frame_top]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "#CCCCCC" },
+    { op = "fill", x = "s", y = "s", w = "w-2*s", h = "s", colour = "#FFFFFF" },
+    { op = "fill", x = "s", y = "s", w = "s", h = "h-s", colour = "#FFFFFF" },
+    { op = "fill", x = "w-2*s", y = "s", w = "s", h = "s", colour = "#CCCCCC" },
+    { op = "fill", x = "w-2*s", y = "2*s", w = "s", h = "h-2*s", colour = "#999999" },
+    { op = "fill", x = "0", y = "0", w = "w", h = "s", colour = "#000000" },
+    { op = "fill", x = "0", y = "0", w = "s", h = "h", colour = "#000000" },
+    { op = "fill", x = "w-s", y = "0", w = "s", h = "h", colour = "#000000" },
+]
+
+[elements.frame_bottom]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "#CCCCCC" },
+    { op = "fill", x = "2*s", y = "0", w = "w-4*s", h = "s", colour = "#000000" },
+    { op = "fill", x = "2*s", y = "s", w = "w-4*s", h = "s", colour = "#FFFFFF" },
+    { op = "fill", x = "2*s", y = "h-2*s", w = "w-4*s", h = "s", colour = "#999999" },
+    { op = "fill", x = "0", y = "0", w = "s", h = "h", colour = "#000000" },
+    { op = "fill", x = "s", y = "0", w = "s", h = "h-2*s", colour = "#FFFFFF" },
+    { op = "fill", x = "s", y = "h-2*s", w = "s", h = "s", colour = "#CCCCCC" },
+    { op = "fill", x = "w-2*s", y = "0", w = "s", h = "h-s", colour = "#999999" },
+    { op = "fill", x = "w-s", y = "0", w = "s", h = "h", colour = "#000000" },
+    { op = "fill", x = "0", y = "h-s", w = "w", h = "s", colour = "#000000" },
+]
+
+[elements.title_close]
+ops = [
+    { op = "fill", x = "w/6-s", y = "h/8-s", w = "w-w/6-w/6", h = "s", colour = "#888888" },
+    { op = "fill", x = "w/6-s", y = "h/8-s", w = "s", h = "h-h/8-h/8", colour = "#888888" },
+    { op = "outline", x = "w/6", y = "h/8", w = "w-w/6-w/6-s", h = "h-h/8-h/8-s", colour = "#222222" },
+    { op = "gradient", x = "w/6+s", y = "h/8+s", w = "w-w/6-w/6-2*s", h = "h-h/8-h/8-2*s", from = "#999999", to = "#FFFFFF", kind = "diagonal" },
+    { op = "fill", x = "w-w/6-2*s", y = "h/8+s", w = "s", h = "h-h/8-h/8-2*s", colour = "#888888" },
+    { op = "fill", x = "w/6+s", y = "h-h/8-2*s", w = "w-w/6-w/6-2*s", h = "s", colour = "#888888" },
+    { op = "fill", x = "w-w/6", y = "h/8", w = "s", h = "h-h/8-h/8+s", colour = "#FFFFFF" },
+    { op = "fill", x = "w/6", y = "h-h/8", w = "w-w/6-w/6+s", h = "s", colour = "#FFFFFF" },
+]
+
+[elements.title_maximize]
+ops = [
+    { op = "fill", x = "w/6-s", y = "h/8-s", w = "w-w/6-w/6", h = "s", colour = "#888888" },
+    { op = "fill", x = "w/6-s", y = "h/8-s", w = "s", h = "h-h/8-h/8", colour = "#888888" },
+    { op = "outline", x = "w/6", y = "h/8", w = "w-w/6-w/6-s", h = "h-h/8-h/8-s", colour = "#222222" },
+    { op = "gradient", x = "w/6+s", y = "h/8+s", w = "w-w/6-w/6-2*s", h = "h-h/8-h/8-2*s", from = "#999999", to = "#FFFFFF", kind = "diagonal" },
+    { op = "fill", x = "w-w/6-2*s", y = "h/8+s", w = "s", h = "h-h/8-h/8-2*s", colour = "#888888" },
+    { op = "fill", x = "w/6+s", y = "h-h/8-2*s", w = "w-w/6-w/6-2*s", h = "s", colour = "#888888" },
+    { op = "fill", x = "w/2+s", y = "h/8", w = "s", h = "h/2-h/8+2*s", colour = "#222222" },
+    { op = "fill", x = "w/6", y = "h/2+s", w = "w/2-w/6+2*s", h = "s", colour = "#222222" },
+    { op = "fill", x = "w-w/6", y = "h/8", w = "s", h = "h-h/8-h/8+s", colour = "#FFFFFF" },
+    { op = "fill", x = "w/6", y = "h-h/8", w = "w-w/6-w/6+s", h = "s", colour = "#FFFFFF" },
+]
+
+[elements.title_restore]
+ops = [
+    { op = "fill", x = "w/6-s", y = "h/8-s", w = "w-w/6-w/6", h = "s", colour = "#888888" },
+    { op = "fill", x = "w/6-s", y = "h/8-s", w = "s", h = "h-h/8-h/8", colour = "#888888" },
+    { op = "outline", x = "w/6", y = "h/8", w = "w-w/6-w/6-s", h = "h-h/8-h/8-s", colour = "#222222" },
+    { op = "gradient", x = "w/6+s", y = "h/8+s", w = "w-w/6-w/6-2*s", h = "h-h/8-h/8-2*s", from = "#999999", to = "#FFFFFF", kind = "diagonal" },
+    { op = "fill", x = "w-w/6-2*s", y = "h/8+s", w = "s", h = "h-h/8-h/8-2*s", colour = "#888888" },
+    { op = "fill", x = "w/6+s", y = "h-h/8-2*s", w = "w-w/6-w/6-2*s", h = "s", colour = "#888888" },
+    { op = "fill", x = "w/2+s", y = "h/8", w = "s", h = "h/2-h/8+2*s", colour = "#222222" },
+    { op = "fill", x = "w/6", y = "h/2+s", w = "w/2-w/6+2*s", h = "s", colour = "#222222" },
+    { op = "fill", x = "w-w/6", y = "h/8", w = "s", h = "h-h/8-h/8+s", colour = "#FFFFFF" },
+    { op = "fill", x = "w/6", y = "h-h/8", w = "w-w/6-w/6+s", h = "s", colour = "#FFFFFF" },
+]
+
+[elements.title_minimize]
+ops = [
+    { op = "fill", x = "w/6-s", y = "h/8-s", w = "w-w/6-w/6", h = "s", colour = "#888888" },
+    { op = "fill", x = "w/6-s", y = "h/8-s", w = "s", h = "h-h/8-h/8", colour = "#888888" },
+    { op = "outline", x = "w/6", y = "h/8", w = "w-w/6-w/6-s", h = "h-h/8-h/8-s", colour = "#222222" },
+    { op = "gradient", x = "w/6+s", y = "h/8+s", w = "w-w/6-w/6-2*s", h = "h-h/8-h/8-2*s", from = "#999999", to = "#FFFFFF", kind = "diagonal" },
+    { op = "fill", x = "w-w/6-2*s", y = "h/8+s", w = "s", h = "h-h/8-h/8-2*s", colour = "#888888" },
+    { op = "fill", x = "w/6+s", y = "h-h/8-2*s", w = "w-w/6-w/6-2*s", h = "s", colour = "#888888" },
+    { op = "fill", x = "w/6+s", y = "h/2", w = "w-w/6-w/6-2*s", h = "s", colour = "#222222" },
+    { op = "fill", x = "w-w/6", y = "h/8", w = "s", h = "h-h/8-h/8+s", colour = "#FFFFFF" },
+    { op = "fill", x = "w/6", y = "h-h/8", w = "w-w/6-w/6+s", h = "s", colour = "#FFFFFF" },
+]
+
+[elements.frame_left_inactive]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "#DDDDDD" },
+    { op = "fill", x = "0", y = "0", w = "s", h = "h", colour = "#555555" },
+]
+
+[elements.frame_right_inactive]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "#DDDDDD" },
+    { op = "fill", x = "w-s", y = "0", w = "s", h = "h", colour = "#555555" },
+]
+
+[elements.frame_top_inactive]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "#DDDDDD" },
+    { op = "fill", x = "0", y = "0", w = "w", h = "s", colour = "#555555" },
+    { op = "fill", x = "0", y = "0", w = "s", h = "h", colour = "#555555" },
+    { op = "fill", x = "w-s", y = "0", w = "s", h = "h", colour = "#555555" },
+]
+
+[elements.frame_bottom_inactive]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "#DDDDDD" },
+    { op = "fill", x = "0", y = "0", w = "s", h = "h", colour = "#555555" },
+    { op = "fill", x = "w-s", y = "0", w = "s", h = "h", colour = "#555555" },
+    { op = "fill", x = "0", y = "h-s", w = "w", h = "s", colour = "#555555" },
+]
+

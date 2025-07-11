@@ -343,15 +343,15 @@ pub fn title_glyph_bitmap(
             }
         }
     };
-    blit(rows);
+    blit(&rows);
 
     if let Some(hi) = title_glyph(&format!("{key}_hi")) {
         let _ = g.set_foreground(face_light());
-        blit(hi);
+        blit(&hi);
     }
     if let Some(sh) = title_glyph(&format!("{key}_sh")) {
         let _ = g.set_foreground(shadow());
-        blit(sh);
+        blit(&sh);
     }
     true
 }
