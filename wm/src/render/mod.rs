@@ -363,6 +363,7 @@ fn draw_title_bar(
 }
 
 fn draw_menu_button(
+    fw: &FrameWindow,
     g: &dyn GraphicsContext,
     focused: bool,
     colours: &ThemeColors,
@@ -389,15 +390,17 @@ fn draw_menu_button(
         let _ = antibox_ui::theme::title_glyph_bitmap(g, "menu", x + off, y + off, w, h);
         return;
     }
-    let (x, y, w, h) = (rect.x as i16, rect.y as i16, rect.w as u16, rect.h as u16);
-    let fg = if focused {
-        colours.active_text
+    let sz = (rect.w.min(rect.h) - antibox_core::scale::scaled(2)).max(8) as u16;
+    let bg = if focused {
+        colours.active_title_top
     } else {
-        colours.inactive_text
+        colours.inactive_title_top
     };
-    g.set_foreground(fg).ok();
+    let pm = crate::icon_render::resolve_client_icon(fw.client().icons(), sz, bg);
     let off = i16::from(sunken);
-    let _ = draw_button_glyph(g, "menu", x + off, y + off, w, h);
+    let x = rect.x as i16 + ((rect.w as i16 - sz as i16) / 2).max(0) + off;
+    let y = rect.y as i16 + ((rect.h as i16 - sz as i16) / 2).max(0) + off;
+    let _ = g.draw_pixmap(x, y, &pm);
 }
 
 fn draw_title_text(
@@ -432,21 +435,29 @@ fn draw_title_text(
     } else {
         0
     };
-    let mut text_x = text_x;
     let icon_px = antibox_ui::metrics::icon()
         .min(title_bar_height() - 2)
         .max(8) as u16;
-    if text_right - text_x > icon_px as i16 * 2 {
-        let icon = crate::icon_render::resolve_client_icon(fw.client().icons(), icon_px, bar_bg);
-        let iy = (bar_top + (title_bar_height() - icon_px as i32) / 2) as i16;
-        let _ = g.draw_pixmap(text_x, iy, &icon);
-        text_x += icon_px as i16 + antibox_ui::metrics::gap() as i16;
-    }
+    let icon = if antibox_ui::theme::title_icon() && text_right - text_x > icon_px as i16 * 2 {
+        Some(crate::icon_render::resolve_client_icon(
+            fw.client().icons(),
+            icon_px,
+            bar_bg,
+        ))
+    } else {
+        None
+    };
+    let iw = icon.as_ref().map_or(0, |p| p.width as i32);
+    let igap = if iw > 0 {
+        antibox_ui::metrics::gap()
+    } else {
+        0
+    };
     let avail = (text_right - text_x - 4).max(0) as u16;
     let bar_baseline = antibox_ui::metrics::baseline(0, title_bar_height());
     let baseline = bar_top + bar_baseline;
 
-    let text_avail = avail;
+    let text_avail = (avail as i32 - iw - igap).max(0) as u16;
     let (title, shift) = match antibox_ui::ticker::fit_on_at(
         antibox_ui::ticker::Surface::Title,
         g,
@@ -458,17 +469,21 @@ fn draw_title_text(
         antibox_ui::ticker::Fit::Scroll { text, shift } => (text, Some(shift)),
     };
     let tw = match shift {
-        Some(_) => avail as i32,
+        Some(_) => text_avail as i32,
         None => g.text_width(&title).unwrap_or(0) as i32,
     };
-    let slack = (avail as i32 - tw).max(0);
+    let slack = (avail as i32 - (iw + igap + tw)).max(0);
     let justify = crate::layout_preferences::title_justify() as i32;
     let block_x = text_x + (slack * justify / 100) as i16;
-    let tx = block_x;
+    if let Some(pm) = &icon {
+        let iy = (bar_top + (title_bar_height() - pm.height as i32) / 2).max(0) as i16;
+        let _ = g.draw_pixmap(block_x, iy, pm);
+    }
+    let tx = block_x + (iw + igap) as i16;
     match shift {
         Some(shift) => {
             let clip =
-                Rect::new(tx as i32, bar_top, avail as i32, title_bar_height());
+                Rect::new(tx as i32, bar_top, text_avail as i32, title_bar_height());
             let _ = g.push_clip(&clip);
             g.draw_text_transparent(tx - shift as i16, baseline as i16, &title)?;
             let _ = g.pop_clip();
@@ -658,7 +673,7 @@ fn draw_buttons(
             continue;
         }
         if pix_key == "menu" {
-            draw_menu_button(g, focused, colours, &rect, sunken);
+            draw_menu_button(fw, g, focused, colours, &rect, sunken);
             continue;
         }
         let (fg, off) =
