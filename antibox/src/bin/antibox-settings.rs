@@ -72,7 +72,7 @@ fn fields(p: &wmconfig::Prefs) -> Vec<Field> {
             "theme",
             "name",
             "Theme",
-            Kind::Choice(&["nt", "2k3"]),
+            Kind::Choice(theme::BUILTIN_THEME_NAMES),
             p.theme.name.clone(),
             false,
         ),
