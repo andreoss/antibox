@@ -31,8 +31,10 @@ use antibox_core::backend::*;
 use antibox_core::point::Point;
 use antibox_core::rect::Rect;
 use antibox_core::scale::scaled;
+use antibox_ui::combobox::ComboBox;
 use antibox_ui::menurender::draw_button_bevel;
 use antibox_ui::searchbar::{SearchBar, SearchEvent};
+use antibox_ui::theme::Arrow;
 use antibox_ui::{metrics, theme};
 use antibox_wm::settings_io::{self, SettingValue};
 use antibox_wm::wmconfig;
@@ -244,16 +246,29 @@ fn button_rects(l: &Layout, _n: usize) -> (CellRect, CellRect) {
     ((save_x, y, bw, bh), (quit_x, y, bw, bh))
 }
 
+struct Popup {
+    field: usize,
+    combo: ComboBox,
+    hover: Option<usize>,
+    win: Box<dyn WindowHandle>,
+}
+
 struct App {
     conn: Arc<dyn DisplayBackend>,
+    rb: Arc<dyn RenderBackend>,
     win: Box<dyn WindowHandle>,
     fields: Vec<Field>,
     l: Layout,
     focus: Option<usize>,
     pressed: Option<usize>,
+    popup: Option<Popup>,
     status: String,
     delete_atom: u32,
     protocols_atom: u32,
+}
+
+fn drop_button_w() -> u16 {
+    scaled(16).max(12) as u16
 }
 
 impl App {
@@ -303,6 +318,89 @@ impl App {
             .map_or(-1, |p| p as i32);
         let next = (pos + dir).rem_euclid(order.len() as i32) as usize;
         self.set_focus(Some(order[next]));
+    }
+
+    fn close_combo(&mut self) {
+        if let Some(p) = self.popup.take() {
+            let _ = p.win.unmap();
+            let _ = p.win.destroy();
+            let _ = self.conn.flush();
+        }
+    }
+
+    fn open_combo(&mut self, i: usize) {
+        let Kind::Choice(opts) = self.fields[i].kind else {
+            return;
+        };
+        self.close_combo();
+        let (cx, cy, cw, ch) = cell_rect(&self.l, i);
+        let mut combo = ComboBox::new(opts.iter().map(|o| (*o).to_string()).collect());
+        combo.selected = opts.iter().position(|o| *o == self.fields[i].text);
+        combo.set_rect(cx, cy, cw, ch);
+        combo.open = true;
+        let dh = combo.dropdown_height();
+        combo.open_upward = cy + ch as i16 + dh as i16 > self.l.h as i16 && cy - dh as i16 >= 0;
+        let (dx, dy, dw, _) = combo.dropdown_rect();
+        let Ok(win) = self.rb.create_window(
+            self.win.id(),
+            Rect::new(dx as i32, dy as i32, dw as i32, dh as i32),
+            WmWindowClass::InputOutput,
+            true,
+            EventMask::EXPOSURE
+                | EventMask::BUTTON_PRESS
+                | EventMask::BUTTON_RELEASE
+                | EventMask::POINTER_MOTION,
+        ) else {
+            return;
+        };
+        let _ = win.map();
+        let _ = win.raise();
+        let hover = combo.selected;
+        self.popup = Some(Popup {
+            field: i,
+            combo,
+            hover,
+            win,
+        });
+        self.paint_popup();
+        let _ = self.conn.flush();
+    }
+
+    fn paint_popup(&self) {
+        let Some(p) = self.popup.as_ref() else { return };
+        let Ok(g) = self.conn.create_graphics(p.win.id()) else {
+            return;
+        };
+        let (_, _, dw, dh) = p.combo.dropdown_rect();
+        let _ = g.set_font(&FontSpec::ui(metrics::font_pt()));
+        let _ = g.set_foreground(theme::list_bg());
+        let _ = g.fill_rect(0, 0, dw, dh);
+        let rows = p.combo.items.len().min(p.combo.max_visible);
+        let rh = p.combo.h;
+        for row in 0..rows {
+            let idx = p.combo.first_visible + row;
+            let Some(item) = p.combo.items.get(idx) else {
+                break;
+            };
+            let y = (row as i16) * rh as i16;
+            let selected = p.hover == Some(idx);
+            let (fg, bg) = if selected {
+                (theme::menu_sel_fg(), theme::menu_sel_bg())
+            } else {
+                (theme::text(), theme::list_bg())
+            };
+            if selected {
+                theme::menu_selection(&*g, 0, y, dw, rh, bg);
+            }
+            let _ = g.set_foreground(fg);
+            let _ = g.set_background(bg);
+            let _ = g.draw_text(
+                scaled(6) as i16,
+                metrics::baseline(y as i32, rh as i32) as i16,
+                item,
+            );
+        }
+        theme::bevel(&*g, 0, 0, dw, dh, false);
     }
 
     fn save(&mut self) {
@@ -368,15 +466,31 @@ impl App {
                     }
                 }
                 Kind::Choice(_) => {
-                    let _ = g.set_foreground(theme::face());
-                    let _ = g.fill_rect(cx, cy, cw, ch);
-                    let _ = draw_button_bevel(&*g, cx, cy, cw, ch, theme::face(), false);
+                    let bw = drop_button_w();
+                    let fw = cw.saturating_sub(bw);
+                    theme::sunken_field(&*g, cx, cy, fw, ch);
                     let _ = g.set_foreground(theme::text());
-                    let _ = g.set_background(theme::face());
+                    let _ = g.set_background(theme::field());
                     let _ = g.draw_text(
                         cx + scaled(6) as i16,
                         metrics::baseline(cy as i32, ch as i32) as i16,
                         &f.text,
+                    );
+                    let bx = cx + fw as i16;
+                    let down = self.popup.as_ref().is_some_and(|p| p.field == i);
+                    if !theme::themed_combo_button(&*g, bx, cy, bw, ch, down) {
+                        let _ = g.set_foreground(theme::face());
+                        let _ = g.fill_rect(bx, cy, bw, ch);
+                        let _ = draw_button_bevel(&*g, bx, cy, bw, ch, theme::face(), down);
+                    }
+                    let off = i16::from(down);
+                    theme::arrow_glyph(
+                        &*g,
+                        bx + bw as i16 / 2 + off,
+                        cy + ch as i16 / 2 + off,
+                        scaled(4).max(3) as i16,
+                        Arrow::Down,
+                        theme::arrow_colour(),
                     );
                 }
                 _ => {}
@@ -515,11 +629,13 @@ fn main() {
 
     let mut app = App {
         conn: Arc::clone(&conn),
+        rb: Arc::clone(&rb),
         win,
         fields,
         l,
         focus: None,
         pressed: None,
+        popup: None,
         status: String::new(),
         delete_atom,
         protocols_atom,
@@ -574,6 +690,8 @@ fn handle(app: &mut App, ev: &BackendEvent, mapping: Option<&KeyboardMapping>) -
         BackendEvent::Expose { window, .. } => {
             if *window == app.win.id() {
                 app.paint();
+            } else if app.popup.as_ref().is_some_and(|p| *window == p.win.id()) {
+                app.paint_popup();
             } else {
                 for f in &app.fields {
                     if let Some(bar) = &f.bar {
@@ -591,6 +709,32 @@ fn handle(app: &mut App, ev: &BackendEvent, mapping: Option<&KeyboardMapping>) -
             ..
         } => {
             if *button != 1 {
+                return true;
+            }
+            let picked = app.popup.as_ref().map(|p| {
+                let on_popup = *window == p.win.id();
+                let (_, dy, _, _) = p.combo.dropdown_rect();
+                let text = on_popup
+                    .then(|| p.combo.item_at(i32::from(dy) + point.y))
+                    .flatten()
+                    .and_then(|idx| p.combo.items.get(idx).cloned());
+                (p.field, on_popup, text)
+            });
+            if let Some((field, on_popup, text)) = picked {
+                app.close_combo();
+                if on_popup {
+                    if let Some(text) = text {
+                        app.fields[field].text = text;
+                    }
+                } else if *window == app.win.id() {
+                    let next = app
+                        .hit(*point)
+                        .filter(|&i| i != field && matches!(app.fields[i].kind, Kind::Choice(_)));
+                    if let Some(i) = next {
+                        app.open_combo(i);
+                    }
+                }
+                app.paint();
                 return true;
             }
             let mut bar_hit = None;
@@ -627,14 +771,32 @@ fn handle(app: &mut App, ev: &BackendEvent, mapping: Option<&KeyboardMapping>) -
                         app.fields[i].on = !app.fields[i].on;
                         app.paint();
                     }
-                    Kind::Choice(opts) => {
-                        let cur = app.fields[i].text.clone();
-                        let pos = opts.iter().position(|o| *o == cur).unwrap_or(0);
-                        app.fields[i].text = opts[(pos + 1) % opts.len()].to_string();
+                    Kind::Choice(_) => {
+                        let open = app.popup.as_ref().is_some_and(|p| p.field == i);
+                        if open {
+                            app.close_combo();
+                        } else {
+                            app.open_combo(i);
+                        }
                         app.paint();
                     }
                     _ => app.set_focus(Some(i)),
                 }
+            }
+        }
+        BackendEvent::MotionNotify { window, point, .. } => {
+            let moved = match app.popup.as_mut() {
+                Some(p) if *window == p.win.id() => {
+                    let (_, dy, _, _) = p.combo.dropdown_rect();
+                    let hover = p.combo.item_at(i32::from(dy) + point.y);
+                    let changed = hover != p.hover;
+                    p.hover = hover;
+                    changed
+                }
+                _ => false,
+            };
+            if moved {
+                app.paint_popup();
             }
         }
         BackendEvent::ButtonRelease { window, point, .. } => {
@@ -653,6 +815,10 @@ fn handle(app: &mut App, ev: &BackendEvent, mapping: Option<&KeyboardMapping>) -
         BackendEvent::KeyPress { keycode, state, .. } => {
             let ks = antibox_ui::keymap::keysym_for_keycode(app.conn.as_ref(), *keycode);
             match ks {
+                0xFF1B if app.popup.is_some() => {
+                    app.close_combo();
+                    app.paint();
+                }
                 0xFF1B => return false,
                 0xFF09 => app.focus_next(if *state & 0x01 != 0 { -1 } else { 1 }),
                 0xFF0D | 0xFF8D => app.save(),
