@@ -24,7 +24,7 @@ path = "src/bin/antibox-settings.rs"
 
 [features]
 default = []
-wayland = ["antibox-wayland/smithay"]
+wayland = ["antibox-wayland/wlroots"]
 
 [[bin]]
 name = "antibox-wayland"
