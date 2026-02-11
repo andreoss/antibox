@@ -8,18 +8,8 @@ antibox-core = { path = "../core" }
 
 [features]
 default = []
-smithay = ["dep:smithay"]
+wlroots = []
 
-[dependencies.smithay]
-version = "0.7"
-optional = true
-default-features = false
-features = [
-    "backend_winit",
-    "backend_egl",
-    "renderer_gl",
-    "wayland_frontend",
-    "desktop",
-    "use_system_lib",
-    "xwayland",
-]
+[[example]]
+name = "layout"
+required-features = ["wlroots"]
