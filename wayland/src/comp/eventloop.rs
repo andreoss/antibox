@@ -1,13 +1,13 @@
 use antibox_core::backend::{BackendEvent, DisplayBackend, EventLoopTrait, TimerCallback};
 use antibox_core::error::Result;
 use antibox_core::time::Monotime;
-use smithay::reexports::calloop::EventLoop;
 use std::collections::BinaryHeap;
 use std::os::unix::io::RawFd;
 use std::sync::Arc;
 use std::time::Duration;
 
-use super::state::Compositor;
+use super::state::Server;
+use crate::ffi::wl::{wl_display_flush_clients, wl_event_loop_dispatch};
 
 #[derive(PartialEq, Eq)]
 struct TimerEntry {
@@ -15,11 +15,13 @@ struct TimerEntry {
     id: u64,
     interval: Option<Duration>,
 }
+
 impl Ord for TimerEntry {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         other.fire_at.cmp(&self.fire_at)
     }
 }
+
 impl PartialOrd for TimerEntry {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
@@ -27,8 +29,7 @@ impl PartialOrd for TimerEntry {
 }
 
 pub struct WaylandEventLoop {
-    event_loop: EventLoop<'static, Compositor>,
-    data: Compositor,
+    server: Box<Server>,
     backend: Arc<dyn DisplayBackend>,
     timers: BinaryHeap<TimerEntry>,
     next_timer_id: u64,
@@ -36,14 +37,10 @@ pub struct WaylandEventLoop {
 }
 
 impl WaylandEventLoop {
-    pub fn new(
-        event_loop: EventLoop<'static, Compositor>,
-        data: Compositor,
-        backend: Arc<dyn DisplayBackend>,
-    ) -> Self {
+    pub(crate) fn new(mut server: Box<Server>, backend: Arc<dyn DisplayBackend>) -> Self {
+        server.retarget_hooks();
         Self {
-            event_loop,
-            data,
+            server,
             backend,
             timers: BinaryHeap::new(),
             next_timer_id: 0,
@@ -52,14 +49,15 @@ impl WaylandEventLoop {
     }
 
     fn pump(&mut self, timeout: Duration) -> Result<()> {
-        self.data.apply_intents();
-        if self.data.shared.take_needs_redraw() {
-            self.data.request_redraw();
+        unsafe {
+            self.server.apply_intents();
+            if self.server.shared.take_needs_redraw() {
+                self.server.sync_all_decorations();
+            }
+            let ms = i32::try_from(timeout.as_millis()).unwrap_or(i32::MAX);
+            wl_event_loop_dispatch(self.server.event_loop, ms);
+            wl_display_flush_clients(self.server.display);
         }
-        self.event_loop
-            .dispatch(Some(timeout), &mut self.data)
-            .map_err(super::wrap)?;
-        let _ = self.data.display_handle.flush_clients();
         Ok(())
     }
 }
@@ -69,8 +67,7 @@ impl EventLoopTrait for WaylandEventLoop {
         &self.backend
     }
 
-    fn add_fd(&mut self, _fd: RawFd, _callback: Box<dyn FnMut() + Send>) {
-    }
+    fn add_fd(&mut self, _fd: RawFd, _callback: Box<dyn FnMut() + Send>) {}
 
     fn remove_fd(&mut self, _fd: RawFd) {}
 
@@ -109,12 +106,9 @@ impl EventLoopTrait for WaylandEventLoop {
         })
     }
 
-    fn wait_for_one_event(
-        &mut self,
-        timeout: Duration,
-    ) -> Result<Option<BackendEvent>> {
+    fn wait_for_one_event(&mut self, timeout: Duration) -> Result<Option<BackendEvent>> {
         self.pump(timeout)?;
-        Ok(self.data.shared.lock().events.pop())
+        Ok(self.server.shared.lock().events.pop())
     }
 
     fn fire_timers(&mut self) {
@@ -146,7 +140,7 @@ impl EventLoopTrait for WaylandEventLoop {
     fn process_pending(&mut self) -> Result<Vec<BackendEvent>> {
         self.pump(Duration::ZERO)?;
         let mut out = Vec::new();
-        let mut s = self.data.shared.lock();
+        let mut s = self.server.shared.lock();
         while let Some(e) = s.events.pop() {
             out.push(e);
         }

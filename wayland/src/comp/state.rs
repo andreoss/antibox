@@ -1,280 +1,252 @@
+use crate::buffers::BufferStore;
+use crate::ffi::buffer::{wlr_buffer, wlr_buffer_drop, PixBuffer};
+use crate::ffi::wl::*;
+use crate::ffi::wlr::*;
+use crate::shared::Shared;
 use std::collections::HashMap;
-use std::ffi::OsString;
+use std::os::raw::c_void;
 use std::sync::Arc;
 
-use crate::buffers::BufferStore;
-use crate::shared::Shared;
-use smithay::desktop::{PopupManager, Space, Window, WindowSurfaceType};
-use smithay::input::{Seat, SeatState};
-use smithay::reexports::calloop::generic::Generic;
-use smithay::reexports::calloop::{EventLoop, Interest, LoopSignal, Mode, PostAction};
-use smithay::reexports::wayland_server::backend::{ClientData, ClientId, DisconnectReason};
-use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
-use smithay::reexports::wayland_server::{Display, DisplayHandle};
-use smithay::utils::{Logical, Point};
-use smithay::wayland::compositor::{CompositorClientState, CompositorState};
-use smithay::wayland::output::OutputManagerState;
-use smithay::wayland::selection::data_device::DataDeviceState;
-use smithay::wayland::shell::xdg::XdgShellState;
-use smithay::wayland::shm::ShmState;
-use smithay::wayland::socket::ListeningSocketSource;
-use smithay::wayland::xwayland_shell::XWaylandShellState;
-use smithay::xwayland::X11Wm;
-
-pub struct Compositor {
-    pub start_time: std::time::Instant,
-    pub socket_name: OsString,
-    pub display_handle: DisplayHandle,
-
-    pub space: Space<Window>,
-    pub loop_signal: LoopSignal,
-
-    pub compositor_state: CompositorState,
-    pub xdg_shell_state: XdgShellState,
-    pub xdg_decoration_state: smithay::wayland::shell::xdg::decoration::XdgDecorationState,
-    pub shm_state: ShmState,
-    pub output_manager_state: OutputManagerState,
-    pub seat_state: SeatState<Compositor>,
-    pub data_device_state: DataDeviceState,
-    pub popups: PopupManager,
-
-    pub seat: Seat<Self>,
-
-    pub shared: Shared,
-    pub buffers: Arc<BufferStore>,
-    pub clients: HashMap<u32, Window>,
-    pub pending_map: std::collections::HashSet<u32>,
-
-    pub xwayland_shell_state: XWaylandShellState,
-    pub xwm: Option<X11Wm>,
-
-    pub winit: Option<super::winit::WinitPresenter>,
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Tag {
+    NewOutput,
+    NewInput,
+    NewToplevel,
+    OutputFrame,
+    OutputDestroy,
+    SurfaceMap,
+    SurfaceUnmap,
+    SurfaceCommit,
+    ToplevelDestroy,
+    SetTitle,
+    SetAppId,
+    KeyboardKey,
+    KeyboardModifiers,
+    CursorMotion,
+    CursorMotionAbsolute,
+    CursorButton,
+    CursorAxis,
+    CursorFrame,
 }
 
-impl Compositor {
-    pub fn new(
-        event_loop: &mut EventLoop<'static, Self>,
-        display: Display<Self>,
-        shared: Shared,
-        buffers: Arc<BufferStore>,
-    ) -> Self {
-        let start_time = std::time::Instant::now();
-        let dh = display.handle();
+#[repr(C)]
+pub(crate) struct Hook {
+    pub listener: wl_listener,
+    pub server: *mut Server,
+    pub tag: Tag,
+    pub id: u32,
+}
 
-        let compositor_state = CompositorState::new::<Self>(&dh);
-        let xdg_shell_state = XdgShellState::new::<Self>(&dh);
-        let xdg_decoration_state =
-            smithay::wayland::shell::xdg::decoration::XdgDecorationState::new::<Self>(&dh);
-        let shm_state = ShmState::new::<Self>(&dh, vec![]);
-        let output_manager_state = OutputManagerState::new_with_xdg_output::<Self>(&dh);
-        let mut seat_state = SeatState::new();
-        let data_device_state = DataDeviceState::new::<Self>(&dh);
-        let xwayland_shell_state = XWaylandShellState::new::<Self>(&dh);
-        let popups = PopupManager::default();
+unsafe extern "C" fn trampoline(listener: *mut wl_listener, data: *mut c_void) {
+    let hook = listener.cast::<Hook>();
+    let server = (*hook).server;
+    if server.is_null() {
+        return;
+    }
+    let tag = (*hook).tag;
+    let id = (*hook).id;
+    (*server).dispatch(tag, id, data);
+}
 
-        let mut seat: Seat<Self> = seat_state.new_wl_seat(&dh, "winit");
-        seat.add_keyboard(Default::default(), 200, 25)
-            .expect("keyboard");
-        seat.add_pointer();
+pub(crate) struct Client {
+    pub toplevel: *mut wlr_xdg_toplevel,
+    pub surface: *mut wlr_surface,
+    pub tree: *mut wlr_scene_tree,
+    pub mapped: bool,
+    pub announced: bool,
+}
 
-        let space = Space::default();
-        let socket_name = Self::init_wayland_listener(display, event_loop);
-        let loop_signal = event_loop.get_signal();
+pub(crate) struct Decoration {
+    pub buffer_node: *mut wlr_scene_buffer,
+    pub buffer: *mut wlr_buffer,
+    pub width: u16,
+    pub height: u16,
+}
 
-        Self {
-            start_time,
-            display_handle: dh,
-            space,
-            loop_signal,
-            socket_name,
-            compositor_state,
-            xdg_shell_state,
-            xdg_decoration_state,
-            shm_state,
-            output_manager_state,
-            seat_state,
-            data_device_state,
-            popups,
-            seat,
-            shared,
-            buffers,
-            clients: HashMap::new(),
-            pending_map: std::collections::HashSet::new(),
-            xwayland_shell_state,
-            xwm: None,
-            winit: None,
+pub struct Server {
+    pub(crate) display: *mut wl_display,
+    pub(crate) event_loop: *mut wl_event_loop,
+    pub(crate) backend: *mut wlr_backend,
+    pub(crate) renderer: *mut wlr_renderer,
+    pub(crate) allocator: *mut wlr_allocator,
+    pub(crate) scene: *mut wlr_scene,
+    pub(crate) layout: *mut wlr_output_layout,
+    pub(crate) client_tree: *mut wlr_scene_tree,
+    pub(crate) decor_tree: *mut wlr_scene_tree,
+    pub(crate) xdg_shell: *mut wlr_xdg_shell,
+    pub(crate) seat: *mut wlr_seat,
+    pub(crate) cursor: *mut wlr_cursor,
+    pub(crate) cursor_mgr: *mut wlr_xcursor_manager,
+    pub(crate) keyboard: *mut wlr_keyboard,
+    pub(crate) outputs: Vec<*mut wlr_output>,
+    pub(crate) scene_outputs: Vec<*mut wlr_scene_output>,
+    pub(crate) clients: HashMap<u32, Client>,
+    pub(crate) decorations: HashMap<u32, Decoration>,
+    pub(crate) hooks: Vec<Box<Hook>>,
+    pub(crate) shared: Shared,
+    pub(crate) buffers: Arc<BufferStore>,
+    pub(crate) socket: Option<String>,
+}
+
+impl Server {
+    pub(crate) fn hook(&mut self, signal: *mut wl_signal, tag: Tag, id: u32) {
+        let mut hook = Box::new(Hook {
+            listener: wl_listener::new(),
+            server: std::ptr::from_mut(self),
+            tag,
+            id,
+        });
+        hook.listener.notify = Some(trampoline);
+        unsafe {
+            wl_list_init(&mut hook.listener.link);
+            signal_add(signal, &mut hook.listener);
+        }
+        self.hooks.push(hook);
+    }
+
+    pub(crate) fn retarget_hooks(&mut self) {
+        let me = std::ptr::from_mut(self);
+        for hook in &mut self.hooks {
+            hook.server = me;
         }
     }
 
-    pub fn client_id_for_surface(&self, surface: &WlSurface) -> Option<u32> {
+    pub(crate) fn client_id_for_surface(&self, surface: *mut wlr_surface) -> Option<u32> {
         self.clients
             .iter()
-            .find_map(|(id, w)| (window_wl_surface(w).as_ref() == Some(surface)).then_some(*id))
+            .find(|(_, c)| c.surface == surface)
+            .map(|(id, _)| *id)
     }
 
-    fn init_wayland_listener(
-        display: Display<Self>,
-        event_loop: &mut EventLoop<'static, Self>,
-    ) -> OsString {
-        let listening_socket = ListeningSocketSource::new_auto().expect("wayland socket");
-        let socket_name = listening_socket.socket_name().to_os_string();
-        let handle = event_loop.handle();
+    pub(crate) fn client_id_for_toplevel(
+        &self,
+        toplevel: *mut wlr_xdg_toplevel,
+    ) -> Option<u32> {
+        self.clients
+            .iter()
+            .find(|(_, c)| c.toplevel == toplevel)
+            .map(|(id, _)| *id)
+    }
 
-        handle
-            .insert_source(
-                listening_socket,
-                move |client_stream, _, data: &mut Self| {
-                    data.display_handle
-                        .insert_client(client_stream, Arc::new(ClientState::default()))
-                        .expect("insert client");
-                },
-            )
-            .expect("init wayland event source");
+    pub(crate) fn drop_decoration(&mut self, id: u32) {
+        if let Some(d) = self.decorations.remove(&id) {
+            unsafe {
+                if !d.buffer_node.is_null() {
+                    wlr_scene_node_destroy(std::ptr::addr_of_mut!((*d.buffer_node).node));
+                }
+                if !d.buffer.is_null() {
+                    wlr_buffer_drop(d.buffer);
+                }
+            }
+        }
+    }
 
-        handle
-            .insert_source(
-                Generic::new(display, Interest::READ, Mode::Level),
-                |_, display, data: &mut Self| {
-                    unsafe {
-                        if let Err(e) = display.get_mut().dispatch_clients(data) {
-                            eprintln!("[antibox] wayland dispatch failed: {e}");
+    pub(crate) fn sync_decoration(&mut self, id: u32) {
+        let (ax, ay, viewable, kind) = {
+            let s = self.shared.lock();
+            let Some(rec) = s.windows.get(&id) else {
+                return;
+            };
+            let (x, y) = s.absolute_origin(id);
+            (x, y, s.viewable(id), rec.kind)
+        };
+        if !matches!(kind, crate::shared::WinKind::Server) || !viewable {
+            self.drop_decoration(id);
+            return;
+        }
+        let Some(pix) = self.buffers.snapshot(id) else {
+            self.drop_decoration(id);
+            return;
+        };
+        if pix.width == 0 || pix.height == 0 {
+            return;
+        }
+        let pixels = rgba_to_argb(&pix.data);
+        let buffer = PixBuffer::create(pix.width, pix.height, pixels);
+        unsafe {
+            let existing = self.decorations.get(&id).map(|d| d.buffer_node);
+            let node = match existing {
+                Some(n) if !n.is_null() => {
+                    if let Some(d) = self.decorations.get(&id) {
+                        if !d.buffer.is_null() {
+                            wlr_buffer_drop(d.buffer);
                         }
                     }
-                    Ok(PostAction::Continue)
+                    wlr_scene_buffer_set_buffer(n, buffer);
+                    n
+                }
+                _ => wlr_scene_buffer_create(self.decor_tree, buffer),
+            };
+            if node.is_null() {
+                wlr_buffer_drop(buffer);
+                return;
+            }
+            wlr_scene_node_set_position(std::ptr::addr_of_mut!((*node).node), ax, ay);
+            wlr_scene_node_set_enabled(std::ptr::addr_of_mut!((*node).node), true);
+            self.decorations.insert(
+                id,
+                Decoration {
+                    buffer_node: node,
+                    buffer,
+                    width: pix.width,
+                    height: pix.height,
                 },
-            )
-            .expect("init display source");
-
-        socket_name
-    }
-
-    pub fn surface_under(
-        &self,
-        pos: Point<f64, Logical>,
-    ) -> Option<(WlSurface, Point<f64, Logical>)> {
-        self.space
-            .element_under(pos)
-            .and_then(|(window, location)| {
-                window
-                    .surface_under(pos - location.to_f64(), WindowSurfaceType::ALL)
-                    .map(|(s, p)| (s, (p + location).to_f64()))
-            })
-    }
-}
-
-pub(crate) fn window_wl_surface(window: &Window) -> Option<WlSurface> {
-    if let Some(t) = window.toplevel() {
-        return Some(t.wl_surface().clone());
-    }
-    window.x11_surface().and_then(smithay::xwayland::X11Surface::wl_surface)
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum KeyboardFocusTarget {
-    Wayland(WlSurface),
-    X11(smithay::xwayland::X11Surface),
-}
-
-impl KeyboardFocusTarget {
-    pub fn for_window(window: &Window) -> Option<Self> {
-        if let Some(x11) = window.x11_surface() {
-            return Some(Self::X11(x11.clone()));
-        }
-        window_wl_surface(window).map(KeyboardFocusTarget::Wayland)
-    }
-}
-
-impl smithay::wayland::seat::WaylandFocus for KeyboardFocusTarget {
-    fn wl_surface(&self) -> Option<std::borrow::Cow<'_, WlSurface>> {
-        match self {
-            Self::Wayland(s) => Some(std::borrow::Cow::Borrowed(s)),
-            Self::X11(x) => x.wl_surface().map(std::borrow::Cow::Owned),
-        }
-    }
-}
-
-impl smithay::utils::IsAlive for KeyboardFocusTarget {
-    fn alive(&self) -> bool {
-        match self {
-            Self::Wayland(s) => s.alive(),
-            Self::X11(x) => x.alive(),
-        }
-    }
-}
-
-impl smithay::input::keyboard::KeyboardTarget<Compositor> for KeyboardFocusTarget {
-    fn enter(
-        &self,
-        seat: &Seat<Compositor>,
-        data: &mut Compositor,
-        keys: Vec<smithay::input::keyboard::KeysymHandle<'_>>,
-        serial: smithay::utils::Serial,
-    ) {
-        use smithay::input::keyboard::KeyboardTarget;
-        match self {
-            Self::Wayland(s) => KeyboardTarget::enter(s, seat, data, keys, serial),
-            Self::X11(x) => KeyboardTarget::enter(x, seat, data, keys, serial),
+            );
         }
     }
 
-    fn leave(
-        &self,
-        seat: &Seat<Compositor>,
-        data: &mut Compositor,
-        serial: smithay::utils::Serial,
-    ) {
-        use smithay::input::keyboard::KeyboardTarget;
-        match self {
-            Self::Wayland(s) => KeyboardTarget::leave(s, seat, data, serial),
-            Self::X11(x) => KeyboardTarget::leave(x, seat, data, serial),
+    pub(crate) fn sync_all_decorations(&mut self) {
+        let ids: Vec<u32> = {
+            let s = self.shared.lock();
+            s.windows
+                .iter()
+                .filter(|(_, r)| matches!(r.kind, crate::shared::WinKind::Server))
+                .map(|(id, _)| *id)
+                .collect()
+        };
+        for id in &ids {
+            self.sync_decoration(*id);
         }
+        let stale: Vec<u32> = self
+            .decorations
+            .keys()
+            .copied()
+            .filter(|id| !ids.contains(id))
+            .collect();
+        for id in stale {
+            self.drop_decoration(id);
+        }
+        self.restack();
     }
 
-    fn key(
-        &self,
-        seat: &Seat<Compositor>,
-        data: &mut Compositor,
-        key: smithay::input::keyboard::KeysymHandle<'_>,
-        state: smithay::backend::input::KeyState,
-        serial: smithay::utils::Serial,
-        time: u32,
-    ) {
-        use smithay::input::keyboard::KeyboardTarget;
-        match self {
-            Self::Wayland(s) => {
-                KeyboardTarget::key(s, seat, data, key, state, serial, time);
-            }
-            Self::X11(x) => {
-                KeyboardTarget::key(x, seat, data, key, state, serial, time);
-            }
-        }
-    }
-
-    fn modifiers(
-        &self,
-        seat: &Seat<Compositor>,
-        data: &mut Compositor,
-        modifiers: smithay::input::keyboard::ModifiersState,
-        serial: smithay::utils::Serial,
-    ) {
-        use smithay::input::keyboard::KeyboardTarget;
-        match self {
-            Self::Wayland(s) => {
-                KeyboardTarget::modifiers(s, seat, data, modifiers, serial);
-            }
-            Self::X11(x) => {
-                KeyboardTarget::modifiers(x, seat, data, modifiers, serial);
+    pub(crate) fn restack(&mut self) {
+        let stack = self.shared.lock().stack.clone();
+        for id in stack {
+            unsafe {
+                if let Some(c) = self.clients.get(&id) {
+                    if !c.tree.is_null() {
+                        wlr_scene_node_raise_to_top(std::ptr::addr_of_mut!((*c.tree).node));
+                    }
+                }
+                if let Some(d) = self.decorations.get(&id) {
+                    if !d.buffer_node.is_null() {
+                        wlr_scene_node_raise_to_top(std::ptr::addr_of_mut!(
+                            (*d.buffer_node).node
+                        ));
+                    }
+                }
             }
         }
     }
 }
 
-#[derive(Default)]
-pub(crate) struct ClientState {
-    pub compositor_state: CompositorClientState,
-}
-
-impl ClientData for ClientState {
-    fn initialized(&self, _client_id: ClientId) {}
-    fn disconnected(&self, _client_id: ClientId, _reason: DisconnectReason) {}
+fn rgba_to_argb(data: &[u8]) -> Vec<u32> {
+    data.chunks_exact(4)
+        .map(|p| {
+            u32::from(p[3]) << 24
+                | u32::from(p[0]) << 16
+                | u32::from(p[1]) << 8
+                | u32::from(p[2])
+        })
+        .collect()
 }

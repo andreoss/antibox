@@ -28,13 +28,17 @@
     clippy::use_self
 )]
 pub mod backend;
+
+#[cfg(feature = "wlroots")]
+pub mod ffi;
+
+#[cfg(feature = "wlroots")]
+pub mod comp;
 pub mod buffers;
 pub mod glyphs;
 pub mod graphics;
 pub mod shared;
 
-#[cfg(feature = "smithay")]
-pub mod comp;
 
 pub use backend::{WaylandCompositor, WaylandWindow};
 pub use buffers::BufferStore;
