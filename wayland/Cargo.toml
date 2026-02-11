@@ -9,3 +9,7 @@ antibox-core = { path = "../core" }
 [features]
 default = []
 wlroots = []
+
+[[example]]
+name = "layout"
+required-features = ["wlroots"]
