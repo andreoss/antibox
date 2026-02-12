@@ -110,3 +110,29 @@ pub unsafe fn listener_detach(listener: *mut wl_listener) {
         wl_list_init(&mut (*listener).link);
     }
 }
+
+#[repr(C)]
+pub struct timespec {
+    pub tv_sec: i64,
+    pub tv_nsec: i64,
+}
+
+#[cfg(target_os = "openbsd")]
+pub const CLOCK_MONOTONIC: c_int = 3;
+#[cfg(not(target_os = "openbsd"))]
+pub const CLOCK_MONOTONIC: c_int = 1;
+
+extern "C" {
+    pub fn clock_gettime(clk_id: c_int, tp: *mut timespec) -> c_int;
+}
+
+pub fn now() -> timespec {
+    let mut ts = timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    unsafe {
+        clock_gettime(CLOCK_MONOTONIC, std::ptr::addr_of_mut!(ts));
+    }
+    ts
+}
