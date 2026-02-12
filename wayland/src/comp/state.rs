@@ -27,6 +27,15 @@ pub(crate) enum Tag {
     CursorButton,
     CursorAxis,
     CursorFrame,
+    XwaylandReady,
+    XwaylandNewSurface,
+    XwaylandAssociate,
+    XwaylandDissociate,
+    XwaylandMap,
+    XwaylandUnmap,
+    XwaylandDestroy,
+    XwaylandConfigure,
+    XwaylandSetTitle,
 }
 
 #[repr(C)]
@@ -50,6 +59,7 @@ unsafe extern "C" fn trampoline(listener: *mut wl_listener, data: *mut c_void) {
 
 pub(crate) struct Client {
     pub toplevel: *mut wlr_xdg_toplevel,
+    pub xsurface: *mut crate::ffi::xwayland::wlr_xwayland_surface,
     pub surface: *mut wlr_surface,
     pub tree: *mut wlr_scene_tree,
     pub mapped: bool,
@@ -73,6 +83,7 @@ pub struct Server {
     pub(crate) layout: *mut wlr_output_layout,
     pub(crate) client_tree: *mut wlr_scene_tree,
     pub(crate) decor_tree: *mut wlr_scene_tree,
+    pub(crate) compositor: *mut wlr_compositor,
     pub(crate) xdg_shell: *mut wlr_xdg_shell,
     pub(crate) seat: *mut wlr_seat,
     pub(crate) cursor: *mut wlr_cursor,
@@ -86,6 +97,7 @@ pub struct Server {
     pub(crate) shared: Shared,
     pub(crate) buffers: Arc<BufferStore>,
     pub(crate) socket: Option<String>,
+    pub(crate) xwayland: *mut crate::ffi::xwayland::wlr_xwayland,
 }
 
 impl Server {

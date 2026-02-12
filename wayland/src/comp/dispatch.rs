@@ -31,6 +31,15 @@ impl Server {
             Tag::CursorButton => self.on_button(data.cast::<wlr_pointer_button_event>()),
             Tag::CursorAxis => self.on_axis(data.cast::<wlr_pointer_axis_event>()),
             Tag::CursorFrame => wlr_seat_pointer_notify_frame(self.seat),
+            Tag::XwaylandReady => self.on_xwayland_ready(),
+            Tag::XwaylandNewSurface => self.on_xwayland_new_surface(data.cast()),
+            Tag::XwaylandAssociate => self.on_xwayland_associate(id),
+            Tag::XwaylandDissociate => self.on_xwayland_dissociate(id),
+            Tag::XwaylandMap => self.on_xwayland_map(id),
+            Tag::XwaylandUnmap => self.on_xwayland_unmap(id),
+            Tag::XwaylandDestroy => self.on_xwayland_destroy(id),
+            Tag::XwaylandConfigure => self.on_xwayland_configure(id),
+            Tag::XwaylandSetTitle => self.sync_xwayland_title(id),
         }
     }
 
@@ -82,7 +91,8 @@ impl Server {
             return;
         }
         wlr_scene_output_commit(scene_output, std::ptr::null());
-        wlr_scene_output_send_frame_done(scene_output, std::ptr::null());
+        let ts = crate::ffi::wl::now();
+        wlr_scene_output_send_frame_done(scene_output, std::ptr::addr_of!(ts).cast());
     }
 
     unsafe fn on_output_destroy(&mut self, output: *mut wlr_output) {
@@ -158,6 +168,7 @@ impl Server {
             id,
             Client {
                 toplevel,
+                xsurface: std::ptr::null_mut(),
                 surface,
                 tree,
                 mapped: false,

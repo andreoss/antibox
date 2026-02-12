@@ -68,5 +68,39 @@ fn main() {
     s!(wlr_buffer);
     s!(wlr_surface_state);
     s!(wlr_scene_node);
+    out.push_str(&xwayland_layout());
     print!("{out}");
+}
+
+#[allow(dead_code)]
+fn xwayland_layout() -> String {
+    use antibox_wayland::ffi::xwayland::*;
+    let mut out = String::new();
+    macro_rules! p {
+        ($s:ident, $f:ident) => {
+            out.push_str(&format!(
+                "{}.{} {}\n",
+                stringify!($s),
+                stringify!($f),
+                offset_of!($s, $f)
+            ));
+        };
+    }
+    p!(wlr_xwayland, display_name);
+    p!(wlr_xwayland, seat);
+    p!(wlr_xwayland, events);
+    p!(wlr_xwayland_surface, surface);
+    p!(wlr_xwayland_surface, x);
+    p!(wlr_xwayland_surface, width);
+    p!(wlr_xwayland_surface, override_redirect);
+    p!(wlr_xwayland_surface, title);
+    p!(wlr_xwayland_surface, class);
+    p!(wlr_xwayland_surface, parent);
+    p!(wlr_xwayland_surface, events);
+    p!(wlr_xwayland_surface, data);
+    out.push_str(&format!(
+        "wlr_xwayland_surface SIZE {}\n",
+        size_of::<wlr_xwayland_surface>()
+    ));
+    out
 }
