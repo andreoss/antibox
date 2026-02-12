@@ -4,6 +4,9 @@ use super::state::Server;
 use crate::ffi::wlr::*;
 use crate::shared::Intent;
 
+pub(crate) const MIN_KEYCODE: u8 = 8;
+pub(crate) const MAX_KEYCODE: u8 = 255;
+
 impl Server {
     pub(crate) fn synth(&self, event: BackendEvent) {
         self.shared.lock().events.push(event);
@@ -21,11 +24,59 @@ impl Server {
     }
 
     pub(crate) fn build_keymap(&mut self) {
-        let mut s = self.shared.lock();
-        if s.keymap.is_empty() {
-            s.keymap = vec![0; 256];
-            s.keysyms_per_keycode = 1;
+        let rows = unsafe { self.read_keymap() };
+        let kpc = rows.iter().map(Vec::len).max().unwrap_or(1).max(1);
+        let mut flat = Vec::with_capacity(rows.len() * kpc);
+        for row in &rows {
+            for i in 0..kpc {
+                flat.push(row.get(i).copied().unwrap_or(0));
+            }
         }
+        let mut s = self.shared.lock();
+        s.keymap = flat;
+        s.keysyms_per_keycode = u8::try_from(kpc).unwrap_or(1);
+    }
+
+    unsafe fn read_keymap(&self) -> Vec<Vec<u32>> {
+        let mut rows = Vec::new();
+        if self.keyboard.is_null() {
+            return vec![Vec::new(); usize::from(MAX_KEYCODE - MIN_KEYCODE) + 1];
+        }
+        let keymap = (*self.keyboard).keymap;
+        let state = (*self.keyboard).xkb_state;
+        if keymap.is_null() {
+            return vec![Vec::new(); usize::from(MAX_KEYCODE - MIN_KEYCODE) + 1];
+        }
+        let layout = if state.is_null() {
+            0
+        } else {
+            crate::ffi::xkb::xkb_state_serialize_layout(
+                state,
+                crate::ffi::xkb::XKB_STATE_LAYOUT_EFFECTIVE,
+            )
+        };
+        for kc in MIN_KEYCODE..=MAX_KEYCODE {
+            let levels =
+                crate::ffi::xkb::xkb_keymap_num_levels_for_key(keymap, u32::from(kc), layout);
+            let mut syms = Vec::new();
+            for level in 0..levels {
+                let mut out: *const u32 = std::ptr::null();
+                let n = crate::ffi::xkb::xkb_keymap_key_get_syms_by_level(
+                    keymap,
+                    u32::from(kc),
+                    layout,
+                    level,
+                    std::ptr::addr_of_mut!(out),
+                );
+                if n > 0 && !out.is_null() {
+                    syms.push(*out);
+                } else {
+                    syms.push(0);
+                }
+            }
+            rows.push(syms);
+        }
+        rows
     }
 
     pub(crate) unsafe fn place_client(&mut self, id: u32, size: Option<(u16, u16)>) {
@@ -37,10 +88,25 @@ impl Server {
             let s = self.shared.lock();
             s.absolute_origin(id)
         };
-        if let Some((w, h)) = size {
-            if !toplevel.is_null() {
-                wlr_xdg_toplevel_set_size(toplevel, i32::from(w), i32::from(h));
-            }
+        let xsurface = client.xsurface;
+        let (cw, ch) = {
+            let s = self.shared.lock();
+            s.windows
+                .get(&id)
+                .map_or((0, 0), |r| (r.rect.w, r.rect.h))
+        };
+        let (w, h) = size.map_or((cw, ch), |(w, h)| (i32::from(w), i32::from(h)));
+        if !toplevel.is_null() && size.is_some() {
+            wlr_xdg_toplevel_set_size(toplevel, w, h);
+        }
+        if !xsurface.is_null() {
+            crate::ffi::xwayland::wlr_xwayland_surface_configure(
+                xsurface,
+                ax as i16,
+                ay as i16,
+                u16::try_from(w.max(1)).unwrap_or(u16::MAX),
+                u16::try_from(h.max(1)).unwrap_or(u16::MAX),
+            );
         }
         if !tree.is_null() {
             wlr_scene_node_set_position(std::ptr::addr_of_mut!((*tree).node), ax, ay);
@@ -85,6 +151,9 @@ impl Server {
                     if let Some(c) = self.clients.get(&id) {
                         if !c.toplevel.is_null() {
                             wlr_xdg_toplevel_send_close(c.toplevel);
+                        }
+                        if !c.xsurface.is_null() {
+                            crate::ffi::xwayland::wlr_xwayland_surface_close(c.xsurface);
                         }
                     }
                 }
@@ -173,6 +242,9 @@ impl Server {
                 if let Some(c) = self.clients.get(&focus) {
                     if !c.toplevel.is_null() {
                         wlr_xdg_toplevel_set_activated(c.toplevel, true);
+                    }
+                    if !c.xsurface.is_null() {
+                        crate::ffi::xwayland::wlr_xwayland_surface_activate(c.xsurface, true);
                     }
                 }
             }
