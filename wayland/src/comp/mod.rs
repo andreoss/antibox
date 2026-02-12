@@ -3,6 +3,7 @@ mod dispatch;
 mod eventloop;
 mod input;
 mod state;
+mod xwayland;
 
 pub use eventloop::WaylandEventLoop;
 pub use state::Server;
@@ -43,7 +44,7 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
         return Err(Error::message("cannot create an allocator"));
     }
 
-    wlr_compositor_create(display, 6, renderer);
+    let compositor = wlr_compositor_create(display, 6, renderer);
     wlr_subcompositor_create(display);
     wlr_data_device_manager_create(display);
 
@@ -75,6 +76,7 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
         layout,
         client_tree,
         decor_tree,
+        compositor,
         xdg_shell,
         seat,
         cursor,
@@ -88,6 +90,7 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
         shared: shared.clone(),
         buffers: Arc::clone(&buffers),
         socket: None,
+        xwayland: std::ptr::null_mut(),
     });
 
     server.hook(
@@ -137,13 +140,15 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
     std::env::set_var("WAYLAND_DISPLAY", &socket);
     server.socket = Some(socket);
 
+    server.start_xwayland();
+
     if !wlr_backend_start(backend) {
         return Err(Error::message("cannot start the wayland backend"));
     }
     server.build_keymap();
 
-    let compositor = Arc::new(WaylandCompositor::new(shared, buffers));
-    let dyn_backend: Arc<dyn DisplayBackend> = Arc::clone(&compositor) as Arc<dyn DisplayBackend>;
+    let backend_arc = Arc::new(WaylandCompositor::new(shared, buffers));
+    let dyn_backend: Arc<dyn DisplayBackend> = Arc::clone(&backend_arc) as Arc<dyn DisplayBackend>;
     let event_loop = Box::new(WaylandEventLoop::new(server, dyn_backend));
-    Ok((compositor, event_loop))
+    Ok((backend_arc, event_loop))
 }
