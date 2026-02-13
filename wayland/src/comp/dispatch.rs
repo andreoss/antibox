@@ -40,6 +40,7 @@ impl Server {
             Tag::XwaylandDestroy => self.on_xwayland_destroy(id),
             Tag::XwaylandConfigure => self.on_xwayland_configure(id),
             Tag::XwaylandSetTitle => self.sync_xwayland_title(id),
+            Tag::XwaylandSetHints => self.sync_xwayland_hints(id),
         }
     }
 
