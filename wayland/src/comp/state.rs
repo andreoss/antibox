@@ -70,14 +70,11 @@ pub(crate) struct Client {
 pub(crate) struct Decoration {
     pub buffer_node: *mut wlr_scene_buffer,
     pub buffer: *mut wlr_buffer,
-    pub width: u16,
-    pub height: u16,
 }
 
 pub struct Server {
     pub(crate) display: *mut wl_display,
     pub(crate) event_loop: *mut wl_event_loop,
-    pub(crate) backend: *mut wlr_backend,
     pub(crate) renderer: *mut wlr_renderer,
     pub(crate) allocator: *mut wlr_allocator,
     pub(crate) scene: *mut wlr_scene,
@@ -85,10 +82,8 @@ pub struct Server {
     pub(crate) client_tree: *mut wlr_scene_tree,
     pub(crate) decor_tree: *mut wlr_scene_tree,
     pub(crate) compositor: *mut wlr_compositor,
-    pub(crate) xdg_shell: *mut wlr_xdg_shell,
     pub(crate) seat: *mut wlr_seat,
     pub(crate) cursor: *mut wlr_cursor,
-    pub(crate) cursor_mgr: *mut wlr_xcursor_manager,
     pub(crate) keyboard: *mut wlr_keyboard,
     pub(crate) outputs: Vec<*mut wlr_output>,
     pub(crate) scene_outputs: Vec<*mut wlr_scene_output>,
@@ -128,16 +123,6 @@ impl Server {
         self.clients
             .iter()
             .find(|(_, c)| c.surface == surface)
-            .map(|(id, _)| *id)
-    }
-
-    pub(crate) fn client_id_for_toplevel(
-        &self,
-        toplevel: *mut wlr_xdg_toplevel,
-    ) -> Option<u32> {
-        self.clients
-            .iter()
-            .find(|(_, c)| c.toplevel == toplevel)
             .map(|(id, _)| *id)
     }
 
@@ -201,8 +186,6 @@ impl Server {
                 Decoration {
                     buffer_node: node,
                     buffer,
-                    width: pix.width,
-                    height: pix.height,
                 },
             );
         }

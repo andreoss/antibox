@@ -69,7 +69,6 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
     let mut server = Box::new(ServerState {
         display,
         event_loop,
-        backend,
         renderer,
         allocator,
         scene,
@@ -77,10 +76,8 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
         client_tree,
         decor_tree,
         compositor,
-        xdg_shell,
         seat,
         cursor,
-        cursor_mgr,
         keyboard: std::ptr::null_mut(),
         outputs: Vec::new(),
         scene_outputs: Vec::new(),
