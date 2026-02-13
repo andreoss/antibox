@@ -36,6 +36,7 @@ pub(crate) enum Tag {
     XwaylandDestroy,
     XwaylandConfigure,
     XwaylandSetTitle,
+    XwaylandSetHints,
 }
 
 #[repr(C)]
