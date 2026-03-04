@@ -73,7 +73,9 @@ unsafe extern "C" fn pix_begin(
     true
 }
 
-unsafe extern "C" fn pix_end(_buffer: *mut wlr_buffer) {}
+const unsafe extern "C" fn pix_end(_buffer: *mut wlr_buffer) {
+    let _ = _buffer;
+}
 
 static PIX_IMPL: wlr_buffer_impl = wlr_buffer_impl {
     destroy: Some(pix_destroy),
