@@ -113,6 +113,7 @@ impl Server {
                 if kb.is_null() {
                     return;
                 }
+                self.install_keymap(kb);
                 wlr_keyboard_set_repeat_info(kb, 25, 600);
                 self.keyboard = kb;
                 self.hook(
@@ -128,7 +129,10 @@ impl Server {
                 wlr_seat_set_keyboard(self.seat, kb);
                 self.build_keymap();
             }
-            WLR_INPUT_DEVICE_POINTER => wlr_cursor_attach_input_device(self.cursor, dev),
+            WLR_INPUT_DEVICE_POINTER => {
+                wlr_cursor_attach_input_device(self.cursor, dev);
+                self.set_default_cursor();
+            }
             _ => {}
         }
         let mut caps = WL_SEAT_CAPABILITY_POINTER;

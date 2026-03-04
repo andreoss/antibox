@@ -127,17 +127,7 @@ impl Server {
                         self.place_client(id, None);
                     }
                 }
-                Intent::Unmap(id) => {
-                    if let Some(c) = self.clients.get(&id) {
-                        if !c.tree.is_null() {
-                            wlr_scene_node_set_enabled(
-                                std::ptr::addr_of_mut!((*c.tree).node),
-                                false,
-                            );
-                        }
-                    }
-                }
-                Intent::Destroy(id) => {
+                Intent::Unmap(id) | Intent::Destroy(id) => {
                     if let Some(c) = self.clients.get(&id) {
                         if !c.tree.is_null() {
                             wlr_scene_node_set_enabled(
@@ -250,5 +240,31 @@ impl Server {
             }
             _ => wlr_seat_keyboard_notify_clear_focus(self.seat),
         }
+    }
+}
+
+impl Server {
+    pub(crate) unsafe fn install_keymap(&mut self, keyboard: *mut wlr_keyboard) {
+        use crate::ffi::xkb::{
+            xkb_context_new, xkb_context_unref, xkb_keymap_new_from_names, xkb_keymap_unref,
+            xkb_rule_names,
+        };
+        let context = xkb_context_new(0);
+        if context.is_null() {
+            return;
+        }
+        let names = xkb_rule_names {
+            rules: std::ptr::null(),
+            model: std::ptr::null(),
+            layout: std::ptr::null(),
+            variant: std::ptr::null(),
+            options: std::ptr::null(),
+        };
+        let keymap = xkb_keymap_new_from_names(context, std::ptr::addr_of!(names), 0);
+        if !keymap.is_null() {
+            wlr_keyboard_set_keymap(keyboard, keymap);
+            xkb_keymap_unref(keymap);
+        }
+        xkb_context_unref(context);
     }
 }

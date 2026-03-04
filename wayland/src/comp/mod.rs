@@ -78,6 +78,7 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
         compositor,
         seat,
         cursor,
+        cursor_mgr,
         keyboard: std::ptr::null_mut(),
         outputs: Vec::new(),
         scene_outputs: Vec::new(),
@@ -137,6 +138,7 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
     std::env::set_var("WAYLAND_DISPLAY", &socket);
     server.socket = Some(socket);
 
+    server.set_default_cursor();
     server.start_xwayland();
 
     if !wlr_backend_start(backend) {
