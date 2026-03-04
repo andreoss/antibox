@@ -186,7 +186,10 @@ impl Server {
                 wlr_seat_pointer_notify_motion(self.seat, time, 0.0, 0.0);
                 wlr_seat_pointer_notify_frame(self.seat);
             }
-            _ => wlr_seat_pointer_notify_clear_focus(self.seat),
+            _ => {
+                wlr_seat_pointer_notify_clear_focus(self.seat);
+                self.set_default_cursor();
+            }
         }
         if grab.is_none() {
             let raw = if client_under.is_some() {
@@ -385,5 +388,17 @@ impl Server {
             return (0, 0);
         }
         ((*self.cursor).x as i32, (*self.cursor).y as i32)
+    }
+}
+
+impl Server {
+    pub(crate) unsafe fn set_default_cursor(&self) {
+        if self.cursor.is_null() || self.cursor_mgr.is_null() {
+            return;
+        }
+        let Ok(name) = std::ffi::CString::new("default") else {
+            return;
+        };
+        wlr_cursor_set_xcursor(self.cursor, self.cursor_mgr, name.as_ptr());
     }
 }
