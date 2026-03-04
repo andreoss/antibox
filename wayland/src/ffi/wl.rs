@@ -54,6 +54,12 @@ pub struct wl_listener {
     pub notify: Option<wl_notify_func_t>,
 }
 
+impl Default for wl_listener {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl wl_listener {
     pub const fn new() -> Self {
         Self {
