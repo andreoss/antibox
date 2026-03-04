@@ -84,11 +84,13 @@ pub struct Server {
     pub(crate) compositor: *mut wlr_compositor,
     pub(crate) seat: *mut wlr_seat,
     pub(crate) cursor: *mut wlr_cursor,
+    pub(crate) cursor_mgr: *mut wlr_xcursor_manager,
     pub(crate) keyboard: *mut wlr_keyboard,
     pub(crate) outputs: Vec<*mut wlr_output>,
     pub(crate) scene_outputs: Vec<*mut wlr_scene_output>,
     pub(crate) clients: HashMap<u32, Client>,
     pub(crate) decorations: HashMap<u32, Decoration>,
+    #[allow(clippy::vec_box)]
     pub(crate) hooks: Vec<Box<Hook>>,
     pub(crate) shared: Shared,
     pub(crate) buffers: Arc<BufferStore>,
