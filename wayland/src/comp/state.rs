@@ -37,6 +37,7 @@ pub(crate) enum Tag {
     XwaylandConfigure,
     XwaylandSetTitle,
     XwaylandSetHints,
+    XwaylandSetGeometry,
 }
 
 #[repr(C)]
@@ -247,4 +248,25 @@ fn rgba_to_argb(data: &[u8]) -> Vec<u32> {
                 | u32::from(p[2])
         })
         .collect()
+}
+
+impl Server {
+    pub(crate) unsafe fn drop_hooks(&mut self, id: u32) {
+        self.drop_hooks_where(id, |_| true);
+    }
+
+    pub(crate) unsafe fn drop_hooks_where(&mut self, id: u32, keep: impl Fn(Tag) -> bool) {
+        if id == 0 {
+            return;
+        }
+        let mut kept = Vec::with_capacity(self.hooks.len());
+        for mut hook in std::mem::take(&mut self.hooks) {
+            if hook.id == id && keep(hook.tag) {
+                listener_detach(std::ptr::addr_of_mut!(hook.listener));
+            } else {
+                kept.push(hook);
+            }
+        }
+        self.hooks = kept;
+    }
 }

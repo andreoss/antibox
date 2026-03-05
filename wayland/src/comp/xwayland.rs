@@ -7,6 +7,8 @@ use crate::ffi::wlr::*;
 use crate::ffi::xwayland::*;
 use crate::shared::{WinKind, WinRec, ROOT_WINDOW};
 
+const CONFIGURE_SIZE_MASK: u16 = 0x0C;
+
 impl Server {
     pub(crate) unsafe fn start_xwayland(&mut self) {
         let compositor = self.compositor;
@@ -110,6 +112,11 @@ impl Server {
             Tag::XwaylandSetHints,
             id,
         );
+        self.hook(
+            std::ptr::addr_of_mut!((*xsurface).events.set_geometry),
+            Tag::XwaylandSetGeometry,
+            id,
+        );
     }
 
     pub(crate) unsafe fn on_xwayland_associate(&mut self, id: u32) {
@@ -143,6 +150,9 @@ impl Server {
     }
 
     pub(crate) unsafe fn on_xwayland_dissociate(&mut self, id: u32) {
+        self.drop_hooks_where(id, |t| {
+            matches!(t, Tag::XwaylandMap | Tag::XwaylandUnmap)
+        });
         if let Some(c) = self.clients.get_mut(&id) {
             if !c.tree.is_null() {
                 wlr_scene_node_destroy(std::ptr::addr_of_mut!((*c.tree).node));
@@ -213,35 +223,65 @@ impl Server {
     }
 
     pub(crate) unsafe fn on_xwayland_destroy(&mut self, id: u32) {
+        self.drop_hooks(id);
         self.clients.remove(&id);
         self.shared.lock().windows.remove(&id);
         self.synth(BackendEvent::UnmapNotify { window: id });
         self.synth(BackendEvent::DestroyNotify { window: id });
     }
 
-    pub(crate) unsafe fn on_xwayland_configure(&mut self, id: u32) {
+    pub(crate) unsafe fn on_xwayland_configure(
+        &mut self,
+        id: u32,
+        event: *mut wlr_xwayland_surface_configure_event,
+    ) {
         let Some(client) = self.clients.get(&id) else {
             return;
         };
         let xsurface = client.xsurface;
-        if xsurface.is_null() {
+        if xsurface.is_null() || event.is_null() {
             return;
         }
-        let (x, y, w, h) = {
-            let s = self.shared.lock();
-            let Some(rec) = s.windows.get(&id) else {
-                return;
-            };
-            let (ax, ay) = s.absolute_origin(id);
-            (ax, ay, rec.rect.w, rec.rect.h)
-        };
-        wlr_xwayland_surface_configure(
-            xsurface,
-            x as i16,
-            y as i16,
-            u16::try_from(w.max(1)).unwrap_or(u16::MAX),
-            u16::try_from(h.max(1)).unwrap_or(u16::MAX),
+        let mapped = client.mapped;
+        let (rx, ry, rw, rh) = (
+            i32::from((*event).x),
+            i32::from((*event).y),
+            i32::from((*event).width),
+            i32::from((*event).height),
         );
+        if !mapped {
+            wlr_xwayland_surface_configure(
+                xsurface,
+                (*event).x,
+                (*event).y,
+                (*event).width,
+                (*event).height,
+            );
+            let mut s = self.shared.lock();
+            if let Some(rec) = s.windows.get_mut(&id) {
+                if rw > 0 && rh > 0 {
+                    rec.rect.w = rw;
+                    rec.rect.h = rh;
+                }
+            }
+            return;
+        }
+        let (ax, ay) = {
+            let s = self.shared.lock();
+            s.absolute_origin(id)
+        };
+        self.synth(BackendEvent::ConfigureRequest {
+            window: id,
+            parent: ROOT_WINDOW,
+            rect: Rect::new(
+                if rx == 0 { ax } else { rx },
+                if ry == 0 { ay } else { ry },
+                rw.max(1),
+                rh.max(1),
+            ),
+            border_width: 0,
+            value_mask: (*event).mask,
+        });
     }
 
     pub(crate) unsafe fn sync_xwayland_title(&mut self, id: u32) {
@@ -315,4 +355,45 @@ const P_BASE_SIZE: u32 = 256;
 
 fn words_to_bytes(words: &[u32]) -> Vec<u8> {
     words.iter().flat_map(|w| w.to_ne_bytes()).collect()
+}
+
+impl Server {
+    pub(crate) unsafe fn on_xwayland_geometry(&mut self, id: u32) {
+        let Some(client) = self.clients.get(&id) else {
+            return;
+        };
+        let xsurface = client.xsurface;
+        if xsurface.is_null() {
+            return;
+        }
+        let w = i32::from((*xsurface).width);
+        let h = i32::from((*xsurface).height);
+        if w <= 1 || h <= 1 {
+            return;
+        }
+        let changed = {
+            let mut s = self.shared.lock();
+            match s.windows.get_mut(&id) {
+                Some(rec) if rec.rect.w != w || rec.rect.h != h => {
+                    rec.rect.w = w;
+                    rec.rect.h = h;
+                    true
+                }
+                _ => false,
+            }
+        };
+        if changed {
+            let (ax, ay) = {
+                let s = self.shared.lock();
+                s.absolute_origin(id)
+            };
+            self.synth(BackendEvent::ConfigureRequest {
+                window: id,
+                parent: ROOT_WINDOW,
+                rect: Rect::new(ax, ay, w, h),
+                border_width: 0,
+                value_mask: CONFIGURE_SIZE_MASK,
+            });
+        }
+    }
 }

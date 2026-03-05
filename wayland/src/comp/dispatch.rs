@@ -38,8 +38,9 @@ impl Server {
             Tag::XwaylandMap => self.on_xwayland_map(id),
             Tag::XwaylandUnmap => self.on_xwayland_unmap(id),
             Tag::XwaylandDestroy => self.on_xwayland_destroy(id),
-            Tag::XwaylandConfigure => self.on_xwayland_configure(id),
+            Tag::XwaylandConfigure => self.on_xwayland_configure(id, data.cast()),
             Tag::XwaylandSetTitle => self.sync_xwayland_title(id),
+            Tag::XwaylandSetGeometry => self.on_xwayland_geometry(id),
             Tag::XwaylandSetHints => self.sync_xwayland_hints(id),
         }
     }
@@ -268,6 +269,7 @@ impl Server {
     }
 
     unsafe fn on_toplevel_destroy(&mut self, id: u32) {
+        self.drop_hooks(id);
         self.clients.remove(&id);
         self.shared.lock().windows.remove(&id);
         self.synth(BackendEvent::UnmapNotify { window: id });
