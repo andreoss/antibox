@@ -144,3 +144,13 @@ extern "C" {
     );
     pub fn wlr_xwayland_surface_close(surface: *mut wlr_xwayland_surface);
 }
+
+#[repr(C)]
+pub struct wlr_xwayland_surface_configure_event {
+    pub surface: *mut wlr_xwayland_surface,
+    pub x: i16,
+    pub y: i16,
+    pub width: u16,
+    pub height: u16,
+    pub mask: u16,
+}

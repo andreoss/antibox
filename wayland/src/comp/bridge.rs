@@ -99,7 +99,7 @@ impl Server {
         if !toplevel.is_null() && size.is_some() {
             wlr_xdg_toplevel_set_size(toplevel, w, h);
         }
-        if !xsurface.is_null() {
+        if !xsurface.is_null() && w > 1 && h > 1 {
             crate::ffi::xwayland::wlr_xwayland_surface_configure(
                 xsurface,
                 ax as i16,
