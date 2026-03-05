@@ -43,15 +43,15 @@ impl Server {
         WmPoint::new(x - ox, y - oy)
     }
 
-    unsafe fn surface_at(&self, x: f64, y: f64) -> Option<*mut wlr_surface> {
+    unsafe fn surface_at(&self, x: f64, y: f64) -> Option<(*mut wlr_surface, f64, f64)> {
         let mut nx = 0.0;
         let mut ny = 0.0;
         let node = wlr_scene_node_at(
             std::ptr::addr_of_mut!((*self.client_tree).node),
             x,
             y,
-            &mut nx,
-            &mut ny,
+            std::ptr::addr_of_mut!(nx),
+            std::ptr::addr_of_mut!(ny),
         );
         if node.is_null() {
             return None;
@@ -64,7 +64,7 @@ impl Server {
         if scene_surface.is_null() {
             return None;
         }
-        Some((*scene_surface).surface)
+        Some(((*scene_surface).surface, nx, ny))
     }
 
     pub(crate) unsafe fn on_modifiers(&mut self) {
@@ -181,9 +181,9 @@ impl Server {
             self.surface_at(f64::from(px), f64::from(py))
         };
         match client_under {
-            Some(surface) if !surface.is_null() => {
-                wlr_seat_pointer_notify_enter(self.seat, surface, 0.0, 0.0);
-                wlr_seat_pointer_notify_motion(self.seat, time, 0.0, 0.0);
+            Some((surface, sx, sy)) if !surface.is_null() => {
+                wlr_seat_pointer_notify_enter(self.seat, surface, sx, sy);
+                wlr_seat_pointer_notify_motion(self.seat, time, sx, sy);
                 wlr_seat_pointer_notify_frame(self.seat);
             }
             _ => {
@@ -261,7 +261,7 @@ impl Server {
         let client_under = self.surface_at(f64::from(px), f64::from(py));
         let wm_target = if let Some(g) = grab {
             Some(g)
-        } else if let Some(surface) = client_under {
+        } else if let Some((surface, _, _)) = client_under {
             self.client_id_for_surface(surface)
         } else {
             let bit = if pressed {
@@ -337,7 +337,7 @@ impl Server {
             let s = self.shared.lock();
             s.pointer_mask | s.key_mods
         };
-        let wm_target = if let Some(surface) = client_under {
+        let wm_target = if let Some((surface, _, _)) = client_under {
             self.client_id_for_surface(surface)
         } else {
             let s = self.shared.lock();
