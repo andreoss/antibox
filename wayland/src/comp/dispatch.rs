@@ -208,7 +208,6 @@ impl Server {
             Tag::SetAppId,
             id,
         );
-        wlr_xdg_surface_schedule_configure(base);
     }
 
     unsafe fn on_surface_map(&mut self, id: u32) {
@@ -247,6 +246,13 @@ impl Server {
             return;
         };
         let toplevel = client.toplevel;
+        if !toplevel.is_null() {
+            let base = (*toplevel).base;
+            if !base.is_null() && (*base).initial_commit {
+                wlr_xdg_toplevel_set_size(toplevel, 0, 0);
+                return;
+            }
+        }
         let announced = client.announced;
         let (w, h) = geometry_of(toplevel);
         if w <= 0 || h <= 0 {
