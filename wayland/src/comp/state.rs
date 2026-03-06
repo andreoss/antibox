@@ -81,7 +81,6 @@ pub struct Server {
     pub(crate) scene: *mut wlr_scene,
     pub(crate) layout: *mut wlr_output_layout,
     pub(crate) client_tree: *mut wlr_scene_tree,
-    pub(crate) decor_tree: *mut wlr_scene_tree,
     pub(crate) compositor: *mut wlr_compositor,
     pub(crate) seat: *mut wlr_seat,
     pub(crate) cursor: *mut wlr_cursor,
@@ -176,7 +175,7 @@ impl Server {
                     wlr_scene_buffer_set_buffer(n, buffer);
                     n
                 }
-                _ => wlr_scene_buffer_create(self.decor_tree, buffer),
+                _ => wlr_scene_buffer_create(self.client_tree, buffer),
             };
             if node.is_null() {
                 wlr_buffer_drop(buffer);
@@ -216,10 +215,31 @@ impl Server {
             self.drop_decoration(id);
         }
         self.restack();
+        self.raise_popups();
     }
 
     pub(crate) fn restack(&mut self) {
-        let stack = self.shared.lock().stack.clone();
+        let (stack, ordered) = {
+            let s = self.shared.lock();
+            let mut ordered: Vec<(u32, usize)> = self
+                .decorations
+                .keys()
+                .map(|id| (*id, window_depth(&s, *id)))
+                .collect();
+            ordered.sort_by_key(|(_, d)| *d);
+            (s.stack.clone(), ordered)
+        };
+        for (id, _) in ordered {
+            unsafe {
+                if let Some(d) = self.decorations.get(&id) {
+                    if !d.buffer_node.is_null() {
+                        wlr_scene_node_raise_to_top(std::ptr::addr_of_mut!(
+                            (*d.buffer_node).node
+                        ));
+                    }
+                }
+            }
+        }
         for id in stack {
             unsafe {
                 if let Some(c) = self.clients.get(&id) {
@@ -227,6 +247,37 @@ impl Server {
                         wlr_scene_node_raise_to_top(std::ptr::addr_of_mut!((*c.tree).node));
                     }
                 }
+                for kid in self.shared.lock().subtree(id) {
+                    if let Some(d) = self.decorations.get(&kid) {
+                        if !d.buffer_node.is_null() {
+                            wlr_scene_node_raise_to_top(std::ptr::addr_of_mut!(
+                                (*d.buffer_node).node
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    pub(crate) fn raise_popups(&mut self) {
+        let popups = {
+            let s = self.shared.lock();
+            let mut popups: Vec<(u32, usize)> = self
+                .decorations
+                .keys()
+                .filter(|id| {
+                    s.windows
+                        .get(id)
+                        .is_some_and(|r| r.override_redirect)
+                })
+                .map(|id| (*id, window_depth(&s, *id)))
+                .collect();
+            popups.sort_by_key(|(_, d)| *d);
+            popups
+        };
+        for (id, _) in popups {
+            unsafe {
                 if let Some(d) = self.decorations.get(&id) {
                     if !d.buffer_node.is_null() {
                         wlr_scene_node_raise_to_top(std::ptr::addr_of_mut!(
@@ -237,6 +288,22 @@ impl Server {
             }
         }
     }
+}
+
+fn window_depth(s: &crate::shared::SharedState, id: u32) -> usize {
+    let mut depth = 0;
+    let mut cur = id;
+    for _ in 0..32 {
+        let Some(rec) = s.windows.get(&cur) else {
+            break;
+        };
+        if rec.parent == crate::shared::ROOT_WINDOW || rec.parent == cur {
+            break;
+        }
+        cur = rec.parent;
+        depth += 1;
+    }
+    depth
 }
 
 fn rgba_to_argb(data: &[u8]) -> Vec<u32> {
