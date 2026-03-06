@@ -52,7 +52,6 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
     let scene = wlr_scene_create();
     wlr_scene_attach_output_layout(scene, layout);
     let client_tree = wlr_scene_tree_create(std::ptr::addr_of_mut!((*scene).tree));
-    let decor_tree = wlr_scene_tree_create(std::ptr::addr_of_mut!((*scene).tree));
 
     let xdg_shell = wlr_xdg_shell_create(display, 3);
     let seat_name = CString::new("seat0").map_err(|e| Error::message(e.to_string()))?;
@@ -74,7 +73,6 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
         scene,
         layout,
         client_tree,
-        decor_tree,
         compositor,
         seat,
         cursor,
