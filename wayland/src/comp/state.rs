@@ -38,6 +38,8 @@ pub(crate) enum Tag {
     XwaylandSetTitle,
     XwaylandSetHints,
     XwaylandSetGeometry,
+    NewDecoration,
+    DecorationRequestMode,
 }
 
 #[repr(C)]
@@ -61,6 +63,7 @@ unsafe extern "C" fn trampoline(listener: *mut wl_listener, data: *mut c_void) {
 
 pub(crate) struct Client {
     pub toplevel: *mut wlr_xdg_toplevel,
+    pub decoration: *mut wlr_xdg_toplevel_decoration_v1,
     pub xsurface: *mut crate::ffi::xwayland::wlr_xwayland_surface,
     pub surface: *mut wlr_surface,
     pub tree: *mut wlr_scene_tree,
@@ -241,17 +244,20 @@ impl Server {
             }
         }
         for id in stack {
-            unsafe {
-                if let Some(c) = self.clients.get(&id) {
-                    if !c.tree.is_null() {
-                        wlr_scene_node_raise_to_top(std::ptr::addr_of_mut!((*c.tree).node));
-                    }
-                }
-                for kid in self.shared.lock().subtree(id) {
+            let subtree = self.shared.lock().subtree(id);
+            for kid in subtree {
+                unsafe {
                     if let Some(d) = self.decorations.get(&kid) {
                         if !d.buffer_node.is_null() {
                             wlr_scene_node_raise_to_top(std::ptr::addr_of_mut!(
                                 (*d.buffer_node).node
+                            ));
+                        }
+                    }
+                    if let Some(c) = self.clients.get(&kid) {
+                        if !c.tree.is_null() {
+                            wlr_scene_node_raise_to_top(std::ptr::addr_of_mut!(
+                                (*c.tree).node
                             ));
                         }
                     }
