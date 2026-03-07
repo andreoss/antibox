@@ -41,6 +41,8 @@ impl Server {
             Tag::XwaylandConfigure => self.on_xwayland_configure(id, data.cast()),
             Tag::XwaylandSetTitle => self.sync_xwayland_title(id),
             Tag::XwaylandSetGeometry => self.on_xwayland_geometry(id),
+            Tag::NewDecoration => self.on_new_decoration(data.cast()),
+            Tag::DecorationRequestMode => Self::force_server_side(data.cast()),
             Tag::XwaylandSetHints => self.sync_xwayland_hints(id),
         }
     }
@@ -174,6 +176,7 @@ impl Server {
             id,
             Client {
                 toplevel,
+                decoration: std::ptr::null_mut(),
                 xsurface: std::ptr::null_mut(),
                 surface,
                 tree,
@@ -249,6 +252,7 @@ impl Server {
         if !toplevel.is_null() {
             let base = (*toplevel).base;
             if !base.is_null() && (*base).initial_commit {
+                Self::force_server_side(client.decoration);
                 wlr_xdg_toplevel_set_size(toplevel, 0, 0);
                 return;
             }
@@ -329,4 +333,45 @@ unsafe fn geometry_of(toplevel: *mut wlr_xdg_toplevel) -> (i32, i32) {
         return (0, 0);
     }
     surface_size(surface)
+}
+
+impl Server {
+    unsafe fn on_new_decoration(&mut self, decoration: *mut wlr_xdg_toplevel_decoration_v1) {
+        if decoration.is_null() {
+            return;
+        }
+        let toplevel = (*decoration).toplevel;
+        if let Some(client) = self
+            .clients
+            .values_mut()
+            .find(|c| c.toplevel == toplevel && !toplevel.is_null())
+        {
+            client.decoration = decoration;
+        }
+        self.hook(
+            std::ptr::addr_of_mut!((*decoration).events.request_mode),
+            Tag::DecorationRequestMode,
+            0,
+        );
+    }
+}
+
+impl Server {
+    unsafe fn force_server_side(decoration: *mut wlr_xdg_toplevel_decoration_v1) {
+        if decoration.is_null() {
+            return;
+        }
+        let toplevel = (*decoration).toplevel;
+        if toplevel.is_null() {
+            return;
+        }
+        let base = (*toplevel).base;
+        if base.is_null() || !(*base).initialized {
+            return;
+        }
+        wlr_xdg_toplevel_decoration_v1_set_mode(
+            decoration,
+            WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE,
+        );
+    }
 }

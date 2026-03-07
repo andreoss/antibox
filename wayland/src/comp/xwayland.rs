@@ -75,6 +75,7 @@ impl Server {
             id,
             Client {
                 toplevel: std::ptr::null_mut(),
+                decoration: std::ptr::null_mut(),
                 xsurface,
                 surface: std::ptr::null_mut(),
                 tree: std::ptr::null_mut(),
