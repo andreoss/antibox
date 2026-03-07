@@ -54,6 +54,7 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
     let client_tree = wlr_scene_tree_create(std::ptr::addr_of_mut!((*scene).tree));
 
     let xdg_shell = wlr_xdg_shell_create(display, 3);
+    let decoration_manager = wlr_xdg_decoration_manager_v1_create(display);
     let seat_name = CString::new("seat0").map_err(|e| Error::message(e.to_string()))?;
     let seat = wlr_seat_create(display, seat_name.as_ptr());
     let cursor = wlr_cursor_create();
@@ -102,6 +103,11 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
     server.hook(
         std::ptr::addr_of_mut!((*xdg_shell).events.new_toplevel),
         Tag::NewToplevel,
+        0,
+    );
+    server.hook(
+        std::ptr::addr_of_mut!((*decoration_manager).events.new_toplevel_decoration),
+        Tag::NewDecoration,
         0,
     );
     server.hook(

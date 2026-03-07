@@ -808,3 +808,56 @@ extern "C" {
     pub fn wlr_output_commit_state(output: *mut wlr_output, state: *const wlr_output_state)
         -> bool;
 }
+
+pub const WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE: u32 = 2;
+
+#[repr(C)]
+pub struct wlr_xdg_decoration_manager_v1 {
+    pub global: *mut c_void,
+    pub decorations: wl_list,
+    pub events: wlr_xdg_decoration_manager_v1_events,
+    pub data: *mut c_void,
+}
+
+#[repr(C)]
+pub struct wlr_xdg_decoration_manager_v1_events {
+    pub new_toplevel_decoration: wl_signal,
+    pub destroy: wl_signal,
+}
+
+#[repr(C)]
+pub struct wlr_xdg_toplevel_decoration_v1_state {
+    pub mode: c_int,
+}
+
+#[repr(C)]
+pub struct wlr_xdg_toplevel_decoration_v1 {
+    pub resource: *mut wl_resource,
+    pub toplevel: *mut wlr_xdg_toplevel,
+    pub manager: *mut wlr_xdg_decoration_manager_v1,
+    pub link: wl_list,
+    pub current: wlr_xdg_toplevel_decoration_v1_state,
+    pub pending: wlr_xdg_toplevel_decoration_v1_state,
+    pub scheduled_mode: c_int,
+    pub requested_mode: c_int,
+    pub configure_list: wl_list,
+    pub events: wlr_xdg_toplevel_decoration_v1_events,
+    pub data: *mut c_void,
+}
+
+#[repr(C)]
+pub struct wlr_xdg_toplevel_decoration_v1_events {
+    pub destroy: wl_signal,
+    pub request_mode: wl_signal,
+}
+
+#[link(name = "wlroots-0.19")]
+extern "C" {
+    pub fn wlr_xdg_decoration_manager_v1_create(
+        display: *mut wl_display,
+    ) -> *mut wlr_xdg_decoration_manager_v1;
+    pub fn wlr_xdg_toplevel_decoration_v1_set_mode(
+        decoration: *mut wlr_xdg_toplevel_decoration_v1,
+        mode: u32,
+    ) -> u32;
+}
