@@ -120,12 +120,22 @@ impl Server {
             std::mem::take(&mut s.intents)
         };
         let mut focus_changed = false;
+        let mut restack = false;
         for intent in intents {
             match intent {
                 Intent::Map(id) => {
                     if self.clients.contains_key(&id) {
                         self.place_client(id, None);
                     }
+                    let mut s = self.shared.lock();
+                    let top_level = s
+                        .windows
+                        .get(&id)
+                        .is_some_and(|r| r.parent == crate::shared::ROOT_WINDOW);
+                    if top_level && !s.stack.contains(&id) {
+                        s.stack.push(id);
+                    }
+                    restack = true;
                 }
                 Intent::Unmap(id) | Intent::Destroy(id) => {
                     if let Some(c) = self.clients.get(&id) {
@@ -171,31 +181,22 @@ impl Server {
                     }
                 }
                 Intent::Raise(id) => {
-                    if let Some(c) = self.clients.get(&id) {
-                        if !c.tree.is_null() {
-                            wlr_scene_node_raise_to_top(std::ptr::addr_of_mut!(
-                                (*c.tree).node
-                            ));
-                        }
+                    let mut s = self.shared.lock();
+                    if s.windows.get(&id).is_some_and(|r| r.parent == crate::shared::ROOT_WINDOW) {
+                        s.stack.retain(|&w| w != id);
+                        s.stack.push(id);
                     }
+                    restack = true;
                 }
                 Intent::Lower(id) => {
-                    if let Some(c) = self.clients.get(&id) {
-                        if !c.tree.is_null() {
-                            wlr_scene_node_lower_to_bottom(std::ptr::addr_of_mut!(
-                                (*c.tree).node
-                            ));
-                        }
-                    }
                     let mut s = self.shared.lock();
-                    if let Some(pos) = s.stack.iter().position(|&w| w == id) {
-                        let w = s.stack.remove(pos);
-                        s.stack.insert(0, w);
-                    }
+                    s.stack.retain(|&w| w != id);
+                    s.stack.insert(0, id);
+                    restack = true;
                 }
                 Intent::Restack(ids) => {
                     self.shared.lock().stack = ids;
-                    self.restack();
+                    restack = true;
                 }
                 Intent::Focus(_) => focus_changed = true,
                 Intent::Warp { x, y } => {
@@ -210,6 +211,10 @@ impl Server {
                     s.pointer_y = y;
                 }
             }
+        }
+        if restack {
+            self.restack();
+            self.raise_popups();
         }
         if focus_changed {
             self.apply_focus();

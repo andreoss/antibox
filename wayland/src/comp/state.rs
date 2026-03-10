@@ -273,9 +273,10 @@ impl Server {
                 .decorations
                 .keys()
                 .filter(|id| {
-                    s.windows
-                        .get(id)
-                        .is_some_and(|r| r.override_redirect)
+                    !s.stack.contains(id)
+                        && s.windows.get(id).is_some_and(|r| {
+                            r.override_redirect && r.parent == crate::shared::ROOT_WINDOW
+                        })
                 })
                 .map(|id| (*id, window_depth(&s, *id)))
                 .collect();
