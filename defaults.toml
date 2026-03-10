@@ -42,7 +42,7 @@ menu_on_super_tap = true
 layout = "pager tasks cpu mem net power keyboard tray clock"
 
 [ticker]
-enabled = true
+enabled = false
 
 [keys]
 "Alt+Tab" = "FocusNext"

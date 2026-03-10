@@ -124,7 +124,7 @@ impl Default for Prefs {
             tabs: TabsPrefs {
                 position: "top".to_string(),
             },
-            ticker: TickerPrefs { enabled: true },
+            ticker: TickerPrefs { enabled: false },
             theme: ThemePrefs {
                 name: "nt".to_string(),
             },
