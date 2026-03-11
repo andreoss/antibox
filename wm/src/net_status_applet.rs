@@ -13,6 +13,16 @@ struct NetCounters {
 
 static NET_DEVICE: LazyRwLock<String> = LazyRwLock::new();
 
+#[cfg(target_os = "openbsd")]
+pub const fn counters_available() -> bool {
+    false
+}
+
+#[cfg(not(target_os = "openbsd"))]
+pub const fn counters_available() -> bool {
+    true
+}
+
 pub fn set_net_device(pattern: &str) {
     if let Ok(mut g) = NET_DEVICE.write() {
         *g = pattern.trim().to_string();

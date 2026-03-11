@@ -150,3 +150,12 @@
             }
         }
     }
+
+#[test]
+fn counters_are_unavailable_on_openbsd() {
+    assert_eq!(
+        counters_available(),
+        !cfg!(target_os = "openbsd"),
+        "the net applet must be skipped exactly where counters are unavailable"
+    );
+}
