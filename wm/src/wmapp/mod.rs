@@ -780,12 +780,13 @@ impl App {
             Widget::Mem => crate::mem_status_applet::MemStatusApplet::new(conn, wid, prefs.mem.width)
                 .ok()
                 .map(|m| Box::new(m) as Box<dyn Applet>),
-            Widget::Net => {
+            Widget::Net if crate::net_status_applet::counters_available() => {
                 crate::net_status_applet::set_net_device(&prefs.net.device);
                 crate::net_status_applet::NetStatusApplet::new(conn, wid, prefs.net.width)
                     .ok()
                     .map(|n| Box::new(n) as Box<dyn Applet>)
             }
+            Widget::Net => None,
             Widget::PowerAudio => crate::power_audio_applet::PowerAudioApplet::new(conn, wid)
                 .ok()
                 .map(|p| Box::new(p) as Box<dyn Applet>),
