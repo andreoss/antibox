@@ -67,10 +67,23 @@ fn parse_readers(list: &str) -> Vec<String> {
     out
 }
 
+#[cfg(target_os = "openbsd")]
+pub const fn pulse_available() -> bool {
+    false
+}
+
+#[cfg(not(target_os = "openbsd"))]
+pub const fn pulse_available() -> bool {
+    true
+}
+
 pub struct PulseAudio;
 
 impl PulseAudio {
     fn pactl(args: &[&str]) -> Option<String> {
+        if !pulse_available() {
+            return None;
+        }
         crate::run::capture("pactl", args)
     }
 
@@ -80,7 +93,9 @@ impl PulseAudio {
         } else {
             "@DEFAULT_SOURCE@"
         };
-        let _ = crate::run::ok("pactl", &[target, sink_or_source, "toggle"]);
+        if pulse_available() {
+            let _ = crate::run::ok("pactl", &[target, sink_or_source, "toggle"]);
+        }
     }
 
     fn set_volume(cmd: &str, target: &str, delta_pct: i32) {
@@ -89,7 +104,9 @@ impl PulseAudio {
         } else {
             format!("{delta_pct}%")
         };
-        let _ = crate::run::ok("pactl", &[cmd, target, &arg]);
+        if pulse_available() {
+            let _ = crate::run::ok("pactl", &[cmd, target, &arg]);
+        }
     }
 }
 

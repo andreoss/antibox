@@ -10,6 +10,9 @@ static ALIVE: AtomicBool = AtomicBool::new(false);
 static CHILD: LazyRwLock<Option<Child>> = LazyRwLock::new();
 
 pub fn init() -> Option<RawFd> {
+    if !crate::audio::pulse_available() {
+        return None;
+    }
     let child = Command::new("pactl")
         .arg("subscribe")
         .env("LC_ALL", "C")
