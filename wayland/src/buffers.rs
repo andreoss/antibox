@@ -7,10 +7,19 @@ use std::sync::{Arc, Mutex};
 
 pub const FIRST_DYNAMIC_ID: u32 = 0x0100_0000;
 
+impl Inner {
+    fn touch(&mut self, id: u32) {
+        self.clock += 1;
+        self.generations.insert(id, self.clock);
+    }
+}
+
 #[derive(Default)]
 struct Inner {
     next_id: u32,
     canvases: HashMap<u32, SoftCanvas>,
+    generations: HashMap<u32, u64>,
+    clock: u64,
 }
 
 pub struct BufferStore {
@@ -23,6 +32,8 @@ impl BufferStore {
             inner: Mutex::new(Inner {
                 next_id: FIRST_DYNAMIC_ID,
                 canvases: HashMap::new(),
+                generations: HashMap::new(),
+                clock: 0,
             }),
         })
     }
@@ -43,7 +54,9 @@ impl BufferStore {
     }
 
     pub fn insert(&self, id: u32, canvas: SoftCanvas) {
-        self.lock().canvases.insert(id, canvas);
+        let mut inner = self.lock();
+        inner.canvases.insert(id, canvas);
+        inner.touch(id);
     }
 
     pub fn remove(&self, id: u32) {
@@ -56,7 +69,15 @@ impl BufferStore {
 
     pub fn with<R>(&self, id: u32, f: impl FnOnce(&mut SoftCanvas) -> R) -> Option<R> {
         let mut inner = self.lock();
-        inner.canvases.get_mut(&id).map(f)
+        let out = inner.canvases.get_mut(&id).map(f);
+        if out.is_some() {
+            inner.touch(id);
+        }
+        out
+    }
+
+    pub fn generation(&self, id: u32) -> u64 {
+        self.lock().generations.get(&id).copied().unwrap_or(0)
     }
 
     pub fn copy_region(&self, src: u32, src_area: Rect, dst: u32, dst_pos: Point) {
@@ -69,6 +90,7 @@ impl BufferStore {
         };
         if let Some(d) = inner.canvases.get_mut(&dst) {
             d.draw_pixmap(dx, dy, &patch);
+            inner.touch(dst);
         }
     }
 

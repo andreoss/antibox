@@ -74,6 +74,9 @@ pub(crate) struct Client {
 pub(crate) struct Decoration {
     pub buffer_node: *mut wlr_scene_buffer,
     pub buffer: *mut wlr_buffer,
+    pub generation: u64,
+    pub x: i32,
+    pub y: i32,
 }
 
 pub struct Server {
@@ -157,6 +160,26 @@ impl Server {
             self.drop_decoration(id);
             return;
         }
+        let generation = self.buffers.generation(id);
+        if let Some(d) = self.decorations.get(&id) {
+            if d.generation == generation {
+                if d.x != ax || d.y != ay {
+                    let node = d.buffer_node;
+                    unsafe {
+                        wlr_scene_node_set_position(
+                            std::ptr::addr_of_mut!((*node).node),
+                            ax,
+                            ay,
+                        );
+                    }
+                    if let Some(d) = self.decorations.get_mut(&id) {
+                        d.x = ax;
+                        d.y = ay;
+                    }
+                }
+                return;
+            }
+        }
         let Some(pix) = self.buffers.snapshot(id) else {
             self.drop_decoration(id);
             return;
@@ -191,6 +214,9 @@ impl Server {
                 Decoration {
                     buffer_node: node,
                     buffer,
+                    generation,
+                    x: ax,
+                    y: ay,
                 },
             );
         }
@@ -205,6 +231,7 @@ impl Server {
                 .map(|(id, _)| *id)
                 .collect()
         };
+        let before = self.decorations.len();
         for id in &ids {
             self.sync_decoration(*id);
         }
@@ -214,11 +241,14 @@ impl Server {
             .copied()
             .filter(|id| !ids.contains(id))
             .collect();
+        let changed = !stale.is_empty() || self.decorations.len() != before;
         for id in stale {
             self.drop_decoration(id);
         }
-        self.restack();
-        self.raise_popups();
+        if changed {
+            self.restack();
+            self.raise_popups();
+        }
     }
 
     pub(crate) fn restack(&mut self) {
