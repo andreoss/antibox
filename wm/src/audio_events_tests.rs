@@ -22,3 +22,15 @@ fn unrelated_facilities_are_ignored() {
     assert!(!line_matters(""));
     assert!(!line_matters("garbage"));
 }
+
+#[test]
+fn pulse_is_not_used_on_openbsd() {
+    assert_eq!(
+        crate::audio::pulse_available(),
+        !cfg!(target_os = "openbsd"),
+        "pactl must not be spawned on openbsd"
+    );
+    if cfg!(target_os = "openbsd") {
+        assert!(init().is_none(), "the pactl subscriber must not start");
+    }
+}
