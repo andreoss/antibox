@@ -11,7 +11,7 @@ pub struct FreeTypeGlyphs {
 
 impl FreeTypeGlyphs {
     fn face(&self, font: &FontSpec) -> Option<Arc<antibox_x11::xcb::ft::FtFont>> {
-        let pattern = format!("{}:size={}", font.family, font.size.max(1));
+        let pattern = fc_pattern(font);
         let mut cache = self
             .faces
             .lock()
@@ -80,4 +80,28 @@ impl GlyphSource for FreeTypeGlyphs {
 
 pub fn install() {
     antibox_wayland::glyphs::install(Arc::new(FreeTypeGlyphs::default()));
+}
+
+fn xlfd_parts(name: &str) -> Option<(String, u16)> {
+    let fields: Vec<&str> = name.split('-').collect();
+    if fields.len() < 8 || !name.starts_with('-') {
+        return None;
+    }
+    let px = fields[7].parse::<u16>().ok().filter(|px| *px > 0)?;
+    let family = match fields[2] {
+        "" | "*" => "monospace".to_string(),
+        f => f.to_string(),
+    };
+    Some((family, px))
+}
+
+fn fc_pattern(font: &FontSpec) -> String {
+    match xlfd_parts(&font.family) {
+        Some((family, px)) => format!("{family}:pixelsize={px}"),
+        None => format!(
+            "{}:pixelsize={}",
+            font.family,
+            u32::from(font.size.max(1)) * 4 / 3
+        ),
+    }
 }
