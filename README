@@ -22,13 +22,13 @@ Features
 Wayland
 -------
 
-antibox-wayland runs the same window manager on a nested Wayland compositor
-(smithay). Build it with --features wayland. X11 clients need Xwayland.
+antibox-wayland runs the same window manager on a wlroots compositor.
+Build it with --features wayland. X11 clients need Xwayland.
 
 Building
 --------
 
-Rust 1.80.1 (pinned in rust-toolchain.toml).
+Rust 1.80.1.
 
 Linux (needs libxcb, freetype, fontconfig):
 
