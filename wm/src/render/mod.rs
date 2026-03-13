@@ -424,12 +424,7 @@ fn draw_title_text(
     g.set_foreground(colour)?;
     let bar_bg = antibox_core::backend::blend_colour(top, bottom, 0.5);
     let _ = g.set_background(bar_bg);
-    let _ = g.set_font(&FontSpec::role_styled(
-        antibox_core::backend::FontRole::Title,
-        antibox_ui::metrics::font_pt(),
-        true,
-        false,
-    ));
+    let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
     let bar_top = if fw.effective_border() > 0 {
         crate::frame::title_side_inset()
     } else {
@@ -559,12 +554,7 @@ fn draw_frame_left_title(
         } else {
             colours.inactive_text
         };
-        let _ = g.set_font(&FontSpec::role_styled(
-            antibox_core::backend::FontRole::Title,
-            antibox_ui::metrics::font_pt(),
-            true,
-            false,
-        ));
+        let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
         let _ = g.set_foreground(colour);
         let _ = g.set_background(fill);
         let fh = antibox_ui::metrics::font_px();
@@ -626,12 +616,7 @@ fn draw_frame_bottom_title(
         } else {
             colours.inactive_text
         };
-        let _ = g.set_font(&FontSpec::role_styled(
-            antibox_core::backend::FontRole::Title,
-            antibox_ui::metrics::font_pt(),
-            true,
-            false,
-        ));
+        let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
         let _ = g.set_foreground(colour);
         let _ = g.set_background(fill);
         let baseline = bandr.y + antibox_ui::metrics::baseline(0, bandr.h);

@@ -297,10 +297,6 @@ pub fn title_end_pad_base() -> u16 {
     metric_or("title_end_pad", 0)
 }
 
-pub fn chrome_font() -> String {
-    string_or("chrome_font", "")
-}
-
 pub fn ui_font_name() -> String {
     string_or("ui_font_name", "")
 }
