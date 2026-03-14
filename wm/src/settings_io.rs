@@ -7,10 +7,14 @@ pub enum SettingValue {
 }
 
 pub fn user_config_path() -> Option<PathBuf> {
-    crate::wmconfig::Config::search_dirs()
-        .into_iter()
-        .next()
-        .map(|d| d.join(crate::config_watch::CONFIG_FILE))
+    let file = crate::config_watch::CONFIG_FILE;
+    for dir in crate::wmconfig::Config::search_dirs() {
+        let path = dir.join(file);
+        if path.is_file() {
+            return Some(path);
+        }
+    }
+    crate::wmconfig::Config::preferred_dir().map(|d| d.join(file))
 }
 
 pub fn save(values: &[(&str, &str, SettingValue)]) -> std::io::Result<PathBuf> {

@@ -56,3 +56,15 @@ fn test_saved_file_survives_apply_prefs() {
     assert!(!prefs.ticker.enabled);
     let _ = std::fs::remove_file(&p);
 }
+
+#[test]
+fn a_fresh_home_saves_under_xdg() {
+    let dir = std::env::temp_dir().join(format!("antibox-fresh-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(".config/antibox/config.toml");
+    save_to(&path, &[("theme", "name", SettingValue::Text("kde".into()))]).unwrap();
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert!(text.contains("kde"), "settings must land in the xdg path");
+    let _ = std::fs::remove_dir_all(&dir);
+}
