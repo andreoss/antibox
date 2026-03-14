@@ -55,6 +55,13 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
 
     let xdg_shell = wlr_xdg_shell_create(display, 3);
     let decoration_manager = wlr_xdg_decoration_manager_v1_create(display);
+    let kde_decoration = wlr_server_decoration_manager_create(display);
+    if !kde_decoration.is_null() {
+        wlr_server_decoration_manager_set_default_mode(
+            kde_decoration,
+            WLR_SERVER_DECORATION_MANAGER_MODE_SERVER,
+        );
+    }
     let seat_name = CString::new("seat0").map_err(|e| Error::message(e.to_string()))?;
     let seat = wlr_seat_create(display, seat_name.as_ptr());
     let cursor = wlr_cursor_create();
