@@ -861,3 +861,32 @@ extern "C" {
         mode: u32,
     ) -> u32;
 }
+
+pub const WLR_SERVER_DECORATION_MANAGER_MODE_SERVER: u32 = 2;
+
+#[repr(C)]
+pub struct wlr_server_decoration_manager {
+    pub global: *mut c_void,
+    pub resources: wl_list,
+    pub decorations: wl_list,
+    pub default_mode: u32,
+    pub events: wlr_server_decoration_manager_events,
+    pub data: *mut c_void,
+}
+
+#[repr(C)]
+pub struct wlr_server_decoration_manager_events {
+    pub new_decoration: wl_signal,
+    pub destroy: wl_signal,
+}
+
+#[link(name = "wlroots-0.19")]
+extern "C" {
+    pub fn wlr_server_decoration_manager_create(
+        display: *mut wl_display,
+    ) -> *mut wlr_server_decoration_manager;
+    pub fn wlr_server_decoration_manager_set_default_mode(
+        manager: *mut wlr_server_decoration_manager,
+        default_mode: u32,
+    );
+}
