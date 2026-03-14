@@ -345,6 +345,18 @@ impl Config {
         opts
     }
 
+    pub fn preferred_dir() -> Option<PathBuf> {
+        if let Some(priv_cfg) = std::env::var_os("ANTIBOX_PRIVCFG") {
+            return Some(PathBuf::from(priv_cfg));
+        }
+        if let Some(xdg_home) = std::env::var_os("XDG_CONFIG_HOME") {
+            return Some(PathBuf::from(xdg_home).join("antibox"));
+        }
+        std::env::var("HOME")
+            .ok()
+            .map(|home| PathBuf::from(home).join(".config/antibox"))
+    }
+
     pub fn search_dirs() -> Vec<PathBuf> {
         let mut dirs = Vec::new();
 
@@ -353,10 +365,7 @@ impl Config {
         } else if let Some(xdg_home) = std::env::var_os("XDG_CONFIG_HOME") {
             dirs.push(PathBuf::from(xdg_home).join("antibox"));
         } else if let Ok(home) = std::env::var("HOME") {
-            let xdg_config = PathBuf::from(&home).join(".config/antibox");
-            if xdg_config.is_dir() {
-                dirs.push(xdg_config);
-            }
+            dirs.push(PathBuf::from(&home).join(".config/antibox"));
             dirs.push(PathBuf::from(home).join(".antibox"));
         }
 
