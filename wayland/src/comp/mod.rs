@@ -95,6 +95,7 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
         buffers: Arc::clone(&buffers),
         socket: None,
         xwayland: std::ptr::null_mut(),
+        kde_decorations: Vec::new(),
     });
 
     server.hook(
@@ -117,6 +118,13 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
         Tag::NewDecoration,
         0,
     );
+    if !kde_decoration.is_null() {
+        server.hook(
+            std::ptr::addr_of_mut!((*kde_decoration).events.new_decoration),
+            Tag::NewKdeDecoration,
+            0,
+        );
+    }
     server.hook(
         std::ptr::addr_of_mut!((*cursor).events.motion),
         Tag::CursorMotion,

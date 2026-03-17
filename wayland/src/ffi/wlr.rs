@@ -809,6 +809,7 @@ extern "C" {
         -> bool;
 }
 
+pub const WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE: u32 = 1;
 pub const WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE: u32 = 2;
 
 #[repr(C)]
@@ -889,4 +890,22 @@ extern "C" {
         manager: *mut wlr_server_decoration_manager,
         default_mode: u32,
     );
+}
+
+pub const WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT: u32 = 1;
+
+#[repr(C)]
+pub struct wlr_server_decoration {
+    pub resource: *mut wl_resource,
+    pub surface: *mut wlr_surface,
+    pub link: wl_list,
+    pub mode: u32,
+    pub events: wlr_server_decoration_events,
+    pub data: *mut c_void,
+}
+
+#[repr(C)]
+pub struct wlr_server_decoration_events {
+    pub destroy: wl_signal,
+    pub mode: wl_signal,
 }
