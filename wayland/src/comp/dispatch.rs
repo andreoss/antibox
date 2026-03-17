@@ -43,6 +43,7 @@ impl Server {
             Tag::XwaylandSetGeometry => self.on_xwayland_geometry(id),
             Tag::NewDecoration => self.on_new_decoration(data.cast()),
             Tag::DecorationRequestMode => Self::force_server_side(data.cast()),
+            Tag::DecorationDestroy => self.on_decoration_destroy(data.cast()),
             Tag::XwaylandSetHints => self.sync_xwayland_hints(id),
         }
     }
@@ -348,11 +349,30 @@ impl Server {
         {
             client.decoration = decoration;
         }
-        self.hook(
+        self.hook_on(
             std::ptr::addr_of_mut!((*decoration).events.request_mode),
             Tag::DecorationRequestMode,
             0,
+            decoration.cast(),
         );
+        self.hook_on(
+            std::ptr::addr_of_mut!((*decoration).events.destroy),
+            Tag::DecorationDestroy,
+            0,
+            decoration.cast(),
+        );
+    }
+
+    unsafe fn on_decoration_destroy(
+        &mut self,
+        decoration: *mut wlr_xdg_toplevel_decoration_v1,
+    ) {
+        for client in self.clients.values_mut() {
+            if client.decoration == decoration {
+                client.decoration = std::ptr::null_mut();
+            }
+        }
+        self.drop_hooks_on(decoration.cast());
     }
 }
 

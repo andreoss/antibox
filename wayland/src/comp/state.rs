@@ -40,6 +40,7 @@ pub(crate) enum Tag {
     XwaylandSetGeometry,
     NewDecoration,
     DecorationRequestMode,
+    DecorationDestroy,
 }
 
 #[repr(C)]
@@ -48,6 +49,7 @@ pub(crate) struct Hook {
     pub server: *mut Server,
     pub tag: Tag,
     pub id: u32,
+    pub obj: *mut c_void,
 }
 
 unsafe extern "C" fn trampoline(listener: *mut wl_listener, data: *mut c_void) {
@@ -106,11 +108,22 @@ pub struct Server {
 
 impl Server {
     pub(crate) fn hook(&mut self, signal: *mut wl_signal, tag: Tag, id: u32) {
+        self.hook_on(signal, tag, id, std::ptr::null_mut());
+    }
+
+    pub(crate) fn hook_on(
+        &mut self,
+        signal: *mut wl_signal,
+        tag: Tag,
+        id: u32,
+        obj: *mut c_void,
+    ) {
         let mut hook = Box::new(Hook {
             listener: wl_listener::new(),
             server: std::ptr::from_mut(self),
             tag,
             id,
+            obj,
         });
         hook.listener.notify = Some(trampoline);
         unsafe {
@@ -355,6 +368,18 @@ fn rgba_to_argb(data: &[u8]) -> Vec<u32> {
 }
 
 impl Server {
+    pub(crate) unsafe fn drop_hooks_on(&mut self, obj: *mut c_void) {
+        let mut kept = Vec::with_capacity(self.hooks.len());
+        for mut hook in std::mem::take(&mut self.hooks) {
+            if hook.obj == obj {
+                listener_detach(std::ptr::addr_of_mut!(hook.listener));
+            } else {
+                kept.push(hook);
+            }
+        }
+        self.hooks = kept;
+    }
+
     pub(crate) unsafe fn drop_hooks(&mut self, id: u32) {
         self.drop_hooks_where(id, |_| true);
     }
