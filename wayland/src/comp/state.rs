@@ -41,6 +41,9 @@ pub(crate) enum Tag {
     NewDecoration,
     DecorationRequestMode,
     DecorationDestroy,
+    NewKdeDecoration,
+    KdeDecorationMode,
+    KdeDecorationDestroy,
 }
 
 #[repr(C)]
@@ -104,6 +107,7 @@ pub struct Server {
     pub(crate) buffers: Arc<BufferStore>,
     pub(crate) socket: Option<String>,
     pub(crate) xwayland: *mut crate::ffi::xwayland::wlr_xwayland,
+    pub(crate) kde_decorations: Vec<*mut wlr_server_decoration>,
 }
 
 impl Server {

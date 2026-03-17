@@ -354,7 +354,7 @@ const P_SIZE: u32 = 8;
 const P_MIN_SIZE: u32 = 16;
 const P_BASE_SIZE: u32 = 256;
 
-fn words_to_bytes(words: &[u32]) -> Vec<u8> {
+pub(crate) fn words_to_bytes(words: &[u32]) -> Vec<u8> {
     words.iter().flat_map(|w| w.to_ne_bytes()).collect()
 }
 

@@ -1,9 +1,11 @@
 use antibox_core::backend::BackendEvent;
 use antibox_core::rect::Rect;
-use std::os::raw::c_void;
+use std::os::raw::{c_int, c_void};
 
 use super::state::{Client, Server, Tag};
+use antibox_core::backend::hints::{mwm_decor, mwm_hints_flags};
 use crate::ffi::cstr_to_string;
+use super::xwayland::words_to_bytes;
 
 use crate::ffi::wlr::*;
 use crate::shared::{WinKind, WinRec, ROOT_WINDOW};
@@ -42,8 +44,11 @@ impl Server {
             Tag::XwaylandSetTitle => self.sync_xwayland_title(id),
             Tag::XwaylandSetGeometry => self.on_xwayland_geometry(id),
             Tag::NewDecoration => self.on_new_decoration(data.cast()),
-            Tag::DecorationRequestMode => Self::force_server_side(data.cast()),
+            Tag::DecorationRequestMode => self.settle_decoration(data.cast()),
             Tag::DecorationDestroy => self.on_decoration_destroy(data.cast()),
+            Tag::NewKdeDecoration => self.on_new_kde_decoration(data.cast()),
+            Tag::KdeDecorationMode => self.apply_kde_decoration(data.cast()),
+            Tag::KdeDecorationDestroy => self.on_kde_decoration_destroy(data.cast()),
             Tag::XwaylandSetHints => self.sync_xwayland_hints(id),
         }
     }
@@ -185,6 +190,8 @@ impl Server {
                 announced: false,
             },
         );
+        self.publish_decor_hint(id, false);
+        self.adopt_kde_decoration(surface);
         let events = surface_events(surface);
         self.hook(std::ptr::addr_of_mut!((*events).map), Tag::SurfaceMap, id);
         self.hook(
@@ -253,7 +260,8 @@ impl Server {
         if !toplevel.is_null() {
             let base = (*toplevel).base;
             if !base.is_null() && (*base).initial_commit {
-                Self::force_server_side(client.decoration);
+                let decoration = client.decoration;
+                self.settle_decoration(decoration);
                 wlr_xdg_toplevel_set_size(toplevel, 0, 0);
                 return;
             }
@@ -374,10 +382,8 @@ impl Server {
         }
         self.drop_hooks_on(decoration.cast());
     }
-}
 
-impl Server {
-    unsafe fn force_server_side(decoration: *mut wlr_xdg_toplevel_decoration_v1) {
+    unsafe fn settle_decoration(&mut self, decoration: *mut wlr_xdg_toplevel_decoration_v1) {
         if decoration.is_null() {
             return;
         }
@@ -386,12 +392,82 @@ impl Server {
             return;
         }
         let base = (*toplevel).base;
-        if base.is_null() || !(*base).initialized {
+        if base.is_null() {
             return;
         }
-        wlr_xdg_toplevel_decoration_v1_set_mode(
-            decoration,
-            WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE,
+        let client_side = (*decoration).requested_mode
+            == WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE as c_int;
+        let mode = if client_side {
+            WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE
+        } else {
+            WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE
+        };
+        if (*base).initialized {
+            wlr_xdg_toplevel_decoration_v1_set_mode(decoration, mode);
+        }
+        if let Some(id) = self.client_id_for_surface((*base).surface) {
+            self.publish_decor_hint(id, !client_side);
+        }
+    }
+}
+
+impl Server {
+    unsafe fn on_new_kde_decoration(&mut self, decoration: *mut wlr_server_decoration) {
+        if decoration.is_null() {
+            return;
+        }
+        self.kde_decorations.push(decoration);
+        self.hook_on(
+            std::ptr::addr_of_mut!((*decoration).events.mode),
+            Tag::KdeDecorationMode,
+            0,
+            decoration.cast(),
         );
+        self.hook_on(
+            std::ptr::addr_of_mut!((*decoration).events.destroy),
+            Tag::KdeDecorationDestroy,
+            0,
+            decoration.cast(),
+        );
+        self.apply_kde_decoration(decoration);
+    }
+
+    pub(crate) unsafe fn apply_kde_decoration(
+        &mut self,
+        decoration: *mut wlr_server_decoration,
+    ) {
+        if decoration.is_null() {
+            return;
+        }
+        let surface = (*decoration).surface;
+        let Some(id) = self.client_id_for_surface(surface) else {
+            return;
+        };
+        let client_draws = (*decoration).mode == WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT
+            || (*decoration).mode == 0;
+        self.publish_decor_hint(id, !client_draws);
+    }
+
+    unsafe fn on_kde_decoration_destroy(&mut self, decoration: *mut wlr_server_decoration) {
+        self.kde_decorations.retain(|d| *d != decoration);
+        self.drop_hooks_on(decoration.cast());
+    }
+
+    pub(crate) unsafe fn adopt_kde_decoration(&mut self, surface: *mut wlr_surface) {
+        let pending: Vec<*mut wlr_server_decoration> = self
+            .kde_decorations
+            .iter()
+            .copied()
+            .filter(|d| !d.is_null() && (**d).surface == surface)
+            .collect();
+        for decoration in pending {
+            self.apply_kde_decoration(decoration);
+        }
+    }
+
+    pub(crate) fn publish_decor_hint(&self, id: u32, decorate: bool) {
+        let decorations = if decorate { mwm_decor::ALL } else { 0 };
+        let words = [mwm_hints_flags::DECORATIONS, 0, decorations, 0];
+        self.put_prop(id, "_MOTIF_WM_HINTS", words_to_bytes(&words));
     }
 }
