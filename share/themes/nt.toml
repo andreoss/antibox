@@ -87,16 +87,6 @@ ops = [
     { op = "bevel", raised = false, light = "light", shadow = "shadow", depth = "s" },
 ]
 
-[elements.title_active]
-ops = [
-    { op = "fill", colour = "title_active" },
-]
-
-[elements.title_inactive]
-ops = [
-    { op = "fill", colour = "title_inactive" },
-]
-
 [elements.menu_sel]
 ops = [
     { op = "fill", colour = "sel_bg" },

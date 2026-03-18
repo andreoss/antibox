@@ -73,7 +73,7 @@
     #[test]
     fn nt_theme_defines_elements() {
         let def = nt();
-        for name in &["panel", "field", "well", "button", "button_pressed", "title_active", "title_inactive", "menu_sel", "tooltip", "progress"] {
+        for name in &["panel", "field", "well", "button", "button_pressed", "menu_sel", "tooltip", "progress"] {
             assert!(
                 def.element(name).is_some_and(|o| !o.is_empty()),
                 "element {name} must have ops"
