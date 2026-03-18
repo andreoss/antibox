@@ -141,6 +141,13 @@ ops = [
     { op = "fill", x = "0", y = "h-s", w = "w", h = "s", colour = "#000000" },
 ]
 
+[elements.title_bar_inactive]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "#DDDDDD" },
+    { op = "fill", x = "0", y = "h-2*s", w = "w", h = "s", colour = "#999999" },
+    { op = "fill", x = "0", y = "h-s", w = "w", h = "s", colour = "#000000" },
+]
+
 [elements.frame_left]
 ops = [
     { op = "fill", x = "0", y = "0", w = "s", h = "h", colour = "#000000" },
