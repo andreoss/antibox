@@ -909,3 +909,30 @@ pub struct wlr_server_decoration_events {
     pub destroy: wl_signal,
     pub mode: wl_signal,
 }
+
+#[link(name = "wlroots-0.19")]
+extern "C" {
+    pub fn wlr_primary_selection_v1_device_manager_create(
+        display: *mut wl_display,
+    ) -> *mut c_void;
+    pub fn wlr_xdg_output_manager_v1_create(
+        display: *mut wl_display,
+        layout: *mut wlr_output_layout,
+    ) -> *mut c_void;
+    pub fn wlr_screencopy_manager_v1_create(display: *mut wl_display) -> *mut c_void;
+    pub fn wlr_viewporter_create(display: *mut wl_display) -> *mut c_void;
+    pub fn wlr_presentation_create(
+        display: *mut wl_display,
+        backend: *mut wlr_backend,
+        version: u32,
+    ) -> *mut c_void;
+    pub fn wlr_fractional_scale_manager_v1_create(
+        display: *mut wl_display,
+        version: u32,
+    ) -> *mut c_void;
+    pub fn wlr_single_pixel_buffer_manager_v1_create(
+        display: *mut wl_display,
+    ) -> *mut c_void;
+    pub fn wlr_gamma_control_manager_v1_create(display: *mut wl_display) -> *mut c_void;
+    pub fn wlr_idle_notifier_v1_create(display: *mut wl_display) -> *mut c_void;
+}
