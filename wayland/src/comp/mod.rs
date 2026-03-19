@@ -53,6 +53,16 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
     wlr_scene_attach_output_layout(scene, layout);
     let client_tree = wlr_scene_tree_create(std::ptr::addr_of_mut!((*scene).tree));
 
+    wlr_primary_selection_v1_device_manager_create(display);
+    wlr_xdg_output_manager_v1_create(display, layout);
+    wlr_screencopy_manager_v1_create(display);
+    wlr_viewporter_create(display);
+    wlr_presentation_create(display, backend, 2);
+    wlr_fractional_scale_manager_v1_create(display, 1);
+    wlr_single_pixel_buffer_manager_v1_create(display);
+    wlr_gamma_control_manager_v1_create(display);
+    wlr_idle_notifier_v1_create(display);
+
     let xdg_shell = wlr_xdg_shell_create(display, 3);
     let decoration_manager = wlr_xdg_decoration_manager_v1_create(display);
     let kde_decoration = wlr_server_decoration_manager_create(display);
