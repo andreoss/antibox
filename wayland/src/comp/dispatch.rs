@@ -160,7 +160,7 @@ impl Server {
             return;
         }
         let surface = (*base).surface;
-        let tree = wlr_scene_subsurface_tree_create(self.client_tree, surface);
+        let tree = wlr_scene_xdg_surface_create(self.client_tree, base);
         let id = {
             let mut s = self.shared.lock();
             let id = s.alloc_id();

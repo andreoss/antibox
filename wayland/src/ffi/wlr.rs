@@ -515,6 +515,10 @@ extern "C" {
         parent: *mut wlr_scene_tree,
         surface: *mut wlr_surface,
     ) -> *mut wlr_scene_tree;
+    pub fn wlr_scene_xdg_surface_create(
+        parent: *mut wlr_scene_tree,
+        xdg_surface: *mut wlr_xdg_surface,
+    ) -> *mut wlr_scene_tree;
     pub fn wlr_scene_rect_create(
         parent: *mut wlr_scene_tree,
         width: c_int,
