@@ -940,3 +940,24 @@ extern "C" {
     pub fn wlr_gamma_control_manager_v1_create(display: *mut wl_display) -> *mut c_void;
     pub fn wlr_idle_notifier_v1_create(display: *mut wl_display) -> *mut c_void;
 }
+
+#[link(name = "wlroots-0.19")]
+extern "C" {
+    pub fn wlr_keyboard_group_create() -> *mut wlr_keyboard_group;
+    pub fn wlr_keyboard_group_add_keyboard(
+        group: *mut wlr_keyboard_group,
+        keyboard: *mut wlr_keyboard,
+    ) -> bool;
+    pub fn wlr_keyboard_group_destroy(group: *mut wlr_keyboard_group);
+}
+
+#[repr(C)]
+pub struct wlr_keyboard_group {
+    pub keyboard: wlr_keyboard,
+}
+
+impl wlr_keyboard_group {
+    pub const fn as_keyboard(group: *mut Self) -> *mut wlr_keyboard {
+        group.cast()
+    }
+}

@@ -96,6 +96,7 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
         cursor,
         cursor_mgr,
         keyboard: std::ptr::null_mut(),
+        keyboard_group: wlr_keyboard_group_create(),
         outputs: Vec::new(),
         scene_outputs: Vec::new(),
         clients: HashMap::new(),
@@ -166,6 +167,24 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
         .ok_or_else(|| Error::message("cannot open a wayland socket"))?;
     std::env::set_var("WAYLAND_DISPLAY", &socket);
     server.socket = Some(socket);
+
+    let group_keyboard = wlr_keyboard_group::as_keyboard(server.keyboard_group);
+    if !group_keyboard.is_null() {
+        server.keyboard = group_keyboard;
+        server.install_keymap(group_keyboard);
+        wlr_keyboard_set_repeat_info(group_keyboard, 25, 600);
+        server.hook(
+            std::ptr::addr_of_mut!((*group_keyboard).events.key),
+            Tag::KeyboardKey,
+            0,
+        );
+        server.hook(
+            std::ptr::addr_of_mut!((*group_keyboard).events.modifiers),
+            Tag::KeyboardModifiers,
+            0,
+        );
+        wlr_seat_set_keyboard(seat, group_keyboard);
+    }
 
     server.set_default_cursor();
     server.start_xwayland();
