@@ -123,20 +123,7 @@ impl Server {
                     return;
                 }
                 self.install_keymap(kb);
-                wlr_keyboard_set_repeat_info(kb, 25, 600);
-                self.keyboard = kb;
-                self.hook(
-                    std::ptr::addr_of_mut!((*kb).events.key),
-                    Tag::KeyboardKey,
-                    0,
-                );
-                self.hook(
-                    std::ptr::addr_of_mut!((*kb).events.modifiers),
-                    Tag::KeyboardModifiers,
-                    0,
-                );
-                wlr_seat_set_keyboard(self.seat, kb);
-                self.build_keymap();
+                wlr_keyboard_group_add_keyboard(self.keyboard_group, kb);
             }
             WLR_INPUT_DEVICE_POINTER => {
                 wlr_cursor_attach_input_device(self.cursor, dev);
