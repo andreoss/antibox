@@ -98,7 +98,6 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
         keyboard: std::ptr::null_mut(),
         keyboard_group: wlr_keyboard_group_create(),
         outputs: Vec::new(),
-        scene_outputs: Vec::new(),
         clients: HashMap::new(),
         decorations: HashMap::new(),
         hooks: Vec::new(),

@@ -2,7 +2,7 @@ use antibox_core::backend::BackendEvent;
 use antibox_core::rect::Rect;
 use std::os::raw::{c_int, c_void};
 
-use super::state::{Client, Server, Tag};
+use super::state::{Client, Output, Server, Tag};
 use antibox_core::backend::hints::{mwm_decor, mwm_hints_flags};
 use crate::ffi::cstr_to_string;
 use super::xwayland::words_to_bytes;
@@ -14,7 +14,7 @@ impl Server {
     pub(crate) unsafe fn dispatch(&mut self, tag: Tag, id: u32, data: *mut c_void) {
         match tag {
             Tag::NewOutput => self.on_new_output(data.cast::<wlr_output>()),
-            Tag::OutputFrame => self.on_output_frame(id),
+            Tag::OutputFrame => self.on_output_frame(data.cast::<wlr_output>()),
             Tag::OutputDestroy => self.on_output_destroy(data.cast::<wlr_output>()),
             Tag::NewInput => self.on_new_input(data.cast::<wlr_input_device>()),
             Tag::NewToplevel => self.on_new_toplevel(data.cast::<wlr_xdg_toplevel>()),
@@ -68,19 +68,19 @@ impl Server {
         wlr_output_commit_state(output, std::ptr::addr_of!(state));
         wlr_output_state_finish(std::ptr::addr_of_mut!(state));
         wlr_output_layout_add_auto(self.layout, output);
-        let scene_output = wlr_scene_output_create(self.scene, output);
-        let index = self.outputs.len() as u32;
-        self.outputs.push(output);
-        self.scene_outputs.push(scene_output);
-        self.hook(
+        let scene = wlr_scene_output_create(self.scene, output);
+        self.outputs.push(Output { output, scene });
+        self.hook_on(
             std::ptr::addr_of_mut!((*output).events.frame),
             Tag::OutputFrame,
-            index,
+            0,
+            output.cast(),
         );
-        self.hook(
+        self.hook_on(
             std::ptr::addr_of_mut!((*output).events.destroy),
             Tag::OutputDestroy,
-            index,
+            0,
+            output.cast(),
         );
         let (w, h) = ((*output).width, (*output).height);
         if w > 0 && h > 0 {
@@ -93,23 +93,27 @@ impl Server {
         }
     }
 
-    unsafe fn on_output_frame(&mut self, index: u32) {
-        let Some(&scene_output) = self.scene_outputs.get(index as usize) else {
+    unsafe fn on_output_frame(&mut self, output: *mut wlr_output) {
+        let Some(entry) = self.outputs.iter().find(|o| o.output == output) else {
             return;
         };
-        if scene_output.is_null() {
+        let scene = entry.scene;
+        if scene.is_null() {
             return;
         }
-        wlr_scene_output_commit(scene_output, std::ptr::null());
+        wlr_scene_output_commit(scene, std::ptr::null());
         let ts = crate::ffi::wl::now();
-        wlr_scene_output_send_frame_done(scene_output, std::ptr::addr_of!(ts).cast());
+        wlr_scene_output_send_frame_done(scene, std::ptr::addr_of!(ts).cast());
     }
 
     unsafe fn on_output_destroy(&mut self, output: *mut wlr_output) {
-        if let Some(pos) = self.outputs.iter().position(|o| *o == output) {
-            self.outputs.remove(pos);
-            self.scene_outputs.remove(pos);
+        if let Some(pos) = self.outputs.iter().position(|o| o.output == output) {
+            let entry = self.outputs.remove(pos);
+            if !entry.scene.is_null() {
+                wlr_scene_output_destroy(entry.scene);
+            }
         }
+        self.drop_hooks_on(output.cast());
     }
 
     unsafe fn on_new_input(&mut self, dev: *mut wlr_input_device) {
