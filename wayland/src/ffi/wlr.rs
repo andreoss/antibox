@@ -498,6 +498,7 @@ extern "C" {
         scene: *mut wlr_scene,
         layout: *mut wlr_output_layout,
     ) -> *mut c_void;
+    pub fn wlr_scene_output_destroy(scene_output: *mut wlr_scene_output);
     pub fn wlr_scene_output_create(
         scene: *mut wlr_scene,
         output: *mut wlr_output,

@@ -76,6 +76,11 @@ pub(crate) struct Client {
     pub announced: bool,
 }
 
+pub(crate) struct Output {
+    pub output: *mut wlr_output,
+    pub scene: *mut wlr_scene_output,
+}
+
 pub(crate) struct Decoration {
     pub buffer_node: *mut wlr_scene_buffer,
     pub buffer: *mut wlr_buffer,
@@ -98,8 +103,7 @@ pub struct Server {
     pub(crate) cursor_mgr: *mut wlr_xcursor_manager,
     pub(crate) keyboard: *mut wlr_keyboard,
     pub(crate) keyboard_group: *mut wlr_keyboard_group,
-    pub(crate) outputs: Vec<*mut wlr_output>,
-    pub(crate) scene_outputs: Vec<*mut wlr_scene_output>,
+    pub(crate) outputs: Vec<Output>,
     pub(crate) clients: HashMap<u32, Client>,
     pub(crate) decorations: HashMap<u32, Decoration>,
     #[allow(clippy::vec_box)]
