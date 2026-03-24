@@ -50,7 +50,48 @@ impl Server {
             Tag::KdeDecorationMode => self.apply_kde_decoration(data.cast()),
             Tag::KdeDecorationDestroy => self.on_kde_decoration_destroy(data.cast()),
             Tag::XwaylandSetHints => self.sync_xwayland_hints(id),
+            Tag::SeatRequestCursor => self.on_request_set_cursor(data.cast()),
+            Tag::SeatRequestSelection => self.on_request_set_selection(data.cast()),
+            Tag::SeatRequestPrimary => self.on_request_set_primary(data.cast()),
         }
+    }
+
+    unsafe fn on_request_set_cursor(
+        &mut self,
+        event: *mut wlr_seat_pointer_request_set_cursor_event,
+    ) {
+        if event.is_null() {
+            return;
+        }
+        if (*event).seat_client != (*self.seat).pointer_focused_client {
+            return;
+        }
+        wlr_cursor_set_surface(
+            self.cursor,
+            (*event).surface,
+            (*event).hotspot_x,
+            (*event).hotspot_y,
+        );
+    }
+
+    unsafe fn on_request_set_selection(
+        &mut self,
+        event: *mut wlr_seat_request_set_selection_event,
+    ) {
+        if event.is_null() {
+            return;
+        }
+        wlr_seat_set_selection(self.seat, (*event).source, (*event).serial);
+    }
+
+    unsafe fn on_request_set_primary(
+        &mut self,
+        event: *mut wlr_seat_request_set_primary_selection_event,
+    ) {
+        if event.is_null() {
+            return;
+        }
+        wlr_seat_set_primary_selection(self.seat, (*event).source, (*event).serial);
     }
 
     unsafe fn on_new_output(&mut self, output: *mut wlr_output) {
