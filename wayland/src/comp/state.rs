@@ -282,7 +282,8 @@ impl Server {
                 .map(|id| (*id, window_depth(&s, *id)))
                 .collect();
             ordered.sort_by_key(|(_, d)| *d);
-            (s.stack.clone(), ordered)
+            let stack: Vec<Vec<u32>> = s.stack.iter().map(|id| s.subtree(*id)).collect();
+            (stack, ordered)
         };
         for (id, _) in ordered {
             unsafe {
@@ -295,8 +296,7 @@ impl Server {
                 }
             }
         }
-        for id in stack {
-            let subtree = self.shared.lock().subtree(id);
+        for subtree in stack {
             for kid in subtree {
                 unsafe {
                     if let Some(d) = self.decorations.get(&kid) {
