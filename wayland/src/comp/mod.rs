@@ -136,6 +136,21 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
         );
     }
     server.hook(
+        std::ptr::addr_of_mut!((*seat).events.request_set_cursor),
+        Tag::SeatRequestCursor,
+        0,
+    );
+    server.hook(
+        std::ptr::addr_of_mut!((*seat).events.request_set_selection),
+        Tag::SeatRequestSelection,
+        0,
+    );
+    server.hook(
+        std::ptr::addr_of_mut!((*seat).events.request_set_primary_selection),
+        Tag::SeatRequestPrimary,
+        0,
+    );
+    server.hook(
         std::ptr::addr_of_mut!((*cursor).events.motion),
         Tag::CursorMotion,
         0,

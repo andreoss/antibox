@@ -1,5 +1,6 @@
 use super::buffer::wlr_buffer;
 use super::wl::{wl_display, wl_event_loop, wl_list, wl_listener, wl_resource, wl_signal};
+use std::mem::{offset_of, size_of};
 use std::os::raw::{c_char, c_int, c_void};
 
 pub const WLR_INPUT_DEVICE_KEYBOARD: c_int = 0;
@@ -52,7 +53,75 @@ pub struct wlr_output_layout {
 
 #[repr(C)]
 pub struct wlr_seat {
+    _head: [u64; 18],
+    pub pointer_focused_client: *mut wlr_seat_client,
+    _mid: [u64; 72],
+    pub events: wlr_seat_events,
+    _tail: [u64; 13],
+}
+
+#[repr(C)]
+pub struct wlr_seat_client {
     _opaque: [u8; 0],
+}
+
+#[repr(C)]
+pub struct wlr_seat_events {
+    pub pointer_grab_begin: wl_signal,
+    pub pointer_grab_end: wl_signal,
+    pub keyboard_grab_begin: wl_signal,
+    pub keyboard_grab_end: wl_signal,
+    pub touch_grab_begin: wl_signal,
+    pub touch_grab_end: wl_signal,
+    pub request_set_cursor: wl_signal,
+    pub request_set_selection: wl_signal,
+    pub set_selection: wl_signal,
+    pub request_set_primary_selection: wl_signal,
+    pub set_primary_selection: wl_signal,
+    pub request_start_drag: wl_signal,
+    pub start_drag: wl_signal,
+    pub destroy: wl_signal,
+}
+
+const _: () = assert!(size_of::<wlr_seat>() == 1056);
+const _: () = assert!(offset_of!(wlr_seat, pointer_focused_client) == 144);
+const _: () = assert!(offset_of!(wlr_seat, events) == 728);
+
+#[repr(C)]
+pub struct wlr_seat_pointer_request_set_cursor_event {
+    pub seat_client: *mut wlr_seat_client,
+    pub surface: *mut wlr_surface,
+    pub serial: u32,
+    pub hotspot_x: i32,
+    pub hotspot_y: i32,
+}
+
+#[repr(C)]
+pub struct wlr_seat_request_set_selection_event {
+    pub source: *mut c_void,
+    pub serial: u32,
+}
+
+#[repr(C)]
+pub struct wlr_seat_request_set_primary_selection_event {
+    pub source: *mut c_void,
+    pub serial: u32,
+}
+
+#[link(name = "wlroots-0.19")]
+extern "C" {
+    pub fn wlr_seat_set_selection(seat: *mut wlr_seat, source: *mut c_void, serial: u32);
+    pub fn wlr_seat_set_primary_selection(
+        seat: *mut wlr_seat,
+        source: *mut c_void,
+        serial: u32,
+    );
+    pub fn wlr_cursor_set_surface(
+        cursor: *mut wlr_cursor,
+        surface: *mut wlr_surface,
+        hotspot_x: i32,
+        hotspot_y: i32,
+    );
 }
 
 #[repr(C)]
