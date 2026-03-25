@@ -1031,3 +1031,26 @@ impl wlr_keyboard_group {
         group.cast()
     }
 }
+
+#[repr(C)]
+pub struct wlr_xdg_popup {
+    pub base: *mut wlr_xdg_surface,
+    pub link: wl_list,
+    pub resource: *mut wl_resource,
+    pub parent: *mut wlr_surface,
+}
+
+#[link(name = "wlroots-0.19")]
+extern "C" {
+    pub fn wlr_xdg_surface_try_from_wlr_surface(
+        surface: *mut wlr_surface,
+    ) -> *mut wlr_xdg_surface;
+}
+
+#[link(name = "wlroots-0.19")]
+extern "C" {
+    pub fn wlr_xdg_popup_unconstrain_from_box(
+        popup: *mut wlr_xdg_popup,
+        toplevel_space_box: *const wlr_box,
+    );
+}

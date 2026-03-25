@@ -38,6 +38,9 @@ pub(crate) enum Tag {
     XwaylandSetTitle,
     XwaylandSetHints,
     XwaylandSetGeometry,
+    NewPopup,
+    PopupCommit,
+    PopupDestroy,
     NewDecoration,
     DecorationRequestMode,
     DecorationDestroy,
@@ -66,7 +69,8 @@ unsafe extern "C" fn trampoline(listener: *mut wl_listener, data: *mut c_void) {
     }
     let tag = (*hook).tag;
     let id = (*hook).id;
-    (*server).dispatch(tag, id, data);
+    let obj = (*hook).obj;
+    (*server).dispatch(tag, id, data, obj);
 }
 
 pub(crate) struct Client {
