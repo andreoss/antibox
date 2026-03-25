@@ -381,6 +381,9 @@ fn rgba_to_argb(data: &[u8]) -> Vec<u32> {
 
 impl Server {
     pub(crate) unsafe fn drop_hooks_on(&mut self, obj: *mut c_void) {
+        if obj.is_null() {
+            return;
+        }
         let mut kept = Vec::with_capacity(self.hooks.len());
         for mut hook in std::mem::take(&mut self.hooks) {
             if hook.obj == obj {
