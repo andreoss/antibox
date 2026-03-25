@@ -11,7 +11,7 @@ use crate::ffi::wlr::*;
 use crate::shared::{WinKind, WinRec, ROOT_WINDOW};
 
 impl Server {
-    pub(crate) unsafe fn dispatch(&mut self, tag: Tag, id: u32, data: *mut c_void) {
+    pub(crate) unsafe fn dispatch(&mut self, tag: Tag, id: u32, data: *mut c_void, obj: *mut c_void) {
         match tag {
             Tag::NewOutput => self.on_new_output(data.cast::<wlr_output>()),
             Tag::OutputFrame => self.on_output_frame(data.cast::<wlr_output>()),
@@ -43,6 +43,9 @@ impl Server {
             Tag::XwaylandConfigure => self.on_xwayland_configure(id, data.cast()),
             Tag::XwaylandSetTitle => self.sync_xwayland_title(id),
             Tag::XwaylandSetGeometry => self.on_xwayland_geometry(id),
+            Tag::NewPopup => self.on_new_popup(data.cast()),
+            Tag::PopupCommit => self.on_popup_commit(data.cast::<wlr_surface>()),
+            Tag::PopupDestroy => self.on_popup_destroy(obj),
             Tag::NewDecoration => self.on_new_decoration(data.cast()),
             Tag::DecorationRequestMode => self.settle_decoration(data.cast()),
             Tag::DecorationDestroy => self.on_decoration_destroy(data.cast()),
@@ -54,6 +57,66 @@ impl Server {
             Tag::SeatRequestSelection => self.on_request_set_selection(data.cast()),
             Tag::SeatRequestPrimary => self.on_request_set_primary(data.cast()),
         }
+    }
+
+    unsafe fn on_new_popup(&mut self, popup: *mut wlr_xdg_popup) {
+        if popup.is_null() {
+            return;
+        }
+        let base = (*popup).base;
+        if base.is_null() {
+            return;
+        }
+        let parent = wlr_xdg_surface_try_from_wlr_surface((*popup).parent);
+        if parent.is_null() {
+            return;
+        }
+        let parent_tree = (*parent).data.cast::<wlr_scene_tree>();
+        if parent_tree.is_null() {
+            return;
+        }
+        (*base).data = wlr_scene_xdg_surface_create(parent_tree, base).cast();
+        let events = surface_events((*base).surface);
+        self.hook_on(
+            std::ptr::addr_of_mut!((*events).commit),
+            Tag::PopupCommit,
+            0,
+            base.cast(),
+        );
+        self.hook_on(
+            std::ptr::addr_of_mut!((*base).events.destroy),
+            Tag::PopupDestroy,
+            0,
+            base.cast(),
+        );
+    }
+
+    unsafe fn on_popup_commit(&mut self, surface: *mut wlr_surface) {
+        let base = wlr_xdg_surface_try_from_wlr_surface(surface);
+        if base.is_null() || !(*base).initial_commit {
+            return;
+        }
+        let popup = (*base).role_object.cast::<wlr_xdg_popup>();
+        if popup.is_null() {
+            return;
+        }
+        let anchor = self.client_id_for_surface((*popup).parent);
+        let (ax, ay, w, h) = {
+            let s = self.shared.lock();
+            let (x, y) = anchor.map_or((0, 0), |id| s.absolute_origin(id));
+            (x, y, i32::from(s.screen_w), i32::from(s.screen_h))
+        };
+        let box_ = wlr_box {
+            x: -ax,
+            y: -ay,
+            width: w,
+            height: h,
+        };
+        wlr_xdg_popup_unconstrain_from_box(popup, std::ptr::addr_of!(box_));
+    }
+
+    unsafe fn on_popup_destroy(&mut self, base: *mut c_void) {
+        self.drop_hooks_on(base);
     }
 
     unsafe fn on_request_set_cursor(
@@ -193,6 +256,7 @@ impl Server {
         }
         let surface = (*base).surface;
         let tree = wlr_scene_xdg_surface_create(self.client_tree, base);
+        (*base).data = tree.cast();
         let id = {
             let mut s = self.shared.lock();
             let id = s.alloc_id();

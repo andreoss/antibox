@@ -124,6 +124,11 @@ unsafe fn build() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
         0,
     );
     server.hook(
+        std::ptr::addr_of_mut!((*xdg_shell).events.new_popup),
+        Tag::NewPopup,
+        0,
+    );
+    server.hook(
         std::ptr::addr_of_mut!((*decoration_manager).events.new_toplevel_decoration),
         Tag::NewDecoration,
         0,
