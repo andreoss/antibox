@@ -246,9 +246,6 @@ impl Server {
             _ => wlr_seat_keyboard_notify_clear_focus(self.seat),
         }
     }
-}
-
-impl Server {
     pub(crate) unsafe fn install_keymap(&mut self, keyboard: *mut wlr_keyboard) {
         use crate::ffi::xkb::{
             xkb_context_new, xkb_context_unref, xkb_keymap_new_from_names, xkb_keymap_unref,
