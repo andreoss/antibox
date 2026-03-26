@@ -380,18 +380,12 @@ impl Server {
             });
         }
     }
-}
-
-impl Server {
     pub(crate) unsafe fn cursor_xy(&self) -> (i32, i32) {
         if self.cursor.is_null() {
             return (0, 0);
         }
         ((*self.cursor).x as i32, (*self.cursor).y as i32)
     }
-}
-
-impl Server {
     pub(crate) unsafe fn set_default_cursor(&self) {
         if self.cursor.is_null() || self.cursor_mgr.is_null() {
             return;

@@ -1,14 +1,12 @@
+use super::state::{Client, Output, Server, Tag};
+use super::xwayland::words_to_bytes;
+use crate::ffi::cstr_to_string;
+use crate::ffi::wlr::*;
+use crate::shared::{WinKind, WinRec, ROOT_WINDOW};
+use antibox_core::backend::hints::{mwm_decor, mwm_hints_flags};
 use antibox_core::backend::BackendEvent;
 use antibox_core::rect::Rect;
 use std::os::raw::{c_int, c_void};
-
-use super::state::{Client, Output, Server, Tag};
-use antibox_core::backend::hints::{mwm_decor, mwm_hints_flags};
-use crate::ffi::cstr_to_string;
-use super::xwayland::words_to_bytes;
-
-use crate::ffi::wlr::*;
-use crate::shared::{WinKind, WinRec, ROOT_WINDOW};
 
 impl Server {
     pub(crate) unsafe fn dispatch(&mut self, tag: Tag, id: u32, data: *mut c_void, obj: *mut c_void) {
@@ -505,9 +503,7 @@ impl Server {
             self.publish_decor_hint(id, !client_side);
         }
     }
-}
 
-impl Server {
     unsafe fn on_new_kde_decoration(&mut self, decoration: *mut wlr_server_decoration) {
         if decoration.is_null() {
             return;

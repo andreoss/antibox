@@ -306,9 +306,6 @@ impl Server {
             self.put_prop(id, "WM_CLASS", data);
         }
     }
-}
-
-impl Server {
     pub(crate) unsafe fn sync_xwayland_hints(&mut self, id: u32) {
         let Some(client) = self.clients.get(&id) else {
             return;
