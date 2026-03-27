@@ -3142,6 +3142,18 @@ pub fn ucs_to_keysym(ucs: u32) -> u32 {
     0
 }
 
+pub fn keysym_to_ucs(keysym: u32) -> u32 {
+    let Ok(ks) = u16::try_from(keysym) else {
+        return 0;
+    };
+    for entry in UCS_KEYSYMS {
+        if entry.keysym == ks {
+            return u32::from(entry.ucs);
+        }
+    }
+    0
+}
+
 pub const fn map_keypad(keysym: u32) -> u32 {
     match keysym {
         KEY_KP_0 => KEY_0,

@@ -26,11 +26,14 @@ pub fn base_keysym(keycode: u8, mapping: &KeyboardMapping) -> u32 {
     keysym_col(keycode, 0, mapping)
 }
 
-pub const fn keysym_to_char(ks: u32) -> Option<char> {
+pub fn keysym_to_char(ks: u32) -> Option<char> {
     match ks {
         0x20..=0x7E | 0xA0..=0xFF => std::char::from_u32(ks),
         0x0100_0000..=0x0110_FFFF => std::char::from_u32(ks - 0x0100_0000),
-        _ => None,
+        _ => match crate::keysyms::keysym_to_ucs(ks) {
+            0 => None,
+            u => std::char::from_u32(u),
+        },
     }
 }
 
