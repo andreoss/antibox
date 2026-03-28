@@ -27,11 +27,9 @@ impl ClientWindow {
     }
 
     fn fetch_string(&self, atoms: &AtomManager, name: &str) -> Option<String> {
-        self.fetch_bytes(atoms, name).and_then(|data| {
-            String::from_utf8(data)
-                .ok()
-                .map(|s| s.trim_end_matches('\0').to_string())
-        })
+        self.fetch_bytes(atoms, name)
+            .map(|data| antibox_core::text::decode_property(&data))
+            .filter(|s| !s.is_empty())
     }
 
     fn read_u32_prop(&self, atom: u32) -> Option<u32> {
@@ -290,16 +288,11 @@ impl ClientWindow {
         event: &BackendEvent,
     ) {
         if let BackendEvent::PropertyNotify { atom, .. } = event {
-            if Some(*atom) == atoms.get("_NET_WM_NAME") {
+            let names_window = Some(*atom) == atoms.get("_NET_WM_NAME")
+                || (self.title.is_empty() && Some(*atom) == atoms.get("WM_NAME"));
+            if names_window {
                 if let Ok(Some(data)) = self.xwindow.get_property(*atom, 0, 1024) {
-                    if let Ok(s) = String::from_utf8(data) {
-                        self.title = s.trim_end_matches('\0').to_string();
-                    }
-                }
-            } else if self.title.is_empty() && Some(*atom) == atoms.get("WM_NAME") {
-                if let Ok(Some(data)) = self.xwindow.get_property(*atom, 0, 1024) {
-                    let s = String::from_utf8_lossy(&data);
-                    self.title = s.trim_end_matches('\0').to_string();
+                    self.title = antibox_core::text::decode_property(&data);
                 }
             } else if Some(*atom) == atoms.get("WINDOW_ROLE") {
                 self.window_role = self.read_string_prop(*atom, 256);

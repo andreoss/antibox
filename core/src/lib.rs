@@ -35,6 +35,7 @@ pub mod logevent;
 pub mod mock;
 pub mod libc;
 pub mod paths;
+pub mod text;
 
 pub use antibox_gfx::{colour, error, keysyms, point, rect, scale, sync, xpm};
 pub mod cursor;
