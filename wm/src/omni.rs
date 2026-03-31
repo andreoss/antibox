@@ -749,11 +749,7 @@ impl Omni {
             .filter(|it| !it.run)
             .map(|it| (it.client_id, it.title.clone()))
             .collect();
-        self.min_keycode = conn.setup_min_keycode();
-        let max = conn.setup_max_keycode();
-        self.mapping = conn
-            .get_keyboard_mapping(self.min_keycode, max - self.min_keycode + 1)
-            .ok();
+        self.refresh_mapping(conn);
         let mon = self.monitor_for_pointer(conn, &wm.monitors);
         self.panel_w = panel_w_for(mon.w);
         self.max_rows = rows_for(mon.h);
@@ -792,6 +788,14 @@ impl Omni {
         self.reselect();
         self.paint(conn);
         let _ = conn.flush();
+    }
+
+    pub fn refresh_mapping(&mut self, conn: &Arc<dyn DisplayBackend>) {
+        self.min_keycode = conn.setup_min_keycode();
+        let max = conn.setup_max_keycode();
+        self.mapping = conn
+            .get_keyboard_mapping(self.min_keycode, max - self.min_keycode + 1)
+            .ok();
     }
 
     pub fn hide(&mut self, conn: &Arc<dyn DisplayBackend>) {
