@@ -37,13 +37,35 @@ pub fn keysym_to_char(ks: u32) -> Option<char> {
     }
 }
 
-pub fn keycode_to_char(keycode: u8, shift: bool, mapping: &KeyboardMapping) -> Option<char> {
-    let col = usize::from(shift);
-    let ks = match keysym_col(keycode, col, mapping) {
-        0 => keysym_col(keycode, 0, mapping),
-        k => k,
-    };
-    keysym_to_char(ks)
+pub fn keycode_to_char(
+    keycode: u8,
+    shift: bool,
+    group: usize,
+    mapping: &KeyboardMapping,
+) -> Option<char> {
+    let level = usize::from(shift);
+    let per = mapping.keysyms_per_keycode as usize;
+    let mut cols = [group * 2 + level, group * 2, level, 0];
+    if per > 0 {
+        for c in &mut cols {
+            if *c >= per {
+                *c = 0;
+            }
+        }
+    }
+    for col in cols {
+        let ks = keysym_col(keycode, col, mapping);
+        if ks != 0 {
+            if let Some(c) = keysym_to_char(ks) {
+                return Some(c);
+            }
+        }
+    }
+    None
+}
+
+pub const fn group_of(state: u16) -> usize {
+    ((state >> 13) & 0x03) as usize
 }
 
 #[allow(non_upper_case_globals)]
@@ -73,7 +95,7 @@ pub fn normalize(keycode: u32, state: u16, mapping: &KeyboardMapping) -> Normali
     NormalizedKey {
         keysym: map_keypad(original),
         original_keysym: original,
-        ch: keycode_to_char(keycode as u8, shift, mapping),
+        ch: keycode_to_char(keycode as u8, shift, group_of(state), mapping),
         shift,
         ctrl,
         alt,

@@ -69,3 +69,37 @@
         assert_eq!(keysym_to_char(0x01E8), Some('č'));
         assert_eq!(keysym_to_char(0x0CE0), Some('א'));
     }
+
+    fn mapping4(kc: u8, cols: [u32; 4]) -> KeyboardMapping {
+        let kpc = 4usize;
+        let mut keysyms = vec![0u32; 256 * kpc];
+        let base = (kc as usize - 8) * kpc;
+        keysyms[base..base + 4].copy_from_slice(&cols);
+        KeyboardMapping {
+            keysyms_per_keycode: kpc as u8,
+            keysyms,
+        }
+    }
+
+    #[test]
+    fn second_group_yields_its_own_letters() {
+        let m = mapping4(38, ['a' as u32, 'A' as u32, 0x06C6, 0x06E6]);
+        let latin = normalize(38, 0x00, &m);
+        assert_eq!(latin.ch, Some('a'));
+        let cyr = normalize(38, 1 << 13, &m);
+        assert_eq!(cyr.ch, Some('ф'));
+        let cyr_shift = normalize(38, (1 << 13) | 0x01, &m);
+        assert_eq!(cyr_shift.ch, Some('Ф'));
+    }
+
+    #[test]
+    fn bindings_keep_using_the_first_group() {
+        let m = mapping4(38, ['a' as u32, 'A' as u32, 0x06C6, 0x06E6]);
+        assert_eq!(normalize(38, 1 << 13, &m).keysym, 'a' as u32);
+    }
+
+    #[test]
+    fn missing_group_column_falls_back() {
+        let m = mapping(&[(38, 'a' as u32, 'A' as u32)]);
+        assert_eq!(normalize(38, 1 << 13, &m).ch, Some('a'));
+    }
