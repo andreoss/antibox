@@ -277,6 +277,7 @@ impl App {
                     let _ = tb.paint_window(*wid);
                 }
             }
+            self.omni.refresh_mapping(&self.backend);
             let _ = self.backend.flush();
         }
         if self.omni.visible() {
