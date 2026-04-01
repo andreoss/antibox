@@ -23,7 +23,7 @@ Wayland
 -------
 
 antibox-wayland runs the same window manager on a wlroots compositor.
-Build it with --features wayland. X11 clients need Xwayland.
+X11 clients need Xwayland.
 
 Building
 --------
@@ -38,9 +38,20 @@ OpenBSD (X libs come with the base system):
 
     RUSTFLAGS="-L/usr/X11R6/lib" cargo build --release
 
+The Wayland backend needs wlroots 0.19, libwayland-server and
+libxkbcommon, and builds a second binary:
+
+    cargo build --release --features wayland
+
+On OpenBSD those three are packages under /usr/local/lib:
+
+    RUSTFLAGS="-L/usr/X11R6/lib -L/usr/local/lib" \
+        cargo build --release --features wayland
+
 Install:
 
     install -m 755 target/release/antibox /usr/local/bin/
+    install -m 755 target/release/antibox-wayland /usr/local/bin/
 
 Usage
 -----
