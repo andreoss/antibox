@@ -158,6 +158,10 @@ pub fn title_stripes() -> bool {
     flag_or("title_stripes", false)
 }
 
+pub fn title_stripes_inactive() -> bool {
+    flag_or("title_stripes_inactive", false)
+}
+
 pub fn title_icon() -> bool {
     flag_or("title_icon", false)
 }
@@ -176,6 +180,14 @@ pub fn title_stripe_hi() -> Colour {
 
 pub fn title_stripe_sh() -> Colour {
     colour_or("title_stripe_sh", 0)
+}
+
+pub fn title_stripe_hi_inactive() -> Colour {
+    colour_or("title_stripe_hi_inactive", 0)
+}
+
+pub fn title_stripe_sh_inactive() -> Colour {
+    colour_or("title_stripe_sh_inactive", 0)
 }
 
 fn string_or(name: &str, fallback: &str) -> String {

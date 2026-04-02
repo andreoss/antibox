@@ -23,6 +23,10 @@ title_inactive = "#808080"
 title_text_inactive = "#D5D0C7"
 title_gradient = "#F4CA9E"
 title_gradient_inactive = "#C0C0C0"
+title_stripe_hi = "#C08050"
+title_stripe_sh = "#5A1B07"
+title_stripe_hi_inactive = "#C8C8C8"
+title_stripe_sh_inactive = "#6E6E6E"
 graph_bg = "#FFFFFF"
 graph1 = "#A00000"
 graph2 = "#00A0A0"
@@ -61,6 +65,7 @@ title_grad_vertical = false
 grad_buttons = false
 equal_tabs = false
 title_stripes = true
+title_stripes_inactive = true
 
 [glyphs]
 minimize = [0x0000, 0x0000, 0x0000, 0x01FE, 0x00FC, 0x0078, 0x0030, 0x0000, 0x0000, 0x0000]

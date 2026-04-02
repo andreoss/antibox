@@ -487,7 +487,8 @@ fn draw_title_text(
             g.draw_text_transparent(tx, baseline as i16, &title)?;
         }
     }
-    if focused && !fw.state().urgent {
+    let show_stripes = focused || antibox_ui::theme::title_stripes_inactive();
+    if show_stripes && !fw.state().urgent {
         let gap = antibox_core::scale::scaled(3) as i16;
         let s = antibox_core::scale::scaled(1).max(1);
         let sx = tx + tw as i16 + gap;
@@ -502,9 +503,14 @@ fn draw_title_text(
         } else {
             (fw.effective_border() as i16, title_bar_height() as u16 - 1)
         };
-        antibox_ui::theme::title_stipple(g, sx, sy, sw, sh, colours.active_title_top);
+        let stripe_base = if focused {
+            colours.active_title_top
+        } else {
+            colours.inactive_title_top
+        };
+        antibox_ui::theme::title_stipple(g, sx, sy, sw, sh, stripe_base, focused);
         let lsw = (block_x - gap - text_x).max(0) as u16;
-        antibox_ui::theme::title_stipple(g, text_x, sy, lsw, sh, colours.active_title_top);
+        antibox_ui::theme::title_stipple(g, text_x, sy, lsw, sh, stripe_base, focused);
     }
     Ok(())
 }

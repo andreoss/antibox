@@ -661,17 +661,30 @@ fn outlined_window_frame(
     let _ = g.fill_rect(si * 2, lfs - si, s, s);
 }
 
-pub fn title_stipple(g: &dyn GraphicsContext, x: i16, y: i16, w: u16, h: u16, base: u32) {
+pub fn title_stipple(
+    g: &dyn GraphicsContext,
+    x: i16,
+    y: i16,
+    w: u16,
+    h: u16,
+    base: u32,
+    focused: bool,
+) {
     let s = antibox_gfx::scale::scaled(1).max(1) as i16;
     if (w as i16) < s * 4 || (h as i16) < s * 6 {
         return;
     }
     if title_stripes() {
-        let lite = match title_stripe_hi() {
+        let (hi_key, sh_key) = if focused {
+            (title_stripe_hi(), title_stripe_sh())
+        } else {
+            (title_stripe_hi_inactive(), title_stripe_sh_inactive())
+        };
+        let lite = match hi_key {
             0 => tint_rgb(base, 0.9),
             c => c,
         };
-        let dk = match title_stripe_sh() {
+        let dk = match sh_key {
             0 => scale_rgb(base, 0.5),
             c => c,
         };
