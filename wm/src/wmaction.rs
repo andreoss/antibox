@@ -1504,6 +1504,7 @@ pub(crate) fn tab_window<H: DisplayBackend + 'static + ?Sized>(
     let source_xid = wm.xid_index.xid_of(source_id);
     if !source_frame.state().minimized {
         wm.expect_client_unmap(source_xid);
+        wm.expect_client_unmap(source_xid);
     }
     let Some(target_frame) = wm.frame_mut(target_id) else {
             wm.frames.insert(source_id, source_frame);
