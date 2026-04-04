@@ -162,8 +162,27 @@ fn parse_kv(out: &str) -> std::collections::HashMap<String, String> {
 pub struct SndioAudio;
 
 #[cfg(target_os = "openbsd")]
+static SNDIO_STATE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+#[cfg(target_os = "openbsd")]
+pub fn sndio_available() -> bool {
+    use std::sync::atomic::Ordering;
+    match SNDIO_STATE.load(Ordering::Relaxed) {
+        1 => return true,
+        2 => return false,
+        _ => {}
+    }
+    let ok = crate::run::ok("sndioctl", &["output.level"]);
+    SNDIO_STATE.store(if ok { 1 } else { 2 }, Ordering::Relaxed);
+    ok
+}
+
+#[cfg(target_os = "openbsd")]
 impl SndioAudio {
     fn nudge(control: &str, delta_pct: i32) {
+        if !sndio_available() {
+            return;
+        }
         let frac = delta_pct.abs() as f64 / 100.0;
         let arg = if delta_pct >= 0 {
             format!("{}=+{:.2}", control, frac)
@@ -177,6 +196,9 @@ impl SndioAudio {
 #[cfg(target_os = "openbsd")]
 impl AudioSystem for SndioAudio {
     fn read(&self) -> Option<AudioState> {
+        if !sndio_available() {
+            return None;
+        }
         let out = crate::run::capture(
             "sndioctl",
             &["output.level", "output.mute", "input.mute"],
@@ -200,11 +222,15 @@ impl AudioSystem for SndioAudio {
     }
 
     fn toggle_sink_mute(&self) {
-        let _ = crate::run::ok("sndioctl", &["output.mute=!"]);
+        if sndio_available() {
+            let _ = crate::run::ok("sndioctl", &["output.mute=!"]);
+        }
     }
 
     fn toggle_source_mute(&self) {
-        let _ = crate::run::ok("sndioctl", &["input.mute=!"]);
+        if sndio_available() {
+            let _ = crate::run::ok("sndioctl", &["input.mute=!"]);
+        }
     }
 
     fn nudge_sink_volume(&self, delta_pct: i32) {
