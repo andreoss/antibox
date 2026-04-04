@@ -114,4 +114,5 @@ pub(crate) const ALL_ATOM_NAMES: &[&str] = &[
     "UTF8_STRING",
     "SM_CLIENT_ID",
     "WINDOW_ROLE",
+    "_ANTIBOX_TAB_GROUPS",
 ];

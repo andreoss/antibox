@@ -521,3 +521,53 @@ pub fn send_xdnd_finished<H: DisplayBackend + 'static + ?Sized>(
 #[cfg(test)]
 #[path = "ewmh_tests.rs"]
 mod tests;
+
+pub fn save_tab_groups<H: DisplayBackend + 'static + ?Sized>(
+    backend: &H,
+    atoms: &antibox_core::backend::AtomManager,
+    groups: &[Vec<u32>],
+) {
+    let mut data: Vec<u32> = Vec::new();
+    for g in groups {
+        if g.len() < 2 {
+            continue;
+        }
+        data.push(g.len() as u32);
+        data.extend_from_slice(g);
+    }
+    set_prop32(
+        backend,
+        atoms,
+        "_ANTIBOX_TAB_GROUPS",
+        backend.root().read_id(),
+        ATOM_CARDINAL,
+        &data,
+    );
+}
+
+pub fn read_tab_groups<H: DisplayBackend + 'static + ?Sized>(
+    backend: &H,
+    atoms: &antibox_core::backend::AtomManager,
+) -> Vec<Vec<u32>> {
+    let Some(atom) = atoms.get("_ANTIBOX_TAB_GROUPS") else { return Vec::new() };
+    let root = backend.root().read_id();
+    let Ok(Some(data)) = backend.get_property(root, atom, 0, 0, 4096) else {
+        return Vec::new();
+    };
+    let words: Vec<u32> = data
+        .chunks_exact(4)
+        .map(|c| u32::from_ne_bytes([c[0], c[1], c[2], c[3]]))
+        .collect();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < words.len() {
+        let n = words[i] as usize;
+        i += 1;
+        if n < 2 || i + n > words.len() {
+            break;
+        }
+        out.push(words[i..i + n].to_vec());
+        i += n;
+    }
+    out
+}

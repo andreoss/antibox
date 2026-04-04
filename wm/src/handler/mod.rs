@@ -951,3 +951,34 @@ mod stacking_restore_tests;
 
 #[cfg(test)]
 mod decoration_tests;
+
+pub(crate) fn persist_tab_groups<H: DisplayBackend + 'static + ?Sized>(
+    wm: &WindowManager<H>,
+) {
+    let Some(b) = wm.backend() else { return };
+    let groups: Vec<Vec<u32>> = wm
+        .frames
+        .values()
+        .filter(|fw| !fw.tabbed_clients.is_empty())
+        .map(FrameWindow::tab_order_synced)
+        .collect();
+    crate::ewmh::save_tab_groups(b, &wm.atoms, &groups);
+}
+
+pub(crate) fn restore_tab_groups<H: DisplayBackend + 'static + ?Sized>(
+    wm: &mut WindowManager<H>,
+) {
+    let Some(b) = wm.backend() else { return };
+    let groups = crate::ewmh::read_tab_groups(b, &wm.atoms);
+    for group in groups {
+        let mut members = group.into_iter();
+        let Some(leader_xid) = members.next() else { continue };
+        let Some(target) = wm.cid_for_xid(leader_xid) else { continue };
+        for xid in members {
+            let Some(source) = wm.cid_for_xid(xid) else { continue };
+            if source != target {
+                crate::wmaction::tab_window(wm, source, target);
+            }
+        }
+    }
+}

@@ -523,6 +523,7 @@ impl App {
         crate::ewmh::init_xdnd(&*b, &atom_manager);
         crate::ewmh::update_desktop_names(&*b, &atom_manager, &wm.workspace_names);
         crate::handler::manage_existing_windows(&mut wm);
+        crate::handler::restore_tab_groups(&mut wm);
         if wm.focused_window.is_none() {
             let _ = b.set_input_focus(0, b.root().read_id(), 0);
         }
