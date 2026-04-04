@@ -1535,6 +1535,7 @@ pub(crate) fn detach_tab<H: DisplayBackend + 'static + ?Sized>(
             crate::focus::focus_window(wm, tab);
         }
     }
+    crate::handler::persist_tab_groups(wm);
 }
 
 pub(crate) fn tab_window<H: DisplayBackend + 'static + ?Sized>(
@@ -1591,6 +1592,7 @@ pub(crate) fn tab_window<H: DisplayBackend + 'static + ?Sized>(
     if wm.focused_window == Some(source_id) {
         crate::focus::focus_window(wm, target_id);
     }
+    crate::handler::persist_tab_groups(wm);
 }
 
 pub(crate) fn tab_select<H: DisplayBackend + 'static + ?Sized>(
