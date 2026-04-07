@@ -51,6 +51,14 @@ impl Server {
             Tag::KdeDecorationMode => self.apply_kde_decoration(data.cast()),
             Tag::KdeDecorationDestroy => self.on_kde_decoration_destroy(data.cast()),
             Tag::XwaylandSetHints => self.sync_xwayland_hints(id),
+            Tag::RequestMove => self.start_moveresize(id, MOVERESIZE_MOVE),
+            Tag::RequestResize => {
+                let edges = data
+                    .cast::<wlr_xdg_toplevel_resize_event>()
+                    .as_ref()
+                    .map_or(0, |e| e.edges);
+                self.start_moveresize(id, moveresize_direction(edges));
+            }
             Tag::SeatRequestCursor => self.on_request_set_cursor(data.cast()),
             Tag::SeatRequestSelection => self.on_request_set_selection(data.cast()),
             Tag::SeatRequestPrimary => self.on_request_set_primary(data.cast()),
@@ -286,6 +294,16 @@ impl Server {
         );
         self.publish_decor_hint(id, false);
         self.adopt_kde_decoration(surface);
+        self.hook(
+            std::ptr::addr_of_mut!((*toplevel).events.request_move),
+            Tag::RequestMove,
+            id,
+        );
+        self.hook(
+            std::ptr::addr_of_mut!((*toplevel).events.request_resize),
+            Tag::RequestResize,
+            id,
+        );
         let events = surface_events(surface);
         self.hook(std::ptr::addr_of_mut!((*events).map), Tag::SurfaceMap, id);
         self.hook(
@@ -561,5 +579,42 @@ impl Server {
         let decorations = if decorate { mwm_decor::ALL } else { 0 };
         let words = [mwm_hints_flags::DECORATIONS, 0, decorations, 0];
         self.put_prop(id, "_MOTIF_WM_HINTS", words_to_bytes(&words));
+    }
+}
+
+const MOVERESIZE_MOVE: u32 = 8;
+
+const fn moveresize_direction(edges: u32) -> u32 {
+    let top = edges & WLR_EDGE_TOP != 0;
+    let bottom = edges & WLR_EDGE_BOTTOM != 0;
+    let left = edges & WLR_EDGE_LEFT != 0;
+    let right = edges & WLR_EDGE_RIGHT != 0;
+    match (top, bottom, left, right) {
+        (true, _, true, _) => 0,
+        (true, _, _, true) => 2,
+        (true, ..) => 1,
+        (_, true, true, _) => 6,
+        (_, true, _, true) => 4,
+        (_, true, ..) => 5,
+        (_, _, true, _) => 7,
+        (_, _, _, true) => 3,
+        _ => MOVERESIZE_MOVE,
+    }
+}
+
+impl Server {
+    unsafe fn start_moveresize(&mut self, id: u32, direction: u32) {
+        let atom = {
+            let mut s = self.shared.lock();
+            s.atoms.intern("_NET_WM_MOVERESIZE")
+        };
+        let x = (*self.cursor).x as i32;
+        let y = (*self.cursor).y as i32;
+        self.synth(BackendEvent::ClientMessage {
+            window: id,
+            message_type: atom,
+            format: 32,
+            data: [x as u32, y as u32, direction, 1, 1],
+        });
     }
 }
