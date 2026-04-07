@@ -44,6 +44,8 @@ pub(crate) enum Tag {
     NewDecoration,
     DecorationRequestMode,
     DecorationDestroy,
+    RequestMove,
+    RequestResize,
     SeatRequestCursor,
     SeatRequestSelection,
     SeatRequestPrimary,

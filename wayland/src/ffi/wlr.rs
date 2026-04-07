@@ -1054,3 +1054,16 @@ extern "C" {
         toplevel_space_box: *const wlr_box,
     );
 }
+
+pub const WLR_EDGE_TOP: u32 = 1;
+pub const WLR_EDGE_BOTTOM: u32 = 2;
+pub const WLR_EDGE_LEFT: u32 = 4;
+pub const WLR_EDGE_RIGHT: u32 = 8;
+
+#[repr(C)]
+pub struct wlr_xdg_toplevel_resize_event {
+    pub toplevel: *mut wlr_xdg_toplevel,
+    pub seat: *mut wlr_seat_client,
+    pub serial: u32,
+    pub edges: u32,
+}
