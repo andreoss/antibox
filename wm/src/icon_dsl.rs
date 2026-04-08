@@ -260,6 +260,29 @@ const BATTERY_PTS: [(f32, f32); 8] = [
 
 pub const BATTERY_ICON: Icon = Icon(&[Shape::Poly(&BATTERY_PTS)]);
 
+const PLAY_PTS: [(f32, f32); 3] = [(0.18, 0.0), (1.0, 0.5), (0.18, 1.0)];
+
+pub const MEDIA_PLAY_ICON: Icon = Icon(&[Shape::Poly(&PLAY_PTS)]);
+
+pub const MEDIA_PAUSE_ICON: Icon = Icon(&[
+    Shape::Rect(0.14, 0.0, 0.28, 1.0),
+    Shape::Rect(0.58, 0.0, 0.28, 1.0),
+]);
+
+const NEXT_PTS: [(f32, f32); 3] = [(0.0, 0.0), (0.62, 0.5), (0.0, 1.0)];
+
+pub const MEDIA_NEXT_ICON: Icon = Icon(&[
+    Shape::Poly(&NEXT_PTS),
+    Shape::Rect(0.72, 0.0, 0.24, 1.0),
+]);
+
+const PREVIOUS_PTS: [(f32, f32); 3] = [(1.0, 0.0), (0.38, 0.5), (1.0, 1.0)];
+
+pub const MEDIA_PREVIOUS_ICON: Icon = Icon(&[
+    Shape::Poly(&PREVIOUS_PTS),
+    Shape::Rect(0.04, 0.0, 0.24, 1.0),
+]);
+
 pub const WINDOW_ICON: Icon = Icon(&[
     Shape::Rect(0.125, 0.125, 0.75, 0.75),
     Shape::Rect(0.215, 0.215, 0.57, 0.16),

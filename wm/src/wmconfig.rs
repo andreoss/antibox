@@ -89,7 +89,8 @@ pub struct TaskbarPrefs {
     pub menu_on_super_tap: bool,
 }
 
-pub const DEFAULT_TASKBAR_LAYOUT: &str = "pager tasks cpu mem net power keyboard tray clock";
+pub const DEFAULT_TASKBAR_LAYOUT: &str =
+    "pager tasks cpu mem net power mpris keyboard tray clock";
 
 impl Default for Prefs {
     fn default() -> Self {

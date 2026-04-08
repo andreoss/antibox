@@ -87,6 +87,8 @@ pub mod menu_tree {
 }
 pub mod omni;
 pub mod mouse_parser;
+pub mod mpris;
+pub mod mpris_view;
 pub mod option;
 pub mod paintbuf {
     pub use antibox_ui::paintbuf::*;

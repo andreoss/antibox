@@ -3,14 +3,24 @@ use crate::applet::Applet;
 use crate::audio::{detect, AudioSystem};
 use crate::audio_view::{AudioView, MicView};
 use crate::battery_view::BatteryView;
+use crate::mpris::{self, Command};
+use crate::mpris_view::{MediaButton, MediaSlot, MprisView};
 use antibox_core::backend::*;
 use antibox_core::rect::Rect;
 use antibox_ui::theme;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
-const SLOT_BATTERY: usize = 0;
-const SLOT_AUDIO: usize = 1;
-const SLOT_MIC: usize = 2;
+const LIST_INTERVAL: Duration = Duration::from_secs(10);
+const SEEK_STEP: i64 = 5_000_000;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Segment {
+    Battery,
+    Audio,
+    Mic,
+    Media(MediaSlot),
+}
 
 pub struct PowerAudioApplet {
     conn: Arc<dyn DisplayBackend>,
@@ -21,6 +31,8 @@ pub struct PowerAudioApplet {
     audio_system: Box<dyn AudioSystem>,
     audio: AudioView,
     mic: MicView,
+    media: MprisView,
+    listed: Instant,
     bg: antibox_core::colour::Colour,
     w: u16,
     h: u16,
@@ -37,12 +49,13 @@ impl PowerAudioApplet {
         let state = audio_system.read();
         let audio = AudioView::new(state.clone());
         let mic = MicView::new(state);
+        let media = MprisView::new(mpris::current(), mpris::position());
         let slot = Self::slot_w(h);
         let present = [battery.present(), audio.present(), mic.present()]
             .iter()
             .filter(|p| **p)
             .count() as u16;
-        let w = slot * present.max(1);
+        let w = slot * present.max(1) + media.natural_width(h);
         let window = conn.create_window(
             parent,
             Rect::new(0, 0, w as i32, h as i32),
@@ -63,6 +76,8 @@ impl PowerAudioApplet {
             audio_system,
             audio,
             mic,
+            media,
+            listed: Instant::now(),
             bg: theme::tray_face(),
             w,
             h,
@@ -75,59 +90,59 @@ impl PowerAudioApplet {
 
     #[cfg(test)]
     pub(crate) fn audio_x(&self) -> i16 {
-        self.slot_x(SLOT_AUDIO)
+        self.segment_x(Segment::Audio)
     }
 
-    fn presents(&self) -> [bool; 3] {
-        [
-            self.battery.present(),
-            self.audio.present(),
-            self.mic.present(),
-        ]
-    }
-
-    fn slot_x(&self, idx: usize) -> i16 {
-        let slot = Self::slot_w(self.h) as i16;
-        let presents = self.presents();
+    fn segments(&self) -> Vec<(Segment, i16, u16)> {
+        let slot = Self::slot_w(self.h);
+        let mut out: Vec<(Segment, i16, u16)> = Vec::new();
         let mut x = 0i16;
-        for (i, p) in presents.iter().enumerate() {
-            if i == idx {
-                break;
-            }
-            if *p {
-                x += slot;
-            }
+        let mut push = |seg: Segment, w: u16, x: &mut i16| {
+            out.push((seg, *x, w));
+            *x += w as i16;
+        };
+        if self.battery.present() {
+            push(Segment::Battery, slot, &mut x);
         }
-        x
+        if self.audio.present() {
+            push(Segment::Audio, slot, &mut x);
+        }
+        if self.mic.present() {
+            push(Segment::Mic, slot, &mut x);
+        }
+        for media in self.media.slots() {
+            let w = self.media.slot_width(media, self.h);
+            push(Segment::Media(media), w, &mut x);
+        }
+        out
     }
 
-    fn slot_at(&self, x: i16) -> Option<usize> {
-        let slot = Self::slot_w(self.h) as i16;
-        let mut edge = 0i16;
-        for (i, p) in self.presents().iter().enumerate() {
-            if !*p {
-                continue;
-            }
-            if x >= edge && x < edge + slot {
-                return Some(i);
-            }
-            edge += slot;
-        }
-        None
+    #[cfg(test)]
+    fn segment_x(&self, want: Segment) -> i16 {
+        self.segments()
+            .iter()
+            .find(|(seg, _, _)| *seg == want)
+            .map_or(0, |(_, x, _)| *x)
+    }
+
+    fn segment_at(&self, x: i16) -> Option<(usize, Segment)> {
+        self.segments()
+            .iter()
+            .enumerate()
+            .find(|(_, (_, sx, w))| x >= *sx && x < *sx + *w as i16)
+            .map(|(i, (seg, _, _))| (i, *seg))
     }
 
     fn wanted_width(&self) -> u32 {
-        let slot = Self::slot_w(self.h) as u32;
-        let present = self.presents().iter().filter(|p| **p).count() as u32;
-        slot * present
+        self.segments().iter().map(|(_, _, w)| u32::from(*w)).sum()
     }
 
-    fn slot_tooltip(&self, idx: usize) -> String {
-        match idx {
-            SLOT_BATTERY => self.battery.tooltip(),
-            SLOT_AUDIO => self.audio.tooltip(),
-            SLOT_MIC => self.mic.tooltip(),
-            _ => String::new(),
+    fn segment_tooltip(&self, seg: Segment) -> String {
+        match seg {
+            Segment::Battery => self.battery.tooltip(),
+            Segment::Audio => self.audio.tooltip(),
+            Segment::Mic => self.mic.tooltip(),
+            Segment::Media(slot) => self.media.slot_tooltip(slot),
         }
     }
 
@@ -136,7 +151,7 @@ impl PowerAudioApplet {
     }
 
     pub fn present(&self) -> bool {
-        self.presents().iter().any(|p| *p)
+        !self.segments().is_empty()
     }
 
     pub fn update_battery(&mut self) -> bool {
@@ -154,14 +169,62 @@ impl PowerAudioApplet {
         battery_changed || audio_changed
     }
 
+    pub fn update_media(&mut self) -> bool {
+        if !crate::layout_preferences::taskbar_wants(crate::layout_preferences::Widget::Mpris) {
+            let had = self.media.present();
+            self.media = MprisView::default();
+            return had;
+        }
+        if self.listed.elapsed() >= LIST_INTERVAL {
+            self.listed = Instant::now();
+            mpris::refresh();
+        } else {
+            mpris::poll();
+        }
+        let next = MprisView::new(mpris::current(), mpris::position());
+        let changed = next.player != self.media.player || next.timing() != self.media.timing();
+        self.media = next;
+        changed
+    }
+
     pub fn tooltip(&self) -> String {
         let mut parts: Vec<String> = Vec::new();
-        for (i, p) in self.presents().iter().enumerate() {
-            if *p {
-                parts.push(self.slot_tooltip(i));
+        for seg in [Segment::Battery, Segment::Audio, Segment::Mic] {
+            if self.segments().iter().any(|(s, _, _)| *s == seg) {
+                parts.push(self.segment_tooltip(seg));
             }
         }
+        let media = self.media.tooltip();
+        if !media.is_empty() {
+            parts.push(media);
+        }
         parts.join("\n\n")
+    }
+
+    fn refresh_tip(&mut self, idx: usize) {
+        let Some((seg, x, w)) = self.segments().get(idx).copied() else { return };
+        let text = self.segment_tooltip(seg);
+        crate::tooltip::show_rect_tip(
+            &mut self.tooltip,
+            self.conn.as_ref(),
+            &*self.window,
+            (x, 0i16, w, self.h),
+            &text,
+        );
+    }
+
+    fn media_click(&mut self, slot: MediaSlot, button: u8) -> Option<u32> {
+        match (slot, button) {
+            (MediaSlot::Button(b), 1) => mpris::send(b.command()),
+            (MediaSlot::Timing, 1) => mpris::send(Command::Raise),
+            (MediaSlot::Button(MediaButton::PlayPause), 2) => mpris::send(Command::Stop),
+            (_, 3) => mpris::cycle_player(),
+            (_, 4) if self.media.can_seek() => mpris::seek(SEEK_STEP),
+            (_, 5) if self.media.can_seek() => mpris::seek(-SEEK_STEP),
+            _ => return None,
+        }
+        self.update_media();
+        Some(self.window.id())
     }
 }
 
@@ -177,18 +240,15 @@ impl Applet for PowerAudioApplet {
         let _ = g.set_foreground(self.bg);
         let _ = g.fill_rect(0, 0, self.w, self.h);
         theme::well(g, 0, 0, self.w, self.h);
-        let slot = Self::slot_w(self.h) as i16;
-        let mut x = 0i16;
-        if self.battery.present() {
-            self.battery.draw(g, x, 0, slot as u16, self.h);
-            x += slot;
-        }
-        if self.audio.present() {
-            self.audio.draw(g, x, self.h);
-            x += slot;
-        }
-        if self.mic.present() {
-            self.mic.draw(g, x, self.h);
+        let _ = g.set_background(self.bg);
+        let slot = Self::slot_w(self.h);
+        for (seg, x, _) in self.segments() {
+            match seg {
+                Segment::Battery => self.battery.draw(g, x, 0, slot, self.h),
+                Segment::Audio => self.audio.draw(g, x, self.h),
+                Segment::Mic => self.mic.draw(g, x, self.h),
+                Segment::Media(media) => self.media.draw_slot(g, media, x, self.h),
+            }
         }
     }
 
@@ -201,31 +261,28 @@ impl Applet for PowerAudioApplet {
     }
 
     fn handle_click(&mut self, x: i32, _y: i32, button: u8) -> Option<u32> {
-        let idx = self.slot_at(x as i16)?;
-        match (idx, button) {
-            (SLOT_AUDIO, 1) => self.audio_system.toggle_sink_mute(),
-            (SLOT_AUDIO | SLOT_MIC, 2) | (SLOT_MIC, 1) => {
+        let (idx, seg) = self.segment_at(x as i16)?;
+        if let Segment::Media(slot) = seg {
+            return self.media_click(slot, button);
+        }
+        match (seg, button) {
+            (Segment::Audio, 1) => self.audio_system.toggle_sink_mute(),
+            (Segment::Audio | Segment::Mic, 2) | (Segment::Mic, 1) => {
                 self.audio_system.toggle_source_mute();
             }
-            (SLOT_AUDIO, 4) => self.audio_system.nudge_sink_volume(5),
-            (SLOT_AUDIO, 5) => self.audio_system.nudge_sink_volume(-5),
+            (Segment::Audio, 4) => self.audio_system.nudge_sink_volume(5),
+            (Segment::Audio, 5) => self.audio_system.nudge_sink_volume(-5),
             _ => return None,
         }
         self.update();
         if self.hovered == Some(idx) {
-            let text = self.slot_tooltip(idx);
-            crate::tooltip::show_window_tip(
-                &mut self.tooltip,
-                self.conn.as_ref(),
-                &*self.window,
-                &text,
-            );
+            self.refresh_tip(idx);
         }
         None
     }
 
     fn handle_enter(&mut self) {
-        if self.presents().iter().filter(|p| **p).count() > 1 {
+        if self.segments().len() > 1 {
             return;
         }
         self.hovered = None;
@@ -239,24 +296,15 @@ impl Applet for PowerAudioApplet {
     }
 
     fn handle_motion(&mut self, x: i32, _y: i32) {
-        if self.presents().iter().filter(|p| **p).count() <= 1 {
+        if self.segments().len() <= 1 {
             return;
         }
-        let Some(idx) = self.slot_at(x as i16) else { return };
+        let Some((idx, _)) = self.segment_at(x as i16) else { return };
         if self.hovered == Some(idx) {
             return;
         }
         self.hovered = Some(idx);
-        let slot = Self::slot_w(self.h);
-        let rect = (self.slot_x(idx), 0i16, slot, self.h);
-        let text = self.slot_tooltip(idx);
-        crate::tooltip::show_rect_tip(
-            &mut self.tooltip,
-            self.conn.as_ref(),
-            &*self.window,
-            rect,
-            &text,
-        );
+        self.refresh_tip(idx);
     }
 
     fn handle_leave(&mut self) {

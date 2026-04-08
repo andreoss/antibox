@@ -29,13 +29,14 @@ pub enum Widget {
     Cpu,
     Mem,
     Net,
+    Mpris,
     PowerAudio,
     Keyboard,
     Clock,
 }
 
 impl Widget {
-    pub const COUNT: usize = 10;
+    pub const COUNT: usize = 11;
     pub const ALL: [Self; Self::COUNT] = [
         Self::Menu,
         Self::Workspaces,
@@ -44,6 +45,7 @@ impl Widget {
         Self::Cpu,
         Self::Mem,
         Self::Net,
+        Self::Mpris,
         Self::PowerAudio,
         Self::Keyboard,
         Self::Clock,
@@ -62,6 +64,7 @@ fn widget_token(name: &str) -> Option<Widget> {
         "cpu" => Some(Widget::Cpu),
         "mem" | "memory" | "ram" => Some(Widget::Mem),
         "net" | "network" => Some(Widget::Net),
+        "mpris" => Some(Widget::Mpris),
         "battery" | "power" | "batt" | "audio" | "volume" | "sound" => Some(Widget::PowerAudio),
         "keyboard" | "kbd" | "layout" => Some(Widget::Keyboard),
         "clock" | "time" => Some(Widget::Clock),

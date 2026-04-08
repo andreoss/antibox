@@ -1,5 +1,6 @@
 use super::*;
 use crate::audio::AudioState;
+use crate::mpris::{Playback, Player, Track};
 use crate::power::BatteryInfo;
 use antibox_core::mock::{MockDisplay, MockGraphics};
 
@@ -278,4 +279,112 @@ fn test_leave_clears_hover() {
     applet.handle_motion(0, 0);
     applet.handle_leave();
     assert_eq!(applet.hovered, None);
+}
+
+fn media_player() -> Player {
+    let mut p = Player::new("org.mpris.MediaPlayer2.mpv");
+    p.identity = "mpv".to_string();
+    p.status = Playback::Playing;
+    p.can_control = true;
+    p.can_next = true;
+    p.can_previous = true;
+    p.track = Track {
+        title: "Fratres".to_string(),
+        artist: "Arvo Pärt".to_string(),
+        album: "Tabula Rasa".to_string(),
+        length: 672_000_000,
+    };
+    p
+}
+
+fn applet_with_media() -> PowerAudioApplet {
+    let mut applet = new_applet();
+    applet.battery = battery_absent();
+    applet.audio = audio_present();
+    applet.media = MprisView::new(Some(media_player()), 65_000_000);
+    applet.w = applet.preferred_width() as u16;
+    applet
+}
+
+#[test]
+fn test_media_shares_the_box_with_audio() {
+    let applet = applet_with_media();
+    let slot = PowerAudioApplet::slot_w(applet.h) as u32;
+    let media = applet.media.natural_width(applet.h) as u32;
+    assert!(media > 0);
+    assert_eq!(applet.preferred_width(), slot + media);
+}
+
+#[test]
+fn test_media_slots_follow_the_audio_slot() {
+    let applet = applet_with_media();
+    let slot = PowerAudioApplet::slot_w(applet.h) as i16;
+    assert_eq!(applet.segment_at(1).map(|(i, _)| i), Some(0));
+    let (_, seg) = applet.segment_at(slot + 1).unwrap();
+    assert_eq!(seg, Segment::Media(MediaSlot::Button(MediaButton::Previous)));
+}
+
+#[test]
+fn test_disabled_media_buttons_take_no_room() {
+    let mut applet = applet_with_media();
+    let full = applet.preferred_width();
+    let mut player = media_player();
+    player.can_next = false;
+    player.can_previous = false;
+    applet.media = MprisView::new(Some(player), 65_000_000);
+    let slot = PowerAudioApplet::slot_w(applet.h) as u32;
+    assert_eq!(applet.preferred_width(), full - slot * 2);
+    assert!(!applet
+        .segments()
+        .iter()
+        .any(|(s, _, _)| *s == Segment::Media(MediaSlot::Button(MediaButton::Next))));
+}
+
+#[test]
+fn test_media_clicks_are_claimed_and_audio_untouched() {
+    let calls = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mut applet = applet_with_media();
+    applet.audio_system = Box::new(FakeAudio {
+        calls: Arc::clone(&calls),
+    });
+    let slot = PowerAudioApplet::slot_w(applet.h) as i32;
+    assert_eq!(
+        applet.handle_click(slot * 2 + 1, 0, 1),
+        Some(applet.window.id())
+    );
+    assert!(calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn test_tooltip_carries_the_track_name() {
+    let applet = applet_with_media();
+    let tt = applet.tooltip();
+    assert!(tt.contains("Volume"));
+    assert!(tt.contains("Fratres"));
+    assert!(tt.contains("mpv"));
+}
+
+#[test]
+fn test_draw_with_media_no_crash() {
+    let applet = applet_with_media();
+    let g = MockGraphics::new(1);
+    applet.paint(&g);
+}
+
+#[test]
+fn test_wheel_over_media_seeks_only_when_seekable() {
+    let mut applet = applet_with_media();
+    let slot = PowerAudioApplet::slot_w(applet.h) as i32;
+    let on_timing = slot * 3 + 1;
+    assert_eq!(applet.handle_click(on_timing, 0, 4), None);
+    assert_eq!(applet.handle_click(on_timing, 0, 5), None);
+    for wheel in [4, 5] {
+        let mut player = media_player();
+        player.can_seek = true;
+        applet.media = MprisView::new(Some(player), 65_000_000);
+        assert_eq!(
+            applet.handle_click(on_timing, 0, wheel),
+            Some(applet.window.id())
+        );
+    }
 }

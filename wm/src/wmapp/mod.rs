@@ -22,18 +22,20 @@ enum AppletTick {
     Cpu,
     Mem,
     Net,
+    Mpris,
     PowerAudio,
     Keyboard,
     Ticker,
 }
 
 impl AppletTick {
-    const COUNT: usize = 7;
+    const COUNT: usize = 8;
     const ALL: [Self; Self::COUNT] = [
         Self::Clock,
         Self::Cpu,
         Self::Mem,
         Self::Net,
+        Self::Mpris,
         Self::PowerAudio,
         Self::Keyboard,
         Self::Ticker,
@@ -41,7 +43,7 @@ impl AppletTick {
 
     const fn interval(self) -> Duration {
         match self {
-            Self::Clock => Duration::from_secs(1),
+            Self::Clock | Self::Mpris => Duration::from_secs(1),
             Self::Cpu | Self::Net | Self::PowerAudio | Self::Keyboard => {
                 Duration::from_secs(2)
             }
@@ -60,6 +62,7 @@ impl AppletTick {
             Self::Cpu => tb.update_cpu(),
             Self::Mem => tb.update_mem(),
             Self::Net => tb.update_net(),
+            Self::Mpris => tb.update_mpris(),
             Self::PowerAudio => {
                 if crate::audio_events::active() {
                     tb.update_power_audio_battery()
@@ -409,6 +412,9 @@ impl App {
         if let Some(afd) = crate::audio_events::init() {
             event_loop.add_fd(afd, Box::new(move || crate::audio_events::drain(afd)));
         }
+        if let Some(mfd) = crate::mpris::init() {
+            event_loop.add_fd(mfd, Box::new(crate::mpris::drain));
+        }
         let sw = b.screen_width();
         let sh = b.screen_height();
         let (mm_w, mm_h) = b.screen_size_mm();
@@ -686,6 +692,11 @@ impl App {
                 work.repaint_applets.push(wid);
             }
         }
+        if crate::mpris::take_changed() {
+            for wid in tb.update_mpris() {
+                work.repaint_applets.push(wid);
+            }
+        }
         let ws = self.wm.active_workspace();
         if let Some(wid) = tb.set_active_workspace(ws) {
             work.repaint_applets.push(wid);
@@ -798,9 +809,11 @@ impl App {
                     .map(|n| Box::new(n) as Box<dyn Applet>)
             }
             Widget::Net => None,
-            Widget::PowerAudio => crate::power_audio_applet::PowerAudioApplet::new(conn, wid)
-                .ok()
-                .map(|p| Box::new(p) as Box<dyn Applet>),
+            Widget::Mpris | Widget::PowerAudio => {
+                crate::power_audio_applet::PowerAudioApplet::new(conn, wid)
+                    .ok()
+                    .map(|p| Box::new(p) as Box<dyn Applet>)
+            }
             Widget::Keyboard => crate::keyboard_applet::KeyboardApplet::new(
                 conn,
                 wid,
@@ -866,10 +879,15 @@ impl App {
         wm.above_windows = vec![wid];
         let prefs = wmconfig::Config::load_prefs();
         let mut core: Vec<Box<dyn Applet>> = Vec::new();
+        let mut made: Vec<crate::layout_preferences::Widget> = Vec::new();
         for w in crate::layout_preferences::Widget::ALL.iter().copied() {
             if !crate::layout_preferences::taskbar_wants(w) {
                 continue;
             }
+            if made.iter().any(|m| crate::taskbar::shares_slot(*m, w)) {
+                continue;
+            }
+            made.push(w);
             if let Some(a) = Self::make_applet(
                 w,
                 conn,

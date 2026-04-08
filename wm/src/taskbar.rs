@@ -608,6 +608,27 @@ impl TaskBar {
         changed
     }
 
+    pub fn update_mpris(&mut self) -> Vec<u32> {
+        let mut relayout = false;
+        let mut changed = Vec::new();
+        for applet in &mut self.applets {
+            let Some(pa) = applet
+                .as_any_mut()
+                .downcast_mut::<crate::power_audio_applet::PowerAudioApplet>() else { continue };
+            let was_w = pa.preferred_width();
+            if guard_applet("update", || pa.update_media()).unwrap_or(false) {
+                changed.push(pa.window().id());
+            }
+            if pa.preferred_width() != was_w {
+                relayout = true;
+            }
+        }
+        if relayout {
+            self.relayout();
+        }
+        changed
+    }
+
     pub fn update_keyboard(&mut self) -> Vec<u32> {
         let mut relayout = false;
         let mut changed = Vec::new();
@@ -714,7 +735,7 @@ impl PanelSlot {
             Widget::Cpu => Self::Cpu,
             Widget::Mem => Self::Mem,
             Widget::Net => Self::Net,
-            Widget::PowerAudio => Self::PowerAudio,
+            Widget::Mpris | Widget::PowerAudio => Self::PowerAudio,
             Widget::Keyboard => Self::Keyboard,
             Widget::Clock => Self::Clock,
         }
@@ -740,14 +761,32 @@ impl PanelSlot {
     }
 }
 
+pub fn shares_slot(
+    a: crate::layout_preferences::Widget,
+    b: crate::layout_preferences::Widget,
+) -> bool {
+    PanelSlot::from_widget(a) == PanelSlot::from_widget(b)
+}
+
+fn slot_wanted(slot: PanelSlot) -> bool {
+    crate::layout_preferences::Widget::ALL
+        .iter()
+        .copied()
+        .any(|w| PanelSlot::from_widget(w) == slot && crate::layout_preferences::taskbar_wants(w))
+}
+
 fn effective_slots(
     layout: Option<Vec<crate::layout_preferences::Widget>>,
 ) -> (Vec<PanelSlot>, Vec<PanelSlot>) {
     match layout {
         None => (DEFAULT_LEFT.to_vec(), DEFAULT_RIGHT.to_vec()),
         Some(widgets) => {
-            let slots: Vec<PanelSlot> =
-                widgets.iter().map(|w| PanelSlot::from_widget(*w)).collect();
+            let mut slots: Vec<PanelSlot> = Vec::new();
+            for slot in widgets.iter().map(|w| PanelSlot::from_widget(*w)) {
+                if !slots.contains(&slot) {
+                    slots.push(slot);
+                }
+            }
             match slots.iter().position(|s| *s == PanelSlot::Task) {
                 Some(p) => (slots[..p].to_vec(), slots[p + 1..].to_vec()),
                 None => (slots, Vec::new()),
@@ -764,7 +803,7 @@ impl TaskBar {
         for w in crate::layout_preferences::Widget::ALL.iter().copied() {
             let slot = PanelSlot::from_widget(w);
             let at = self.applets.iter().position(|a| slot.matches(a.as_ref()));
-            let wanted = crate::layout_preferences::taskbar_wants(w);
+            let wanted = slot_wanted(slot);
             match (at, wanted) {
                 (Some(i), false) => self.remove_applet(i),
                 (None, true) => {

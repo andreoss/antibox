@@ -63,6 +63,17 @@
     }
 
     #[test]
+    fn parse_layout_reads_the_mpris_token() {
+        assert_eq!(parse_layout("mpris"), Some(vec![Widget::Mpris]));
+        assert_eq!(parse_layout("media"), None);
+        assert_eq!(parse_layout("music"), None);
+        assert_eq!(
+            parse_layout("power mpris clock"),
+            Some(vec![Widget::PowerAudio, Widget::Mpris, Widget::Clock])
+        );
+    }
+
+    #[test]
     fn qa_probe_aliases_resolve_to_the_same_widget() {
         assert_eq!(parse_layout("time"), parse_layout("clock"));
         assert_eq!(parse_layout("time"), Some(vec![Widget::Clock]));

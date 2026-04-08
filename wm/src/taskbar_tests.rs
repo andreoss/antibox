@@ -52,3 +52,23 @@
     }
 
 
+
+    #[test]
+    fn qa_probe_mpris_shares_the_power_slot() {
+        let (_l, r) = effective_slots(Some(vec![
+            Widget::Windows,
+            Widget::PowerAudio,
+            Widget::Mpris,
+            Widget::Clock,
+        ]));
+        assert_eq!(r, vec![PanelSlot::PowerAudio, PanelSlot::Clock]);
+        let (_l, r) = effective_slots(Some(vec![Widget::Windows, Widget::Mpris]));
+        assert_eq!(r, vec![PanelSlot::PowerAudio]);
+    }
+
+    #[test]
+    fn qa_probe_mpris_and_power_share_one_slot() {
+        assert!(shares_slot(Widget::Mpris, Widget::PowerAudio));
+        assert!(shares_slot(Widget::PowerAudio, Widget::Mpris));
+        assert!(!shares_slot(Widget::Mpris, Widget::Clock));
+    }
