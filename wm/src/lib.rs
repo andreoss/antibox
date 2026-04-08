@@ -44,6 +44,7 @@ pub mod clientmsg;
 pub mod clock_applet;
 pub mod container;
 pub mod cursors;
+pub mod dbus;
 pub mod desktop_apps;
 pub mod dock;
 pub mod dockmenu {

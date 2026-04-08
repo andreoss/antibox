@@ -2,6 +2,7 @@
 pub use std::os::raw::{c_char, c_int, c_long, c_uint, c_ulong, c_void};
 
 pub type time_t = i64;
+pub type uid_t = u32;
 pub type sighandler_t = usize;
 
 #[cfg(target_os = "linux")]
@@ -132,6 +133,7 @@ extern "C" {
     pub fn localtime_r(time: *const time_t, result: *mut tm) -> *mut tm;
     pub fn getloadavg(loadavg: *mut f64, nelem: c_int) -> c_int;
     pub fn open(path: *const c_char, flags: c_int, ...) -> c_int;
+    pub fn getuid() -> uid_t;
 }
 
 #[cfg(target_os = "linux")]
