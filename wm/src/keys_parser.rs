@@ -182,6 +182,7 @@ pub fn parse_action(name: &str) -> Option<Action> {
             Action::Workspace(WorkspaceOp::WorkspacePrevTakeWin),
         ),
         ("RootMenu", Action::Menu(MenuOp::RootMenu)),
+        ("StartMenu", Action::Menu(MenuOp::RootMenu)),
         ("Pager", Action::Menu(MenuOp::Pager)),
         ("Omni", Action::Menu(MenuOp::Omni)),
         ("ClickToFocus", Action::Focus(FocusOp::ClickToFocus)),
@@ -231,6 +232,50 @@ pub struct KeyEntry {
     pub keysym: u32,
     pub modifiers: u16,
     pub action: Action,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TapEntry {
+    pub keysyms: Vec<u32>,
+    pub action: Action,
+}
+
+pub fn modifier_keysyms(name: &str) -> Option<&'static [u32]> {
+    match name.trim().to_ascii_lowercase().as_str() {
+        "super" | "mod4" | "win" => Some(&[0xFFEB, 0xFFEC]),
+        "alt" | "mod1" => Some(&[0xFFE9, 0xFFEA]),
+        "ctrl" | "control" => Some(&[0xFFE3, 0xFFE4]),
+        "shift" => Some(&[0xFFE1, 0xFFE2]),
+        "meta" => Some(&[0xFFE7, 0xFFE8]),
+        "hyper" => Some(&[0xFFED, 0xFFEE]),
+        _ => None,
+    }
+}
+
+pub fn taps_from(keys: &[(String, String)]) -> Vec<TapEntry> {
+    keys.iter()
+        .filter_map(|(combo, action)| parse_tap_binding(combo, action))
+        .collect()
+}
+
+pub fn parse_tap_binding(combo: &str, action: &str) -> Option<TapEntry> {
+    let action = action.trim();
+    if action.is_empty() {
+        return None;
+    }
+    let mut parts = combo
+        .split(|c: char| c.is_whitespace() || c == '+')
+        .filter(|s| !s.is_empty());
+    let first = parts.next()?;
+    let second = parts.next()?;
+    if parts.next().is_some() || !first.eq_ignore_ascii_case(second) {
+        return None;
+    }
+    let keysyms = modifier_keysyms(first)?;
+    Some(TapEntry {
+        keysyms: keysyms.to_vec(),
+        action: parse_action(action)?,
+    })
 }
 
 pub fn entries_from(keys: &[(String, String)]) -> Vec<KeyEntry> {

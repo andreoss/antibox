@@ -16,7 +16,6 @@ static TASKBAR_TITLES: AtomicBool = AtomicBool::new(true);
 static TASKBAR_DOUBLE: AtomicBool = AtomicBool::new(false);
 static TASKBAR_WHEEL: AtomicBool = AtomicBool::new(true);
 static PAGER_NUMBERS: AtomicBool = AtomicBool::new(false);
-static MENU_ON_SUPER_TAP: AtomicBool = AtomicBool::new(true);
 static PAGER_PREVIEW: AtomicBool = AtomicBool::new(true);
 static MINIMIZE_ANIMATION: AtomicBool = AtomicBool::new(false);
 
@@ -104,7 +103,6 @@ pub fn apply() {
     antibox_ui::theme::set_title_side_override("");
     set_taskbar_align("");
     TASKBAR_GROUPING.store(false, Ordering::Relaxed);
-    MENU_ON_SUPER_TAP.store(true, Ordering::Relaxed);
     if let Ok(mut g) = TASKBAR_LAYOUT.write() {
         *g = parse_layout("");
     }
@@ -161,14 +159,6 @@ pub fn taskbar_wheel_enabled() -> bool {
 pub fn set_pager_style(numbers: bool, preview: bool) {
     PAGER_NUMBERS.store(numbers, Ordering::Relaxed);
     PAGER_PREVIEW.store(preview, Ordering::Relaxed);
-}
-
-pub fn set_menu_on_super_tap(v: bool) {
-    MENU_ON_SUPER_TAP.store(v, Ordering::Relaxed);
-}
-
-pub fn menu_on_super_tap() -> bool {
-    MENU_ON_SUPER_TAP.load(Ordering::Relaxed)
 }
 
 pub fn pager_numbers() -> bool {

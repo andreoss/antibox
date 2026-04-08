@@ -168,14 +168,6 @@ fn fields(p: &wmconfig::Prefs) -> Vec<Field> {
             false,
         ),
         f(
-            "taskbar",
-            "menu_on_super_tap",
-            "Menu on Super tap",
-            Kind::Bool,
-            String::new(),
-            p.taskbar.menu_on_super_tap,
-        ),
-        f(
             "ticker",
             "enabled",
             "Scrolling titles",

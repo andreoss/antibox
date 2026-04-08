@@ -38,16 +38,16 @@ position = "centre"
 position = "top"
 
 [taskbar]
-menu_on_super_tap = true
 layout = "pager tasks cpu mem net power mpris keyboard tray clock"
 
 [ticker]
 enabled = false
 
 [keys]
+"Win Win" = "Omni"
 "Alt+Tab" = "FocusNext"
 "Shift+Alt+Tab" = "FocusPrev"
-"Alt+Escape" = "WindowPickerList"
+"Alt+Esc" = "StartMenu"
 "Alt+/" = "Omni"
 "Alt+F4" = "Close"
 "Alt+F5" = "Restore"

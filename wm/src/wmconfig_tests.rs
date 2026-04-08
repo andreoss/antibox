@@ -131,7 +131,8 @@
     fn test_defaults_toml_keys_all_parse() {
         for (combo, action) in default_prefs().keys {
             assert!(
-                crate::keys_parser::parse_key_binding(&combo, &action).is_some(),
+                crate::keys_parser::parse_key_binding(&combo, &action).is_some()
+                    || crate::keys_parser::parse_tap_binding(&combo, &action).is_some(),
                 "{combo} = {action}"
             );
         }

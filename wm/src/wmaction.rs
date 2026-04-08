@@ -1134,6 +1134,8 @@ fn reload_keys<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) 
         let _ = wm
             .key_bindings
             .register_all(b, &crate::keys_parser::entries_from(&prefs.keys));
+        wm.key_bindings
+            .register_taps(b, crate::keys_parser::taps_from(&prefs.keys));
         let _ = b.flush();
     }
 }

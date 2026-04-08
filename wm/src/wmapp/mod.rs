@@ -285,8 +285,7 @@ pub struct App {
     #[cfg_attr(not(feature = "tray"), allow(dead_code))]
     pub(crate) tray_composite: bool,
 
-    pub(crate) super_tap_armed: bool,
-    pub(crate) super_tap_at: Option<Instant>,
+    pub(crate) tap_at: Option<(u32, Instant)>,
     pub(crate) wm_sn_atom: u32,
     pub(crate) wm_sn_owner: Option<Box<dyn WindowHandle>>,
 }
@@ -533,6 +532,8 @@ impl App {
         let _ = wm
             .key_bindings
             .register_all(&b, &crate::keys_parser::entries_from(&prefs.keys));
+        wm.key_bindings
+            .register_taps(&b, crate::keys_parser::taps_from(&prefs.keys));
         wm.monitors = b.query_monitors().unwrap_or_default();
 
         let _ = crate::ewmh::init_ewmh(&*b, &atom_manager, wm.config.workspace_count);
@@ -564,8 +565,7 @@ impl App {
             tray_opcode_atom,
             tray: tray.cloned(),
             tray_composite: composite_available,
-            super_tap_armed: false,
-            super_tap_at: None,
+            tap_at: None,
             wm_sn_atom,
             wm_sn_owner,
         })

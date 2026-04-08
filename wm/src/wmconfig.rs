@@ -86,7 +86,6 @@ pub struct TickerPrefs {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TaskbarPrefs {
     pub layout: String,
-    pub menu_on_super_tap: bool,
 }
 
 pub const DEFAULT_TASKBAR_LAYOUT: &str =
@@ -131,7 +130,6 @@ impl Default for Prefs {
             },
             taskbar: TaskbarPrefs {
                 layout: DEFAULT_TASKBAR_LAYOUT.to_string(),
-                menu_on_super_tap: true,
             },
             keys: Vec::new(),
         }
@@ -300,11 +298,6 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                             "top" | "bottom" => p.tabs.position = v.to_string(),
                             _ => {}
                         }
-                    }
-                }
-                ("taskbar", "menu_on_super_tap") => {
-                    if let Some(v) = value.as_bool() {
-                        p.taskbar.menu_on_super_tap = v;
                     }
                 }
                 ("taskbar", "layout") => {

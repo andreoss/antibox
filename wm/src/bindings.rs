@@ -10,11 +10,10 @@ const KEY_RIGHT: u32 = 0xFF53;
 const KEY_UP: u32 = 0xFF52;
 const KEY_DOWN: u32 = 0xFF54;
 const KEY_RETURN: u32 = 0xFF0D;
-const KEY_SUPER_L: u32 = 0xFFEB;
-const KEY_SUPER_R: u32 = 0xFFEC;
 
 pub struct KeyBindings {
     bindings: Vec<KeyBinding>,
+    taps: Vec<crate::keys_parser::TapEntry>,
 }
 
 struct KeyBinding {
@@ -36,6 +35,7 @@ impl KeyBindings {
     pub const fn new() -> Self {
         Self {
             bindings: Vec::new(),
+            taps: Vec::new(),
         }
     }
 
@@ -82,11 +82,30 @@ impl KeyBindings {
                 });
             }
         }
-        self.grab_bare_super(backend);
+        self.grab_taps(backend);
         Ok(())
     }
 
-    fn grab_bare_super<H: DisplayBackend + 'static + ?Sized>(&self, backend: &Arc<H>) {
+    pub fn register_taps<H: DisplayBackend + 'static + ?Sized>(
+        &mut self,
+        backend: &Arc<H>,
+        taps: Vec<crate::keys_parser::TapEntry>,
+    ) {
+        self.taps = taps;
+        self.grab_taps(backend);
+    }
+
+    pub fn lookup_tap(&self, keysym: u32) -> Option<&Action> {
+        self.taps
+            .iter()
+            .find(|t| t.keysyms.contains(&keysym))
+            .map(|t| &t.action)
+    }
+
+    fn grab_taps<H: DisplayBackend + 'static + ?Sized>(&self, backend: &Arc<H>) {
+        if self.taps.is_empty() {
+            return;
+        }
         let min_kc = backend.setup_min_keycode();
         let max_kc = backend.setup_max_keycode();
         let count = max_kc - min_kc + 1;
@@ -94,7 +113,7 @@ impl KeyBindings {
         let kpc = mapping.keysyms_per_keycode as usize;
         let root = backend.root().read_id();
         let lock_combs = [0u16, 0x02, 0x10, 0x02 | 0x10];
-        for sym in [KEY_SUPER_L, KEY_SUPER_R].iter().copied() {
+        for sym in self.taps.iter().flat_map(|t| t.keysyms.iter().copied()) {
             if let Some(kc) = find_keycode(&mapping.keysyms, kpc, min_kc, sym) {
                 for &locks in &lock_combs {
                     let _ =
@@ -121,7 +140,7 @@ impl KeyBindings {
                 );
             }
         }
-        self.grab_bare_super(backend);
+        self.grab_taps(backend);
         Ok(())
     }
 

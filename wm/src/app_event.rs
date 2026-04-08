@@ -141,12 +141,15 @@ impl App {
             .wm
             .key_bindings
             .register_all(&self.backend, &crate::keys_parser::entries_from(&prefs.keys));
+        self.wm.key_bindings.register_taps(
+            &self.backend,
+            crate::keys_parser::taps_from(&prefs.keys),
+        );
 
         self.wm.config.warp_pointer = prefs.pointer.warp;
         antibox_ui::ticker::set_enabled(prefs.ticker.enabled);
         crate::frame::set_tabs_on_bottom(prefs.tabs.position == "bottom");
         crate::layout_preferences::set_taskbar_layout(&prefs.taskbar.layout);
-        crate::layout_preferences::set_menu_on_super_tap(prefs.taskbar.menu_on_super_tap);
         self.sync_taskbar_layout(&prefs);
 
         let (count, names) = wmconfig::workspaces_from(&prefs);
@@ -252,7 +255,7 @@ impl App {
                 return;
             }
         }
-        if self.handle_super_tap(event) {
+        if self.handle_key_tap(event) {
             return;
         }
         if let BackendEvent::ScreenSizeChanged { width, height } = event {
@@ -588,38 +591,43 @@ impl App {
         }
     }
 
-    fn handle_super_tap(&mut self, event: &BackendEvent) -> bool {
-        const SUPER_L: u32 = 0xFFEB;
-        const SUPER_R: u32 = 0xFFEC;
+    fn run_action(&mut self, action: &Action) {
+        match action {
+            Action::Menu(MenuOp::WindowPickerList) => self.show_window_list(),
+            Action::Menu(MenuOp::RootMenu) => self.show_root_menu(),
+            Action::Menu(MenuOp::Omni) => self.show_omni(),
+            Action::Menu(MenuOp::Pager) => self.preview.show(&self.backend, &self.wm),
+            _ => self.wm.handle_action(action),
+        }
+    }
+
+    fn handle_key_tap(&mut self, event: &BackendEvent) -> bool {
         const TAP_WINDOW: Duration = Duration::from_millis(400);
         match event {
             BackendEvent::KeyPress { keycode, .. } => {
                 let ks = self.lookup_keysym(*keycode);
-                if ks == SUPER_L || ks == SUPER_R {
-                    let now = Instant::now();
-                    let double = self
-                        .super_tap_at
-                        .is_some_and(|t| now.duration_since(t) <= TAP_WINDOW);
-                    self.super_tap_at = Some(now);
-                    self.super_tap_armed = true;
-                    if double && crate::layout_preferences::menu_on_super_tap() {
-                        self.show_root_menu();
-                    }
-                    return true;
+                let Some(action) = self.wm.key_bindings.lookup_tap(ks).cloned() else {
+                    self.tap_at = None;
+                    return false;
+                };
+                let now = Instant::now();
+                let double = self
+                    .tap_at
+                    .is_some_and(|(sym, at)| sym == ks && now.duration_since(at) <= TAP_WINDOW);
+                if double {
+                    self.tap_at = None;
+                    self.run_action(&action);
+                } else {
+                    self.tap_at = Some((ks, now));
                 }
-                self.super_tap_armed = false;
-                false
+                true
             }
             BackendEvent::KeyRelease { keycode, .. } => {
                 let ks = self.lookup_keysym(*keycode);
-                if ks == SUPER_L || ks == SUPER_R {
-                    self.super_tap_armed = false;
-                    return true;
-                }
-                false
+                self.wm.key_bindings.lookup_tap(ks).is_some()
             }
             BackendEvent::ButtonPress { .. } => {
-                self.super_tap_armed = false;
+                self.tap_at = None;
                 false
             }
             _ => false,
