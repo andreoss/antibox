@@ -85,6 +85,7 @@ impl ClockApplet {
 }
 
 fn current_time_str(format: &str) -> String {
+    antibox_core::time::use_locale();
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_secs()) as libc::time_t;

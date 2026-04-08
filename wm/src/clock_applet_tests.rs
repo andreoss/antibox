@@ -15,3 +15,10 @@
         assert_eq!(s.as_bytes()[5], b':');
     }
 
+
+    #[test]
+    fn test_day_and_month_names_come_from_the_locale() {
+        let names = current_time_str("%A %B");
+        assert_eq!(names.split_whitespace().count(), 2);
+        assert!(names.chars().all(|c| !c.is_ascii_digit()));
+    }

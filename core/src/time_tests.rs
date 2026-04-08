@@ -8,3 +8,9 @@
         let added = start.checked_add(Duration::from_secs(1));
         assert!(added.is_some());
     }
+
+    #[test]
+    fn test_use_locale_is_idempotent() {
+        use_locale();
+        use_locale();
+    }

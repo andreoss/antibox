@@ -16,6 +16,11 @@ pub const WNOHANG: c_int = 1;
 pub const O_RDONLY: c_int = 0;
 
 #[cfg(target_os = "linux")]
+pub const LC_TIME: c_int = 2;
+#[cfg(not(target_os = "linux"))]
+pub const LC_TIME: c_int = 5;
+
+#[cfg(target_os = "linux")]
 pub const SIGCHLD: c_int = 17;
 #[cfg(target_os = "linux")]
 pub const SA_NOCLDSTOP: c_int = 0x0000_0001;
@@ -131,6 +136,7 @@ extern "C" {
     pub fn sigaction(sig: c_int, act: *const sigaction, oldact: *mut sigaction) -> c_int;
     pub fn strftime(s: *mut c_char, max: usize, format: *const c_char, tm: *const tm) -> usize;
     pub fn localtime_r(time: *const time_t, result: *mut tm) -> *mut tm;
+    pub fn setlocale(category: c_int, locale: *const c_char) -> *mut c_char;
     pub fn getloadavg(loadavg: *mut f64, nelem: c_int) -> c_int;
     pub fn open(path: *const c_char, flags: c_int, ...) -> c_int;
     pub fn getuid() -> uid_t;

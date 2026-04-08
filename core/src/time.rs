@@ -1,4 +1,15 @@
+#![allow(unsafe_code)]
+use crate::libc;
+use std::sync::Once;
 use std::time::{Duration, Instant};
+
+static LOCALE: Once = Once::new();
+
+pub fn use_locale() {
+    LOCALE.call_once(|| unsafe {
+        libc::setlocale(libc::LC_TIME, "\0".as_ptr().cast::<libc::c_char>());
+    });
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Monotime(Instant);
