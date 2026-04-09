@@ -273,6 +273,79 @@ impl XcbConnection {
         true
     }
 
+    pub(crate) fn window_geometry(&self, drawable: u32) -> Result<(u16, u16)> {
+        let cookie = unsafe { xcb_get_geometry(self.conn, drawable) };
+        let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        let r = unsafe { xcb_get_geometry_reply(self.conn, cookie, &mut e) };
+        if r.is_null() {
+            return Err(err("get_geometry failed"));
+        }
+        let size = unsafe { ((*r).width, (*r).height) };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
+        Ok(size)
+    }
+
+    pub(crate) fn image_of(&self, drawable: u32, w: u16, h: u16) -> Option<(u16, u16, Vec<u8>)> {
+        let cookie = unsafe {
+            xcb_get_image(self.conn, XCB_IMAGE_FORMAT_Z_PIXMAP, drawable, 0, 0, w, h, !0)
+        };
+        let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        let r = unsafe { xcb_get_image_reply(self.conn, cookie, &mut e) };
+        if r.is_null() {
+            return None;
+        }
+        let bytes = unsafe { (*r).length as usize * 4 };
+        let data_ptr = unsafe { (r as *const u8).add(size_of::<xcb_get_image_reply_t>()) };
+        let data = unsafe { std::slice::from_raw_parts(data_ptr, bytes).to_vec() };
+        unsafe { libc::free(r.cast::<libc::c_void>()) };
+        if data.len() < w as usize * h as usize * 4 {
+            return None;
+        }
+        Some((w, h, data))
+    }
+
+    pub(crate) fn randr_monitors(&self) -> Vec<MonitorInfo> {
+        let mut out = Vec::new();
+        if !self.extension_probe("RANDR") {
+            return out;
+        }
+        let mut e: *mut xcb_generic_event_t = std::ptr::null_mut();
+        let cookie = unsafe { xcb_randr_query_version(self.conn, 1, 5) };
+        let version = unsafe { xcb_randr_query_version_reply(self.conn, cookie, &mut e) };
+        if version.is_null() {
+            return out;
+        }
+        let too_old = unsafe { (*version).major_version } < 1
+            || (unsafe { (*version).major_version } == 1 && unsafe { (*version).minor_version } < 5);
+        unsafe { libc::free(version.cast::<libc::c_void>()) };
+        if too_old {
+            return out;
+        }
+        let cookie = unsafe { xcb_randr_get_monitors(self.conn, self.root.read_id(), 1) };
+        let reply = unsafe { xcb_randr_get_monitors_reply(self.conn, cookie, &mut e) };
+        if reply.is_null() {
+            return out;
+        }
+        let mut iter = unsafe { xcb_randr_get_monitors_monitors_iterator(reply) };
+        while iter.rem > 0 {
+            if iter.data.is_null() {
+                break;
+            }
+            let m = unsafe { *iter.data };
+            if m.width > 0 && m.height > 0 {
+                out.push(MonitorInfo {
+                    x: m.x,
+                    y: m.y,
+                    width: m.width,
+                    height: m.height,
+                });
+            }
+            unsafe { xcb_randr_monitor_info_next(&mut iter) };
+        }
+        unsafe { libc::free(reply.cast::<libc::c_void>()) };
+        out
+    }
+
     pub(crate) fn damage_probe(&self) -> bool {
         if !self.extension_probe("DAMAGE") {
             return false;
@@ -943,12 +1016,17 @@ impl DisplayBackend for XcbConnection {
     }
     fn query_monitors(&self) -> Result<Vec<MonitorInfo>> {
         let s = self.screen();
-        Ok(vec![MonitorInfo {
+        let whole = vec![MonitorInfo {
             x: 0,
             y: 0,
             width: s.width_in_pixels,
             height: s.height_in_pixels,
-        }])
+        }];
+        let found = self.randr_monitors();
+        if found.is_empty() {
+            return Ok(whole);
+        }
+        Ok(found)
     }
     fn restack_windows(&self, windows: &[u32]) -> Result<()> {
         for i in 1..windows.len() {
@@ -972,6 +1050,28 @@ impl DisplayBackend for XcbConnection {
         let a = (opacity.clamp(0.0, 1.0) * u32::MAX as f32) as u32;
         self.change_property32(PropMode::Replace, window, opacity_atom, self.intern_atom("CARDINAL")?, &[a])
     }
+    fn capture_window(&self, window: u32) -> Result<(u16, u16, Vec<u8>)> {
+        if !self.composite_probe() {
+            return Err(err("capture_window needs the composite extension"));
+        }
+        let attrs = self.get_window_attributes(window)?;
+        if attrs.map_state != MapState::Viewable {
+            return Err(err("capture_window needs a viewable window"));
+        }
+        let geom = self.window_geometry(window)?;
+        if geom.0 == 0 || geom.1 == 0 {
+            return Err(err("capture_window needs a sized window"));
+        }
+        self.composite_redirect_window(window);
+        let pixmap = self.alloc_id();
+        unsafe { xcb_composite_name_window_pixmap(self.conn, window, pixmap) };
+        let shot = self.image_of(pixmap, geom.0, geom.1);
+        unsafe { xcb_free_pixmap(self.conn, pixmap) };
+        self.composite_unredirect_window(window);
+        let _ = self.flush();
+        shot.ok_or_else(|| err("capture_window could not read the window pixmap"))
+    }
+
     fn grab_root_window(&self) -> Result<(u16, u16, Vec<u8>)> {
         let w = self.screen().width_in_pixels;
         let h = self.screen().height_in_pixels;

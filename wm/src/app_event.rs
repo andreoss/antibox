@@ -86,8 +86,20 @@ impl App {
             {
                 self.winlist.refresh(&self.backend, &self.wm);
             }
+            self.refresh_expose_after(&event);
         }
         n
+    }
+
+    pub(crate) fn refresh_expose_after(&mut self, event: &BackendEvent) {
+        if self.expose.visible
+            && matches!(
+                event,
+                BackendEvent::DestroyNotify { .. } | BackendEvent::UnmapNotify { .. }
+            )
+        {
+            self.expose.rebuild(&self.backend, &self.wm);
+        }
     }
 
     pub(crate) fn dispatch_guarded(&mut self, event: &BackendEvent) {
@@ -147,6 +159,7 @@ impl App {
         );
 
         self.wm.config.warp_pointer = prefs.pointer.warp;
+        self.expose.set_prefs(prefs.expose.clone());
         antibox_ui::ticker::set_enabled(prefs.ticker.enabled);
         crate::frame::set_tabs_on_bottom(prefs.tabs.position == "bottom");
         crate::layout_preferences::set_taskbar_layout(&prefs.taskbar.layout);
@@ -252,6 +265,18 @@ impl App {
                     "lost the WM_Sn manager selection; yielding the display to the new window manager"
                 );
                 self.running = false;
+                return;
+            }
+        }
+        if self.expose.visible {
+            let take = match event {
+                BackendEvent::KeyPress { .. } | BackendEvent::ButtonPress { .. } => true,
+                BackendEvent::MotionNotify { window, .. }
+                | BackendEvent::Expose { window, .. } => self.expose.owns_window(*window),
+                _ => false,
+            };
+            if take {
+                self.handle_expose_event(event);
                 return;
             }
         }
@@ -373,6 +398,7 @@ impl App {
                 Action::Menu(MenuOp::RootMenu) => self.show_root_menu(),
                 Action::Menu(MenuOp::Omni) => self.show_omni(),
                 Action::Menu(MenuOp::Pager) => self.preview.show(&self.backend, &self.wm),
+                Action::Menu(MenuOp::Expose) => self.toggle_expose(),
                 _ => {
                     if let Some(window) = event.window() {
                         self.route_to_sub_applet(window, event);
@@ -591,12 +617,77 @@ impl App {
         }
     }
 
+    fn toggle_expose(&mut self) {
+        if self.expose.visible {
+            self.expose.hide(&self.backend);
+            return;
+        }
+        if !self.expose.show(&self.backend, &self.wm) {
+            let _ = self.backend.flush();
+        }
+    }
+
+    fn handle_expose_event(&mut self, event: &BackendEvent) {
+        let action = match event {
+            BackendEvent::KeyPress { keycode, state, .. } => {
+                let ks = self.lookup_keysym(*keycode);
+                self.expose.handle_key(ks, (*state & 0x01) != 0)
+            }
+            BackendEvent::ButtonPress { point, button, .. } => {
+                self.expose.handle_click(*point, *button)
+            }
+            BackendEvent::MotionNotify { point, .. } => self.expose.handle_motion(*point),
+            BackendEvent::Expose { .. } => crate::expose::ExposeAction::Repaint,
+            _ => crate::expose::ExposeAction::None,
+        };
+        match action {
+            crate::expose::ExposeAction::None => {}
+            crate::expose::ExposeAction::Repaint => self.expose.paint(&self.backend),
+            crate::expose::ExposeAction::Cancel => self.expose.hide(&self.backend),
+            crate::expose::ExposeAction::Activate(client) => {
+                let warp = self.expose.prefs().warp_on_activate;
+                self.expose.hide(&self.backend);
+                crate::focus::activate_window(&mut self.wm, client);
+                if warp {
+                    self.warp_onto_client(client);
+                }
+                let _ = self.backend.flush();
+            }
+            crate::expose::ExposeAction::Client(op, client) => self.run_expose_op(op, client),
+        }
+        self.expose.pump(&self.backend);
+    }
+
+    fn warp_onto_client(&self, client: ClientId) {
+        let Some(rect) = self.wm.frame(client).map(crate::frame::FrameWindow::frame_rect) else { return };
+        let root = self.backend.root().read_id();
+        let _ = self.backend.warp_pointer(
+            0,
+            root,
+            Rect::ZERO,
+            Point::new(rect.x + rect.w / 2, rect.y + rect.h / 2),
+        );
+    }
+
+    fn run_expose_op(&mut self, op: crate::expose::ClientOp, client: ClientId) {
+        use crate::expose::ClientOp;
+        match op {
+            ClientOp::Iconify => crate::wmaction::minimize_client(&mut self.wm, client),
+            ClientOp::Shade => crate::wmaction::set_shaded(&mut self.wm, client, None),
+            ClientOp::Close => crate::wmaction::close_client(&self.wm, client),
+            ClientOp::Kill => crate::wmaction::kill_client_id(&self.wm, client),
+            ClientOp::None | ClientOp::Focus => {}
+        }
+        self.expose.rebuild(&self.backend, &self.wm);
+    }
+
     fn run_action(&mut self, action: &Action) {
         match action {
             Action::Menu(MenuOp::WindowPickerList) => self.show_window_list(),
             Action::Menu(MenuOp::RootMenu) => self.show_root_menu(),
             Action::Menu(MenuOp::Omni) => self.show_omni(),
             Action::Menu(MenuOp::Pager) => self.preview.show(&self.backend, &self.wm),
+            Action::Menu(MenuOp::Expose) => self.toggle_expose(),
             _ => self.wm.handle_action(action),
         }
     }

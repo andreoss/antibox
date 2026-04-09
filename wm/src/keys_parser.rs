@@ -185,6 +185,7 @@ pub fn parse_action(name: &str) -> Option<Action> {
         ("StartMenu", Action::Menu(MenuOp::RootMenu)),
         ("Pager", Action::Menu(MenuOp::Pager)),
         ("Omni", Action::Menu(MenuOp::Omni)),
+        ("Expose", Action::Menu(MenuOp::Expose)),
         ("ClickToFocus", Action::Focus(FocusOp::ClickToFocus)),
         ("Explicit", Action::Focus(FocusOp::Explicit)),
         ("MouseSloppy", Action::Focus(FocusOp::MouseSloppy)),

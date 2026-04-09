@@ -201,6 +201,29 @@ impl Server {
                 root.rect = Rect::new(0, 0, w, h);
             }
         }
+        self.publish_monitors();
+    }
+
+    unsafe fn publish_monitors(&mut self) {
+        let mut rects = Vec::new();
+        for entry in &self.outputs {
+            let mut area: wlr_box = std::mem::zeroed();
+            wlr_output_layout_get_box(self.layout, entry.output, std::ptr::addr_of_mut!(area));
+            if area.width > 0 && area.height > 0 {
+                rects.push(Rect::new(area.x, area.y, area.width, area.height));
+            }
+        }
+        let span_w = rects.iter().map(|r| r.x + r.w).max().unwrap_or(0);
+        let span_h = rects.iter().map(|r| r.y + r.h).max().unwrap_or(0);
+        let mut s = self.shared.lock();
+        s.monitors = rects;
+        if span_w > 0 && span_h > 0 {
+            s.screen_w = span_w as u16;
+            s.screen_h = span_h as u16;
+            if let Some(root) = s.windows.get_mut(&ROOT_WINDOW) {
+                root.rect = Rect::new(0, 0, span_w, span_h);
+            }
+        }
     }
 
     unsafe fn on_output_frame(&mut self, output: *mut wlr_output) {
@@ -224,6 +247,7 @@ impl Server {
             }
         }
         self.drop_hooks_on(output.cast());
+        self.publish_monitors();
     }
 
     unsafe fn on_new_input(&mut self, dev: *mut wlr_input_device) {
@@ -361,6 +385,7 @@ impl Server {
         if let Some(client) = self.clients.get_mut(&id) {
             client.mapped = false;
         }
+        self.forget_capture(id);
         self.synth(BackendEvent::UnmapNotify { window: id });
     }
 
@@ -402,6 +427,7 @@ impl Server {
     unsafe fn on_toplevel_destroy(&mut self, id: u32) {
         self.drop_hooks(id);
         self.clients.remove(&id);
+        self.forget_capture(id);
         self.shared.lock().windows.remove(&id);
         self.synth(BackendEvent::UnmapNotify { window: id });
         self.synth(BackendEvent::DestroyNotify { window: id });

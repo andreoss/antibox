@@ -116,6 +116,8 @@
         assert_eq!(d.pointer, Prefs::default().pointer);
         assert_eq!(d.graph, Prefs::default().graph);
         assert_eq!(d.winlist, Prefs::default().winlist);
+        assert_eq!(d.expose, Prefs::default().expose);
+        assert_eq!(d.expose.modes, DEFAULT_EXPOSE_MODES);
         assert!(!d.keys.is_empty());
     }
 
@@ -253,4 +255,90 @@
         let text = std::fs::read_to_string(&current).unwrap();
         assert_eq!(parse_prefs(&text).keyboard.layouts, "new");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_parse_prefs_expose() {
+        assert_eq!(parse_prefs("").expose, ExposePrefs::default());
+        let p = parse_prefs(
+            "[expose]\nmodes = \"icon filled\"\nmouse1 = \"shade\"\nmouse2 = \"no\"\ndistance = 12\nicon_size = 64\nallow_upscale = true\nall_desktops = true\nshow_minimized = false\nshow_skip_taskbar = true\ninclude_frame = false\n",
+        );
+        assert_eq!(p.expose.modes, "icon filled");
+        assert_eq!(p.expose.mouse1, "shade");
+        assert_eq!(p.expose.mouse2, "no");
+        assert_eq!(p.expose.distance, 12);
+        assert_eq!(p.expose.icon_size, 64);
+        assert!(p.expose.allow_upscale);
+        assert!(p.expose.all_desktops);
+        assert!(!p.expose.show_minimized);
+        assert!(p.expose.show_skip_taskbar);
+        assert!(!p.expose.include_frame);
+    }
+
+    #[test]
+    fn test_parse_prefs_expose_bounds() {
+        let d = ExposePrefs::default();
+        let p = |t: &str| parse_prefs(t).expose;
+        assert_eq!(p("[expose]\ndistance = 0\n").distance, d.distance);
+        assert_eq!(p("[expose]\ndistance = 401\n").distance, d.distance);
+        assert_eq!(p("[expose]\ndistance = \"wide\"\n").distance, d.distance);
+        assert_eq!(p("[expose]\nicon_size = 4\n").icon_size, d.icon_size);
+        assert_eq!(p("[expose]\nicon_size = 257\n").icon_size, d.icon_size);
+        assert_eq!(p("[expose]\nicon_size = 8\n").icon_size, 8);
+        assert!(!p("[expose]\nallow_upscale = 1\n").allow_upscale);
+        assert_eq!(p("[expose]\nmodes = \"\"\n").modes, d.modes);
+        assert_eq!(p("[expose]\nmodes = 3\n").modes, d.modes);
+    }
+
+    #[test]
+    fn test_parse_prefs_expose_tint() {
+        let d = ExposePrefs::default();
+        let p = |t: &str| parse_prefs(t).expose;
+        let got = p("[expose]\nopacity = 90\ntint = \"#204080\"\ntint_opacity = 33\nhighlight_opacity = 120\nhighlight_tint = \"ffffff\"\nhighlight_tint_opacity = 200\n");
+        assert_eq!(got.opacity, 90);
+        assert_eq!(got.tint, "#204080");
+        assert_eq!(got.tint_opacity, 33);
+        assert_eq!(got.highlight_opacity, 120);
+        assert_eq!(got.highlight_tint, "ffffff");
+        assert_eq!(got.highlight_tint_opacity, 200);
+        assert_eq!(p("[expose]\nopacity = 256\n").opacity, d.opacity);
+        assert_eq!(p("[expose]\nopacity = -1\n").opacity, d.opacity);
+        assert_eq!(p("[expose]\ntint = \"mauve\"\n").tint, d.tint);
+        assert_eq!(parse_colour(&d.highlight_tint), Some(0));
+    }
+
+    #[test]
+    fn test_parse_prefs_expose_tooltip() {
+        let d = ExposePrefs::default();
+        assert!(d.tooltip && d.tooltip_follows_mouse);
+        assert_eq!((d.tooltip_offset_x, d.tooltip_offset_y), (20, 20));
+        assert_eq!(d.tooltip_align, "left");
+        let p = |t: &str| parse_prefs(t).expose;
+        let got = p("[expose]\ntooltip = false\ntooltip_follows_mouse = false\ntooltip_offset_x = -12\ntooltip_offset_y = 4\ntooltip_align = \"mid\"\n");
+        assert!(!got.tooltip);
+        assert!(!got.tooltip_follows_mouse);
+        assert_eq!((got.tooltip_offset_x, got.tooltip_offset_y), (-12, 4));
+        assert_eq!(got.tooltip_align, "mid");
+        assert_eq!(p("[expose]\ntooltip_align = \"sideways\"\n").tooltip_align, d.tooltip_align);
+        assert_eq!(p("[expose]\ntooltip_offset_x = 4000\n").tooltip_offset_x, d.tooltip_offset_x);
+    }
+
+    #[test]
+    fn test_parse_prefs_expose_warp() {
+        let d = ExposePrefs::default();
+        assert!(!d.warp_on_show && !d.warp_on_select && !d.warp_on_activate);
+        let got = parse_prefs("[expose]\nwarp_on_show = true\nwarp_on_select = true\nwarp_on_activate = true\n").expose;
+        assert!(got.warp_on_show && got.warp_on_select && got.warp_on_activate);
+    }
+
+    #[test]
+    fn test_parse_prefs_expose_monitors() {
+        assert!(ExposePrefs::default().all_monitors);
+        assert!(!parse_prefs("[expose]\nall_monitors = false\n").expose.all_monitors);
+    }
+
+    #[test]
+    fn test_parse_prefs_expose_live_thumbnails() {
+        assert!(ExposePrefs::default().live_thumbnails);
+        assert!(!parse_prefs("[expose]\nlive_thumbnails = false\n").expose.live_thumbnails);
     }

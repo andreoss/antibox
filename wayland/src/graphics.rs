@@ -64,6 +64,20 @@ impl GraphicsContext for WaylandGraphics {
         Ok(())
     }
 
+    fn draw_image(&self, x: i16, y: i16, w: u16, h: u16, data: &[u8]) -> R {
+        let need = w as usize * h as usize * 4;
+        if need == 0 || data.len() < need {
+            return Ok(());
+        }
+        let mut rgba = Vec::with_capacity(need);
+        for px in data[..need].chunks_exact(4) {
+            rgba.extend_from_slice(&[px[2], px[1], px[0], 0xff]);
+        }
+        let pm = PixmapData::new(w, h, rgba);
+        self.store.with(self.drawable, |c| c.draw_pixmap(x, y, &pm));
+        Ok(())
+    }
+
     fn draw_rect(&self, x: i16, y: i16, w: u16, h: u16) -> R {
         let fg = self.lock().fg;
         self.store

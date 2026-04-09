@@ -53,6 +53,8 @@ pub mod dockmenu {
 pub mod drag;
 pub mod drag_outline;
 pub mod ewmh;
+pub mod expose;
+pub mod expose_layout;
 pub mod focus;
 pub mod focus_history;
 pub mod fonts;

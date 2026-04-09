@@ -1441,6 +1441,11 @@ extern "C" {
         window: xcb_window_t,
         update: u8,
     ) -> c_uint;
+    pub fn xcb_composite_name_window_pixmap(
+        c: *mut xcb_connection_t,
+        window: xcb_window_t,
+        pixmap: u32,
+    ) -> c_uint;
     pub fn xcb_composite_unredirect_window(
         c: *mut xcb_connection_t,
         window: xcb_window_t,
@@ -1559,4 +1564,92 @@ extern "C" {
         cookie: c_uint,
         e: *mut *mut xcb_generic_event_t,
     ) -> *mut xcb_shape_query_extents_reply_t;
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct xcb_randr_query_version_cookie_t {
+    pub sequence: c_uint,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct xcb_randr_query_version_reply_t {
+    pub response_type: u8,
+    pub pad0: u8,
+    pub sequence: u16,
+    pub length: u32,
+    pub major_version: u32,
+    pub minor_version: u32,
+    pub pad1: [u8; 16],
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct xcb_randr_get_monitors_cookie_t {
+    pub sequence: c_uint,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct xcb_randr_get_monitors_reply_t {
+    pub response_type: u8,
+    pub pad0: u8,
+    pub sequence: u16,
+    pub length: u32,
+    pub timestamp: u32,
+    pub n_monitors: u32,
+    pub n_outputs: u32,
+    pub pad1: [u8; 12],
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct xcb_randr_monitor_info_t {
+    pub name: u32,
+    pub primary: u8,
+    pub automatic: u8,
+    pub n_output: u16,
+    pub x: i16,
+    pub y: i16,
+    pub width: u16,
+    pub height: u16,
+    pub width_in_millimeters: u32,
+    pub height_in_millimeters: u32,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct xcb_randr_monitor_info_iterator_t {
+    pub data: *mut xcb_randr_monitor_info_t,
+    pub rem: c_int,
+    pub index: c_int,
+}
+
+#[link(name = "xcb-randr")]
+extern "C" {
+    pub fn xcb_randr_query_version(
+        c: *mut xcb_connection_t,
+        major_version: u32,
+        minor_version: u32,
+    ) -> xcb_randr_query_version_cookie_t;
+    pub fn xcb_randr_query_version_reply(
+        c: *mut xcb_connection_t,
+        cookie: xcb_randr_query_version_cookie_t,
+        e: *mut *mut xcb_generic_event_t,
+    ) -> *mut xcb_randr_query_version_reply_t;
+    pub fn xcb_randr_get_monitors(
+        c: *mut xcb_connection_t,
+        window: xcb_window_t,
+        get_active: u8,
+    ) -> xcb_randr_get_monitors_cookie_t;
+    pub fn xcb_randr_get_monitors_reply(
+        c: *mut xcb_connection_t,
+        cookie: xcb_randr_get_monitors_cookie_t,
+        e: *mut *mut xcb_generic_event_t,
+    ) -> *mut xcb_randr_get_monitors_reply_t;
+    pub fn xcb_randr_get_monitors_monitors_iterator(
+        r: *const xcb_randr_get_monitors_reply_t,
+    ) -> xcb_randr_monitor_info_iterator_t;
+    pub fn xcb_randr_monitor_info_next(i: *mut xcb_randr_monitor_info_iterator_t);
 }

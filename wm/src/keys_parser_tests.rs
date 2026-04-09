@@ -87,6 +87,15 @@
     }
 
     #[test]
+    fn test_expose_action_name() {
+        assert_eq!(parse_action("Expose"), Some(Action::Menu(MenuOp::Expose)));
+        assert_eq!(
+            parse_key_binding("Super+Tab", "Expose").unwrap().action,
+            Action::Menu(MenuOp::Expose)
+        );
+    }
+
+    #[test]
     fn test_start_menu_names_the_root_menu() {
         assert_eq!(
             parse_action("StartMenu"),

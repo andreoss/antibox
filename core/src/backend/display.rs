@@ -193,6 +193,10 @@ pub trait DisplayBackend: RenderBackend {
         Err("grab_root_window not implemented".into())
     }
 
+    fn capture_window(&self, _window: u32) -> Result<(u16, u16, Vec<u8>)> {
+        Err("capture_window not implemented".into())
+    }
+
     fn send_selection_notify(
         &self,
         _requestor: u32,

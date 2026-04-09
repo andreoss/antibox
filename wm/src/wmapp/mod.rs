@@ -285,6 +285,7 @@ pub struct App {
     #[cfg_attr(not(feature = "tray"), allow(dead_code))]
     pub(crate) tray_composite: bool,
 
+    pub(crate) expose: crate::expose::Expose,
     pub(crate) tap_at: Option<(u32, Instant)>,
     pub(crate) wm_sn_atom: u32,
     pub(crate) wm_sn_owner: Option<Box<dyn WindowHandle>>,
@@ -501,6 +502,8 @@ impl App {
             &crate::render::ThemeColors::default(),
         );
         wm.config.warp_pointer = prefs.pointer.warp;
+        let mut expose_view = crate::expose::Expose::new();
+        expose_view.set_prefs(prefs.expose.clone());
         antibox_ui::ticker::set_enabled(prefs.ticker.enabled);
         crate::frame::set_tabs_on_bottom(prefs.tabs.position == "bottom");
         wm.render_backend = Some(render_backend);
@@ -565,6 +568,7 @@ impl App {
             tray_opcode_atom,
             tray: tray.cloned(),
             tray_composite: composite_available,
+            expose: expose_view,
             tap_at: None,
             wm_sn_atom,
             wm_sn_owner,
@@ -607,6 +611,7 @@ impl App {
         let post_wait = Instant::now();
         if let Some(event) = waited {
             self.dispatch_guarded(&event);
+            self.refresh_expose_after(&event);
             work.events += 1;
             work.events += self.drain_pending_events_count();
         }
@@ -614,6 +619,10 @@ impl App {
 
         if crate::config_watch::take_changed() {
             self.reload_config();
+        }
+
+        if self.expose.awaiting_capture() {
+            self.expose.rebuild(&self.backend, &self.wm);
         }
 
         if let Some(e) = self.backend.check_for_error() {

@@ -40,6 +40,35 @@ position = "top"
 [taskbar]
 layout = "pager tasks cpu mem net power mpris keyboard tray clock"
 
+[expose]
+modes = "thumbnail icon filled none"
+mouse1 = "focus"
+mouse2 = "close"
+mouse3 = "iconify"
+opacity = 150
+tint = "000000"
+tint_opacity = 0
+highlight_opacity = 255
+highlight_tint = "000000"
+highlight_tint_opacity = 0
+tooltip = true
+tooltip_follows_mouse = true
+tooltip_offset_x = 20
+tooltip_offset_y = 20
+tooltip_align = "left"
+warp_on_show = false
+warp_on_select = false
+warp_on_activate = false
+distance = 50
+icon_size = 48
+allow_upscale = false
+all_desktops = true
+all_monitors = true
+live_thumbnails = true
+show_minimized = true
+show_skip_taskbar = false
+include_frame = true
+
 [ticker]
 enabled = false
 
@@ -69,6 +98,7 @@ enabled = false
 "Ctrl+Alt+Down" = "WorkspacePrevTaken"
 "Ctrl+Alt+D" = "ShowDesktop"
 "Ctrl+Alt+P" = "Pager"
+"Super+Tab" = "Expose"
 "Super+Left" = "SnapLeft"
 "Super+Right" = "SnapRight"
 "Super+Up" = "SnapUp"

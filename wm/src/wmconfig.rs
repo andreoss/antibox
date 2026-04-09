@@ -16,6 +16,7 @@ pub struct Prefs {
     pub tabs: TabsPrefs,
     pub ticker: TickerPrefs,
     pub taskbar: TaskbarPrefs,
+    pub expose: ExposePrefs,
     pub theme: ThemePrefs,
     pub keys: Vec<(String, String)>,
 }
@@ -88,6 +89,73 @@ pub struct TaskbarPrefs {
     pub layout: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExposePrefs {
+    pub modes: String,
+    pub mouse1: String,
+    pub mouse2: String,
+    pub mouse3: String,
+    pub opacity: u8,
+    pub tint: String,
+    pub tint_opacity: u8,
+    pub highlight_opacity: u8,
+    pub highlight_tint: String,
+    pub highlight_tint_opacity: u8,
+    pub tooltip: bool,
+    pub tooltip_follows_mouse: bool,
+    pub tooltip_offset_x: i32,
+    pub tooltip_offset_y: i32,
+    pub tooltip_align: String,
+    pub all_monitors: bool,
+    pub live_thumbnails: bool,
+    pub warp_on_show: bool,
+    pub warp_on_select: bool,
+    pub warp_on_activate: bool,
+    pub distance: i32,
+    pub icon_size: u16,
+    pub allow_upscale: bool,
+    pub all_desktops: bool,
+    pub show_minimized: bool,
+    pub show_skip_taskbar: bool,
+    pub include_frame: bool,
+}
+
+impl Default for ExposePrefs {
+    fn default() -> Self {
+        Self {
+            modes: DEFAULT_EXPOSE_MODES.to_string(),
+            mouse1: "focus".to_string(),
+            mouse2: "close".to_string(),
+            mouse3: "iconify".to_string(),
+            opacity: 150,
+            tint: "000000".to_string(),
+            tint_opacity: 0,
+            highlight_opacity: 255,
+            highlight_tint: "000000".to_string(),
+            highlight_tint_opacity: 0,
+            tooltip: true,
+            tooltip_follows_mouse: true,
+            tooltip_offset_x: 20,
+            tooltip_offset_y: 20,
+            tooltip_align: "left".to_string(),
+            all_monitors: true,
+            live_thumbnails: true,
+            warp_on_show: false,
+            warp_on_select: false,
+            warp_on_activate: false,
+            distance: 50,
+            icon_size: 48,
+            allow_upscale: false,
+            all_desktops: true,
+            show_minimized: true,
+            show_skip_taskbar: false,
+            include_frame: true,
+        }
+    }
+}
+
+pub const DEFAULT_EXPOSE_MODES: &str = "thumbnail icon filled none";
+
 pub const DEFAULT_TASKBAR_LAYOUT: &str =
     "pager tasks cpu mem net power mpris keyboard tray clock";
 
@@ -131,6 +199,7 @@ impl Default for Prefs {
             taskbar: TaskbarPrefs {
                 layout: DEFAULT_TASKBAR_LAYOUT.to_string(),
             },
+            expose: ExposePrefs::default(),
             keys: Vec::new(),
         }
     }
@@ -185,6 +254,11 @@ fn parse_width(value: &toml::Value) -> Option<u16> {
     } else {
         None
     }
+}
+
+fn as_bounded(value: &toml::Value, min: i32, max: i32) -> Option<i32> {
+    let v = i32::try_from(value.as_integer()?).ok()?;
+    (min..=max).contains(&v).then_some(v)
 }
 
 fn as_count(value: &toml::Value) -> Option<u32> {
@@ -305,6 +379,150 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                         if !v.trim().is_empty() {
                             p.taskbar.layout = v.to_string();
                         }
+                    }
+                }
+                ("expose", "modes") => {
+                    if let Some(v) = value.as_str() {
+                        if !v.trim().is_empty() {
+                            p.expose.modes = v.to_string();
+                        }
+                    }
+                }
+                ("expose", "mouse1") => {
+                    if let Some(v) = value.as_str() {
+                        p.expose.mouse1 = v.to_string();
+                    }
+                }
+                ("expose", "mouse2") => {
+                    if let Some(v) = value.as_str() {
+                        p.expose.mouse2 = v.to_string();
+                    }
+                }
+                ("expose", "mouse3") => {
+                    if let Some(v) = value.as_str() {
+                        p.expose.mouse3 = v.to_string();
+                    }
+                }
+                ("expose", "opacity") => {
+                    if let Some(v) = as_bounded(value, 0, 255) {
+                        p.expose.opacity = v as u8;
+                    }
+                }
+                ("expose", "tint") => {
+                    if let Some(v) = value.as_str() {
+                        if parse_colour(v).is_some() {
+                            p.expose.tint = v.to_string();
+                        }
+                    }
+                }
+                ("expose", "tint_opacity") => {
+                    if let Some(v) = as_bounded(value, 0, 255) {
+                        p.expose.tint_opacity = v as u8;
+                    }
+                }
+                ("expose", "highlight_opacity") => {
+                    if let Some(v) = as_bounded(value, 0, 255) {
+                        p.expose.highlight_opacity = v as u8;
+                    }
+                }
+                ("expose", "highlight_tint") => {
+                    if let Some(v) = value.as_str() {
+                        if parse_colour(v).is_some() {
+                            p.expose.highlight_tint = v.to_string();
+                        }
+                    }
+                }
+                ("expose", "highlight_tint_opacity") => {
+                    if let Some(v) = as_bounded(value, 0, 255) {
+                        p.expose.highlight_tint_opacity = v as u8;
+                    }
+                }
+                ("expose", "tooltip") => {
+                    if let Some(v) = value.as_bool() {
+                        p.expose.tooltip = v;
+                    }
+                }
+                ("expose", "tooltip_follows_mouse") => {
+                    if let Some(v) = value.as_bool() {
+                        p.expose.tooltip_follows_mouse = v;
+                    }
+                }
+                ("expose", "tooltip_offset_x") => {
+                    if let Some(v) = as_bounded(value, -400, 400) {
+                        p.expose.tooltip_offset_x = v;
+                    }
+                }
+                ("expose", "tooltip_offset_y") => {
+                    if let Some(v) = as_bounded(value, -400, 400) {
+                        p.expose.tooltip_offset_y = v;
+                    }
+                }
+                ("expose", "tooltip_align") => {
+                    if let Some(v) = value.as_str() {
+                        match v {
+                            "left" | "mid" | "right" => p.expose.tooltip_align = v.to_string(),
+                            _ => {}
+                        }
+                    }
+                }
+                ("expose", "live_thumbnails") => {
+                    if let Some(v) = value.as_bool() {
+                        p.expose.live_thumbnails = v;
+                    }
+                }
+                ("expose", "all_monitors") => {
+                    if let Some(v) = value.as_bool() {
+                        p.expose.all_monitors = v;
+                    }
+                }
+                ("expose", "warp_on_show") => {
+                    if let Some(v) = value.as_bool() {
+                        p.expose.warp_on_show = v;
+                    }
+                }
+                ("expose", "warp_on_select") => {
+                    if let Some(v) = value.as_bool() {
+                        p.expose.warp_on_select = v;
+                    }
+                }
+                ("expose", "warp_on_activate") => {
+                    if let Some(v) = value.as_bool() {
+                        p.expose.warp_on_activate = v;
+                    }
+                }
+                ("expose", "distance") => {
+                    if let Some(v) = as_bounded(value, 1, 400) {
+                        p.expose.distance = v;
+                    }
+                }
+                ("expose", "icon_size") => {
+                    if let Some(v) = as_bounded(value, 8, 256) {
+                        p.expose.icon_size = v as u16;
+                    }
+                }
+                ("expose", "allow_upscale") => {
+                    if let Some(v) = value.as_bool() {
+                        p.expose.allow_upscale = v;
+                    }
+                }
+                ("expose", "all_desktops") => {
+                    if let Some(v) = value.as_bool() {
+                        p.expose.all_desktops = v;
+                    }
+                }
+                ("expose", "show_minimized") => {
+                    if let Some(v) = value.as_bool() {
+                        p.expose.show_minimized = v;
+                    }
+                }
+                ("expose", "show_skip_taskbar") => {
+                    if let Some(v) = value.as_bool() {
+                        p.expose.show_skip_taskbar = v;
+                    }
+                }
+                ("expose", "include_frame") => {
+                    if let Some(v) = value.as_bool() {
+                        p.expose.include_frame = v;
                     }
                 }
                 ("ticker", "enabled") => {

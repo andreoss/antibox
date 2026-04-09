@@ -350,14 +350,37 @@ impl DisplayBackend for WaylandCompositor {
         })
     }
 
+    fn capture_window(&self, window: u32) -> R<(u16, u16, Vec<u8>)> {
+        let mut s = self.shared.lock();
+        if let Some(shot) = s.captures.get(&window) {
+            return Ok(shot.clone());
+        }
+        if !s.capture_wanted.contains(&window) {
+            s.capture_wanted.push(window);
+        }
+        Err("capture_window has no picture of that window yet".into())
+    }
+
     fn query_monitors(&self) -> R<Vec<MonitorInfo>> {
         let s = self.shared.lock();
-        Ok(vec![MonitorInfo {
-            x: 0,
-            y: 0,
-            width: s.screen_w,
-            height: s.screen_h,
-        }])
+        if s.monitors.is_empty() {
+            return Ok(vec![MonitorInfo {
+                x: 0,
+                y: 0,
+                width: s.screen_w,
+                height: s.screen_h,
+            }]);
+        }
+        Ok(s
+            .monitors
+            .iter()
+            .map(|r| MonitorInfo {
+                x: r.x as i16,
+                y: r.y as i16,
+                width: r.w as u16,
+                height: r.h as u16,
+            })
+            .collect())
     }
 
     fn restack_windows(&self, windows: &[u32]) -> R {

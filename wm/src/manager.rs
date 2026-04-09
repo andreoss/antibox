@@ -745,7 +745,7 @@ impl<H: DisplayBackend + 'static + ?Sized> WindowManager<H> {
                 }
             }
             Action::Menu(MenuOp::WindowPickerList | MenuOp::RootMenu | MenuOp::Pager |
-MenuOp::Omni) => {
+MenuOp::Omni | MenuOp::Expose) => {
                 self.pending_action = Some(a.clone());
             }
             Action::Menu(MenuOp::WindowActionMenu) => {

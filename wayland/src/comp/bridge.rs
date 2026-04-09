@@ -114,7 +114,53 @@ impl Server {
         }
     }
 
+    pub(crate) fn forget_capture(&self, id: u32) {
+        let mut s = self.shared.lock();
+        s.captures.remove(&id);
+        s.capture_wanted.retain(|w| *w != id);
+    }
+
+    pub(crate) unsafe fn serve_captures(&mut self) {
+        let wanted = {
+            let mut s = self.shared.lock();
+            std::mem::take(&mut s.capture_wanted)
+        };
+        for id in wanted {
+            let Some(shot) = self.capture_client(id) else { continue };
+            self.shared.lock().captures.insert(id, shot);
+        }
+    }
+
+    unsafe fn capture_client(&self, id: u32) -> Option<(u16, u16, Vec<u8>)> {
+        let client = self.clients.get(&id)?;
+        if !client.mapped || client.surface.is_null() {
+            return None;
+        }
+        let texture = wlr_surface_get_texture(client.surface);
+        if texture.is_null() {
+            return None;
+        }
+        let (w, h) = ((*texture).width, (*texture).height);
+        if w == 0 || h == 0 {
+            return None;
+        }
+        let mut data = vec![0u8; w as usize * h as usize * 4];
+        let options = wlr_texture_read_pixels_options {
+            data: data.as_mut_ptr().cast(),
+            format: crate::ffi::buffer::DRM_FORMAT_ARGB8888,
+            stride: w * 4,
+            dst_x: 0,
+            dst_y: 0,
+            src_box: wlr_box::default(),
+        };
+        if !wlr_texture_read_pixels(texture, std::ptr::addr_of!(options)) {
+            return None;
+        }
+        Some((w as u16, h as u16, data))
+    }
+
     pub(crate) unsafe fn apply_intents(&mut self) {
+        self.serve_captures();
         let intents = {
             let mut s = self.shared.lock();
             std::mem::take(&mut s.intents)

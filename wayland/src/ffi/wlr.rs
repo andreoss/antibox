@@ -165,7 +165,20 @@ pub struct wlr_xcursor_manager {
 
 #[repr(C)]
 pub struct wlr_texture {
-    _opaque: [u8; 0],
+    pub impl_: *const c_void,
+    pub width: u32,
+    pub height: u32,
+    pub renderer: *mut c_void,
+}
+
+#[repr(C)]
+pub struct wlr_texture_read_pixels_options {
+    pub data: *mut c_void,
+    pub format: u32,
+    pub stride: u32,
+    pub dst_x: u32,
+    pub dst_y: u32,
+    pub src_box: wlr_box,
 }
 
 #[repr(C)]
@@ -555,6 +568,11 @@ extern "C" {
         layout: *mut wlr_output_layout,
         output: *mut wlr_output,
     ) -> *mut c_void;
+    pub fn wlr_output_layout_get_box(
+        layout: *mut wlr_output_layout,
+        reference: *mut wlr_output,
+        dest_box: *mut wlr_box,
+    );
 
     pub fn wlr_output_init_render(
         output: *mut wlr_output,
@@ -696,6 +714,10 @@ extern "C" {
     pub fn wlr_keyboard_set_repeat_info(keyboard: *mut wlr_keyboard, rate: i32, delay: i32);
 
     pub fn wlr_surface_get_texture(surface: *mut wlr_surface) -> *mut wlr_texture;
+    pub fn wlr_texture_read_pixels(
+        texture: *mut wlr_texture,
+        options: *const wlr_texture_read_pixels_options,
+    ) -> bool;
 }
 
 

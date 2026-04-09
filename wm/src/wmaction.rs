@@ -408,7 +408,15 @@ pub(crate) fn reapply_fullscreen<H: DisplayBackend + 'static + ?Sized>(
 }
 
 fn minimize<H: DisplayBackend + 'static + ?Sized>(wm: &mut WindowManager<H>) {
-    let Some(id) = fid(wm) else { return };
+    if let Some(id) = fid(wm) {
+        minimize_client(wm, id);
+    }
+}
+
+pub(crate) fn minimize_client<H: DisplayBackend + 'static + ?Sized>(
+    wm: &mut WindowManager<H>,
+    id: ClientId,
+) {
     if !mwm_allows(wm, id, mwm_func::MINIMIZE) {
         return;
     }
