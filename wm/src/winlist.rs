@@ -4,6 +4,7 @@ use crate::manager::WindowManager;
 use crate::menu_tree::MenuNode;
 use antibox_core::backend::*;
 use antibox_core::point::Point;
+use antibox_core::rect::Rect;
 use antibox_core::scale::scaled;
 use std::sync::Arc;
 
@@ -37,6 +38,7 @@ pub struct WinListMenu {
     active_ws: u32,
     switch_order: Vec<u32>,
     switch_pos: usize,
+    preview: crate::winpreview::WindowPreview,
 }
 
 impl Default for WinListMenu {
@@ -55,6 +57,7 @@ impl WinListMenu {
             active_ws: 0,
             switch_order: Vec::new(),
             switch_pos: 0,
+            preview: crate::winpreview::WindowPreview::new(),
         }
     }
 
@@ -355,6 +358,7 @@ impl WinListMenu {
 
     pub fn hide(&mut self, conn: &Arc<dyn DisplayBackend>) {
         let was_switcher = self.switcher;
+        self.preview.hide(conn.as_ref());
         self.view.hide(conn.as_ref());
         self.reset();
         if was_switcher {
@@ -459,15 +463,15 @@ impl WinListMenu {
             return false;
         }
         if self.view.needs_sb()
-            && p.x - self.view.pos().x >= self.view.sb_x() as i32
-            && p.x - self.view.pos().x < self.view.sb_x() as i32 + sb_w() as i32
+            && p.x >= self.view.sb_x() as i32
+            && p.x < self.view.sb_x() as i32 + sb_w() as i32
         {
-            if self.view.sb_hit(p) {
+            if self.view.sb_hit_local(p) {
                 self.paint(conn);
             }
             return false;
         }
-        let Some(row) = self.view.row_at(p) else { return false };
+        let Some(row) = self.view.row_at_local(p) else { return false };
         if let Some(r) = self.view.items.get(row) {
             if r.payload().is_some() {
                 self.view.selected = Some(row);
@@ -485,8 +489,37 @@ impl WinListMenu {
 
     pub fn handle_motion(&mut self, conn: &Arc<dyn DisplayBackend>, p: Point) {
         if self.view.scroll_drag {
-            self.view.handle_motion(conn.as_ref(), p);
+            self.view.handle_motion_local(conn.as_ref(), p);
+            return;
         }
+        self.preview_at(conn, p);
+    }
+
+    pub fn pump_preview(&mut self, conn: &Arc<dyn DisplayBackend>) {
+        self.preview.pump(conn.as_ref());
+    }
+
+    fn preview_at(&mut self, conn: &Arc<dyn DisplayBackend>, at: Point) {
+        if !crate::layout_preferences::winlist_preview() {
+            return;
+        }
+        let row_h = i32::from(row_h());
+        let row = self.view.row_at_local(at);
+        let found = row
+            .and_then(|row| self.view.items.get(row))
+            .and_then(|row| row.payload().map(|item| (item.client_id, item.icon.clone())));
+        let Some((client, icon)) = found else {
+            self.preview.hide(conn.as_ref());
+            return;
+        };
+        let Some(win) = self.view.window.as_ref() else { return };
+        let origin = win
+            .translate_coords(Point::ZERO)
+            .unwrap_or_else(|_| self.view.pos());
+        let vis = row.map_or(0, |r| r as i32 - i32::from(self.view.offset));
+        let top = origin.y + i32::from(self.view.list_top()) + vis * row_h;
+        let near = Rect::new(origin.x, top, i32::from(self.view.w), row_h);
+        self.preview.show(conn.as_ref(), client, icon, near, true);
     }
 
     pub fn end_drag(&mut self) {

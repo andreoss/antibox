@@ -147,6 +147,7 @@ pub struct Omni {
     apps: Option<Vec<crate::desktop_apps::DesktopApp>>,
     panel_w: u16,
     max_rows: usize,
+    preview: crate::winpreview::WindowPreview,
 }
 
 impl Default for Omni {
@@ -254,6 +255,7 @@ impl Omni {
             apps: None,
             panel_w: 0,
             max_rows: DEFAULT_ROWS,
+            preview: crate::winpreview::WindowPreview::new(),
         }
     }
 
@@ -829,8 +831,41 @@ impl Omni {
             .ok();
     }
 
+    pub fn pump_preview(&mut self, conn: &Arc<dyn DisplayBackend>) {
+        self.preview.pump(conn.as_ref());
+    }
+
+    fn preview_at(&mut self, conn: &Arc<dyn DisplayBackend>, at: Point) {
+        if !crate::layout_preferences::omni_preview() {
+            return;
+        }
+        let client = self
+            .view
+            .row_at(at)
+            .and_then(|row| self.view.items.get(row))
+            .and_then(|row| match row.payload() {
+                Some(OmniAct::Window(id)) => Some(*id),
+                _ => None,
+            });
+        let Some(client) = client else {
+            self.preview.hide(conn.as_ref());
+            return;
+        };
+        let pos = self.view.pos();
+        let row_h = i32::from(antibox_ui::listview::row_h());
+        let top = at.y - (at.y - pos.y - i32::from(self.view.list_top())) % row_h;
+        let near = Rect::new(pos.x, top, i32::from(self.view.w), row_h);
+        let icon = self
+            .items
+            .iter()
+            .find(|i| i.client_id == client)
+            .map(|i| i.icon.clone());
+        self.preview.show(conn.as_ref(), client, icon, near, true);
+    }
+
     pub fn hide(&mut self, conn: &Arc<dyn DisplayBackend>) {
         let _ = conn.ungrab_keyboard(0);
+        self.preview.hide(conn.as_ref());
         self.view.hide(conn.as_ref());
         self.run_mode = false;
         self.in_ops = false;
@@ -975,6 +1010,7 @@ impl Omni {
     ) -> OmniOutcome {
         match event {
             BackendEvent::KeyPress { keycode, state, .. } => {
+                self.preview.hide(conn.as_ref());
                 let shift = state & 0x01 != 0;
                 let ks = self.keysym_for(*keycode);
                 if self.in_ops {
@@ -1122,6 +1158,7 @@ impl Omni {
                     if self.view.row_at(*root).is_some() {
                         self.view.handle_motion(conn.as_ref(), *root);
                     }
+                    self.preview_at(conn, *root);
                 } else if let Some(bar) = self.view.bar_mut() {
                     bar.handle_motion(*window, point.x);
                 }

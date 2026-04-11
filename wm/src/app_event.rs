@@ -163,6 +163,10 @@ impl App {
         antibox_ui::ticker::set_enabled(prefs.ticker.enabled);
         crate::frame::set_tabs_on_bottom(prefs.tabs.position == "bottom");
         crate::layout_preferences::set_taskbar_layout(&prefs.taskbar.layout);
+        crate::layout_preferences::set_taskbar_preview(prefs.taskbar.preview);
+        crate::layout_preferences::set_omni_preview(prefs.omni.preview);
+        crate::layout_preferences::set_winlist_preview(prefs.winlist.preview);
+        crate::layout_preferences::set_pager_hover_preview(prefs.pager.preview);
         self.sync_taskbar_layout(&prefs);
 
         let (count, names) = wmconfig::workspaces_from(&prefs);

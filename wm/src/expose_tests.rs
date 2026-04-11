@@ -558,15 +558,35 @@
     }
 
     #[test]
-    fn test_live_pictures_beat_the_screen_grab() {
+    fn test_without_a_capture_source_tiles_are_filled() {
         let mut wm = WindowManager::<dyn DisplayBackend>::new_test();
         insert_client(&mut wm, Rect::new(0, 0, 400, 300));
         let prefs = ExposePrefs { live_thumbnails: true, ..ExposePrefs::default() };
         let built = Expose::build_tiles(&wm, Rect::new(0, 0, 1280, 720), None, &prefs);
-        assert_eq!(built.missing_live, 1);
+        assert_eq!(built.missing_live, 0);
         assert!(matches!(built.tiles[0].art, Art::Filled));
 
         let off = ExposePrefs { live_thumbnails: false, ..ExposePrefs::default() };
         let built = Expose::build_tiles(&wm, Rect::new(0, 0, 1280, 720), None, &off);
         assert_eq!(built.missing_live, 0);
+        assert!(matches!(built.tiles[0].art, Art::Filled));
+    }
+
+    #[test]
+    fn test_the_screen_grab_still_fills_tiles() {
+        let mut wm = WindowManager::<dyn DisplayBackend>::new_test();
+        insert_client(&mut wm, Rect::new(0, 0, 400, 300));
+        let screen = (1280u16, 720u16, shot(1280, 720));
+        let prefs = ExposePrefs { live_thumbnails: false, ..ExposePrefs::default() };
+        let built =
+            Expose::build_tiles(&wm, Rect::new(0, 0, 1280, 720), Some(&screen), &prefs);
+        assert!(matches!(built.tiles[0].art, Art::Thumb(_)));
+    }
+
+    #[test]
+    fn test_an_uncapturable_window_drops_to_its_icon() {
+        let modes = DispMode::parse_list("thumbnail icon filled");
+        assert_eq!(pick_mode(&modes, true, true), DispMode::Thumbnail);
+        assert_eq!(pick_mode(&modes, false, true), DispMode::Icon);
+        assert_eq!(pick_mode(&modes, false, false), DispMode::Filled);
     }

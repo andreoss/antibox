@@ -8,6 +8,8 @@ use std::sync::Arc;
 
 pub struct MiniWin {
     pub rect: (i16, i16, u16, u16),
+    pub client: u32,
+    pub frame: Rect,
     pub focused: bool,
     pub icon: Option<PixmapData>,
 }
@@ -15,6 +17,8 @@ pub struct MiniWin {
 impl PartialEq for MiniWin {
     fn eq(&self, other: &Self) -> bool {
         self.rect == other.rect
+            && self.client == other.client
+            && self.frame == other.frame
             && self.focused == other.focused
             && match (&self.icon, &other.icon) {
                 (None, None) => true,
@@ -78,6 +82,7 @@ pub struct WorkspacesPane {
     pub(crate) conn: Arc<dyn DisplayBackend>,
     hovered: Option<usize>,
     tooltip: Option<crate::tooltip::ToolTip>,
+    preview: crate::winpreview::WindowPreview,
 }
 
 impl WorkspacesPane {
@@ -108,9 +113,46 @@ impl WorkspacesPane {
             conn: Arc::clone(conn),
             hovered: None,
             tooltip: None,
+            preview: crate::winpreview::WindowPreview::new(),
         };
         pane.set_names(names);
         Ok(pane)
+    }
+
+    fn show_preview(&mut self, index: usize) {
+        if !crate::layout_preferences::pager_hover_preview() {
+            return;
+        }
+        let Some(btn) = self.buttons.get(index) else { return };
+        let wins: Vec<crate::winpreview::DeskWin> = btn
+            .minis
+            .iter()
+            .map(|m| crate::winpreview::DeskWin {
+                client: m.client,
+                rect: m.frame,
+                icon: m.icon.clone(),
+            })
+            .collect();
+        let (lx, ly, w, h) = btn.rect;
+        let at = self
+            .window
+            .translate_coords(antibox_core::point::Point::new(i32::from(lx), i32::from(ly)))
+            .unwrap_or_else(|_| antibox_core::point::Point::new(i32::from(lx), i32::from(ly)));
+        let near = Rect::new(at.x, at.y, i32::from(w), i32::from(h));
+        let screen = Rect::new(
+            0,
+            0,
+            self.conn.screen_width() as i32,
+            self.conn.screen_height() as i32,
+        );
+        self.preview.show_desk(
+            self.conn.as_ref(),
+            u64::from(index as u32),
+            wins,
+            screen,
+            near,
+            false,
+        );
     }
 
     pub fn set_names(&mut self, names: &[String]) {
@@ -183,6 +225,8 @@ impl WorkspacesPane {
                 });
                 minis.push(MiniWin {
                     rect,
+                    client: fw.client_xid(),
+                    frame: fw.frame_rect(),
                     focused: Some(*id) == focused,
                     icon,
                 });
@@ -352,6 +396,7 @@ impl Applet for WorkspacesPane {
             Some(i) => {
                 let rect = self.buttons[i].rect;
                 let label = self.buttons[i].label.clone();
+                self.show_preview(i);
                 crate::tooltip::show_rect_tip(
                     &mut self.tooltip,
                     self.conn.as_ref(),
@@ -360,14 +405,19 @@ impl Applet for WorkspacesPane {
                     &label,
                 );
             }
-            None => crate::tooltip::hide_tip(&mut self.tooltip, self.conn.as_ref()),
+            None => {
+                self.preview.hide(self.conn.as_ref());
+                crate::tooltip::hide_tip(&mut self.tooltip, self.conn.as_ref());
+            }
         }
     }
     fn handle_leave(&mut self) {
         self.hovered = None;
+        self.preview.hide(self.conn.as_ref());
         crate::tooltip::hide_tip(&mut self.tooltip, self.conn.as_ref());
     }
     fn tick_tooltip(&mut self) {
+        self.preview.pump(self.conn.as_ref());
         crate::tooltip::pump_tip(&mut self.tooltip, self.conn.as_ref());
     }
     fn tooltip_pending(&self) -> bool {

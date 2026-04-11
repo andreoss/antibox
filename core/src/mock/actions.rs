@@ -250,6 +250,13 @@ impl DisplayBackend for MockDisplay {
         Ok((800, 600, vec![0u8; 800 * 600 * 4]))
     }
 
+    fn capture_window(&self, window: u32, _max: Option<(u16, u16)>) -> Result<(u16, u16, Vec<u8>)> {
+        if window == 0 {
+            return Err("capture_window: no such window".into());
+        }
+        Ok((64, 48, vec![0x80u8; 64 * 48 * 4]))
+    }
+
     fn send_selection_notify(
         &self,
         _requestor: u32,

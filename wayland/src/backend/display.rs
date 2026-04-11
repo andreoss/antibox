@@ -350,7 +350,7 @@ impl DisplayBackend for WaylandCompositor {
         })
     }
 
-    fn capture_window(&self, window: u32) -> R<(u16, u16, Vec<u8>)> {
+    fn capture_window(&self, window: u32, _max: Option<(u16, u16)>) -> R<(u16, u16, Vec<u8>)> {
         let mut s = self.shared.lock();
         if let Some(shot) = s.captures.get(&window) {
             return Ok(shot.clone());

@@ -33,12 +33,20 @@ heat = "C82020"
 
 [winlist]
 position = "centre"
+preview = true
+
+[pager]
+preview = true
 
 [tabs]
 position = "top"
 
 [taskbar]
 layout = "pager tasks cpu mem net power mpris keyboard tray clock"
+preview = true
+
+[omni]
+preview = true
 
 [expose]
 modes = "thumbnail icon filled none"

@@ -394,7 +394,11 @@ impl<T: Clone> ListView<T> {
     }
 
     pub fn row_at(&self, p: Point) -> Option<usize> {
-        let rel = p.y - self.pos.y - self.list_top() as i32;
+        self.row_at_local(Point::new(p.x - self.pos.x, p.y - self.pos.y))
+    }
+
+    pub fn row_at_local(&self, p: Point) -> Option<usize> {
+        let rel = p.y - self.list_top() as i32;
         if rel < 0 {
             return None;
         }
@@ -476,10 +480,14 @@ impl<T: Clone> ListView<T> {
     }
 
     pub fn sb_hit(&mut self, p: Point) -> bool {
+        self.sb_hit_local(Point::new(p.x - self.pos.x, p.y - self.pos.y))
+    }
+
+    pub fn sb_hit_local(&mut self, p: Point) -> bool {
         if !self.needs_sb() {
             return false;
         }
-        let (px, py) = (p.x - self.pos.x, p.y - self.pos.y);
+        let (px, py) = (p.x, p.y);
         if px < self.sb_x() as i32 || px >= self.sb_x() as i32 + sb_w() as i32 {
             return false;
         }
@@ -508,10 +516,14 @@ impl<T: Clone> ListView<T> {
     }
 
     pub fn drag_to(&mut self, p: Point) {
+        self.drag_to_local(Point::new(p.x - self.pos.x, p.y - self.pos.y));
+    }
+
+    pub fn drag_to_local(&mut self, p: Point) {
         if !self.scroll_drag {
             return;
         }
-        let py = p.y - self.pos.y;
+        let py = p.y;
         let (_, th) = self.thumb();
         let rel = py as i16 - self.sb_top() - sb_w() - self.drag_grab;
         let span = (self.trough_h() - th).max(1);
@@ -559,17 +571,37 @@ impl<T: Clone> ListView<T> {
     }
 
     pub fn handle_motion<H: DisplayBackend + ?Sized>(&mut self, conn: &H, p: Point) {
+        self.motion_row(conn, p, false);
+    }
+
+    pub fn handle_motion_local<H: DisplayBackend + ?Sized>(&mut self, conn: &H, p: Point) {
+        self.motion_row(conn, p, true);
+    }
+
+    fn motion_row<H: DisplayBackend + ?Sized>(&mut self, conn: &H, p: Point, local: bool) {
         if self.scroll_drag {
-            self.drag_to(p);
+            if local {
+                self.drag_to_local(p);
+            } else {
+                self.drag_to(p);
+            }
             self.paint(conn);
             return;
         }
         let next = self
-            .row_at(p)
+            .pick_row(p, local)
             .filter(|i| self.items.get(*i).is_some_and(FlatRow::selectable));
         if next != self.selected {
             self.selected = next;
             self.paint(conn);
+        }
+    }
+
+    fn pick_row(&self, p: Point, local: bool) -> Option<usize> {
+        if local {
+            self.row_at_local(p)
+        } else {
+            self.row_at(p)
         }
     }
 

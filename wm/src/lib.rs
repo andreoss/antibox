@@ -112,6 +112,7 @@ pub mod taskpane;
 #[cfg(feature = "tray")]
 pub mod tray_applet;
 pub mod winlist;
+pub mod winpreview;
 pub mod winmenu {
     pub use antibox_ui::winmenu::*;
 }

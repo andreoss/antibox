@@ -13,9 +13,11 @@ pub struct Prefs {
     pub pointer: PointerPrefs,
     pub graph: GraphColourPrefs,
     pub winlist: WinlistPrefs,
+    pub pager: PagerPrefs,
     pub tabs: TabsPrefs,
     pub ticker: TickerPrefs,
     pub taskbar: TaskbarPrefs,
+    pub omni: OmniPrefs,
     pub expose: ExposePrefs,
     pub theme: ThemePrefs,
     pub keys: Vec<(String, String)>,
@@ -72,6 +74,12 @@ pub struct GraphColourPrefs {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WinlistPrefs {
     pub position: String,
+    pub preview: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PagerPrefs {
+    pub preview: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,6 +95,12 @@ pub struct TickerPrefs {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TaskbarPrefs {
     pub layout: String,
+    pub preview: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OmniPrefs {
+    pub preview: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -188,7 +202,9 @@ impl Default for Prefs {
             },
             winlist: WinlistPrefs {
                 position: "centre".to_string(),
+                preview: true,
             },
+            pager: PagerPrefs { preview: true },
             tabs: TabsPrefs {
                 position: "top".to_string(),
             },
@@ -198,7 +214,9 @@ impl Default for Prefs {
             },
             taskbar: TaskbarPrefs {
                 layout: DEFAULT_TASKBAR_LAYOUT.to_string(),
+                preview: true,
             },
+            omni: OmniPrefs { preview: true },
             expose: ExposePrefs::default(),
             keys: Vec::new(),
         }
@@ -523,6 +541,26 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                 ("expose", "include_frame") => {
                     if let Some(v) = value.as_bool() {
                         p.expose.include_frame = v;
+                    }
+                }
+                ("taskbar", "preview") => {
+                    if let Some(v) = value.as_bool() {
+                        p.taskbar.preview = v;
+                    }
+                }
+                ("winlist", "preview") => {
+                    if let Some(v) = value.as_bool() {
+                        p.winlist.preview = v;
+                    }
+                }
+                ("pager", "preview") => {
+                    if let Some(v) = value.as_bool() {
+                        p.pager.preview = v;
+                    }
+                }
+                ("omni", "preview") => {
+                    if let Some(v) = value.as_bool() {
+                        p.omni.preview = v;
                     }
                 }
                 ("ticker", "enabled") => {

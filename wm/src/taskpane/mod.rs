@@ -22,6 +22,7 @@ pub struct TaskPane {
     pane_h: u16,
     hovered: Option<usize>,
     tooltip: Option<crate::tooltip::ToolTip>,
+    preview: crate::winpreview::WindowPreview,
     drag: Option<Drag>,
     focused_id: u32,
 }
@@ -53,9 +54,23 @@ impl TaskPane {
             pane_h: 28,
             hovered: None,
             tooltip: None,
+            preview: crate::winpreview::WindowPreview::new(),
             drag: None,
             focused_id: 0,
         })
+    }
+
+    fn show_preview(&mut self, local: (i16, i16, u16, u16), client: u32, icon: Option<PixmapData>) {
+        if !crate::layout_preferences::taskbar_preview() {
+            return;
+        }
+        let (lx, ly, w, h) = local;
+        let at = self
+            .window
+            .translate_coords(antibox_core::point::Point::new(i32::from(lx), i32::from(ly)))
+            .unwrap_or_else(|_| antibox_core::point::Point::new(i32::from(lx), i32::from(ly)));
+        let near = Rect::new(at.x, at.y, i32::from(w), i32::from(h));
+        self.preview.show(self.conn.as_ref(), client, icon, near, false);
     }
 }
 
@@ -124,6 +139,7 @@ impl Applet for TaskPane {
     }
     fn handle_motion(&mut self, x: i32, _y: i32) {
         if self.drag.is_some() {
+            self.preview.hide(self.conn.as_ref());
             self.drag_motion(x);
             return;
         }
@@ -137,6 +153,8 @@ impl Applet for TaskPane {
                 let btn = &self.buttons[i];
                 let rect = btn.rect;
                 let label = btn.label.clone();
+                let icon = btn.icon.clone();
+                self.show_preview(rect, btn.window_id, icon);
                 let text_w = antibox_ui::metrics::text_w(label.len().max(1));
                 let avail = (rect.2 as i32 - 6).max(1);
                 if text_w > avail || label.contains("  (") {
@@ -151,14 +169,20 @@ impl Applet for TaskPane {
                     crate::tooltip::hide_tip(&mut self.tooltip, self.conn.as_ref());
                 }
             }
-            None => crate::tooltip::hide_tip(&mut self.tooltip, self.conn.as_ref()),
+            None => {
+                self.preview.hide(self.conn.as_ref());
+                crate::tooltip::hide_tip(&mut self.tooltip, self.conn.as_ref());
+            }
         }
     }
+
     fn handle_leave(&mut self) {
         self.hovered = None;
+        self.preview.hide(self.conn.as_ref());
         crate::tooltip::hide_tip(&mut self.tooltip, self.conn.as_ref());
     }
     fn tick_tooltip(&mut self) {
+        self.preview.pump(self.conn.as_ref());
         crate::tooltip::pump_tip(&mut self.tooltip, self.conn.as_ref());
     }
     fn tooltip_pending(&self) -> bool {

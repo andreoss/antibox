@@ -86,6 +86,22 @@ impl DispMode {
     }
 }
 
+fn can_capture(wm: &WindowManager<dyn DisplayBackend>, prefs: &ExposePrefs) -> bool {
+    prefs.live_thumbnails && wm.backend().is_some_and(DisplayBackend::composite_supported)
+}
+
+fn snap_window(
+    wm: &WindowManager<dyn DisplayBackend>,
+    windows: (u32, u32),
+    max: (u16, u16),
+) -> Option<(u16, u16, Vec<u8>)> {
+    let b = wm.backend()?;
+    let (frame, client) = windows;
+    b.capture_window(frame, Some(max))
+        .ok()
+        .or_else(|| b.capture_window(client, Some(max)).ok())
+}
+
 pub fn pick_mode(modes: &[DispMode], thumb: bool, icon: bool) -> DispMode {
     for mode in modes {
         match mode {
@@ -142,17 +158,24 @@ impl TileStyle {
     }
 }
 
+const fn div255(v: u32) -> u32 {
+    (v + 1 + (v >> 8)) >> 8
+}
+
 pub fn blend_pixels(src: &[u8], style: TileStyle, under: u32) -> Option<Vec<u8>> {
     if style.is_neutral() {
         return None;
     }
+    let channel = |c: u32, i: usize| (c >> (i as u32 * 8)) & 0xff;
+    let ta = u32::from(style.tint_opacity);
+    let op = u32::from(style.opacity);
     let mut out = src.to_vec();
     for px in out.chunks_exact_mut(4) {
-        let colour = (u32::from(px[2]) << 16) | (u32::from(px[1]) << 8) | u32::from(px[0]);
-        let mixed = style.apply(colour, under);
-        px[0] = (mixed & 0xff) as u8;
-        px[1] = ((mixed >> 8) & 0xff) as u8;
-        px[2] = ((mixed >> 16) & 0xff) as u8;
+        for (i, byte) in px.iter_mut().take(3).enumerate() {
+            let v = u32::from(*byte);
+            let tinted = div255(v * (255 - ta) + channel(style.tint, i) * ta);
+            *byte = div255(channel(under, i) * (255 - op) + tinted * op) as u8;
+        }
     }
     Some(out)
 }
@@ -167,7 +190,10 @@ struct Candidate {
     title: String,
     rect: Rect,
     mode: DispMode,
+    windows: (u32, u32),
     live: Option<(u16, u16, Vec<u8>)>,
+    capturable: bool,
+    has_icon: bool,
 }
 
 pub struct Tile {
@@ -226,6 +252,35 @@ fn icon_px(prefs: &ExposePrefs) -> u16 {
     antibox_core::scale::scaled(i32::from(prefs.icon_size)) as u16
 }
 
+const SAMPLES_PER_AXIS: i32 = 3;
+
+const fn recip(n: u32) -> u32 {
+    ((1 << 16) + n - 1) / n
+}
+
+const RECIP: [u32; 10] = [
+    0,
+    recip(1),
+    recip(2),
+    recip(3),
+    recip(4),
+    recip(5),
+    recip(6),
+    recip(7),
+    recip(8),
+    recip(9),
+];
+
+const fn span_step(span: i32) -> i32 {
+    let n = if span > 0 { span } else { 1 };
+    let step = (n + SAMPLES_PER_AXIS - 1) / SAMPLES_PER_AXIS;
+    if step > 0 {
+        step
+    } else {
+        1
+    }
+}
+
 pub fn crop_scale(
     src: &[u8],
     src_w: u16,
@@ -252,27 +307,34 @@ pub fn crop_scale(
     for ty in 0..dst_h as i32 {
         let y0 = sy0 + ty * ah / dst_h as i32;
         let y1 = (sy0 + (ty + 1) * ah / dst_h as i32).max(y0 + 1).min(sy1);
+        let sy = span_step(y1 - y0);
         for tx in 0..dst_w as i32 {
             let x0 = sx0 + tx * aw / dst_w as i32;
             let x1 = (sx0 + (tx + 1) * aw / dst_w as i32).max(x0 + 1).min(sx1);
+            let sx = span_step(x1 - x0);
             let (mut b, mut g, mut r, mut n) = (0u32, 0u32, 0u32, 0u32);
-            for y in y0..y1 {
+            let mut y = y0;
+            while y < y1 {
                 let row = y as usize * src_w as usize;
-                for x in x0..x1 {
+                let mut x = x0;
+                while x < x1 {
                     let i = (row + x as usize) * 4;
                     b += u32::from(src[i]);
                     g += u32::from(src[i + 1]);
                     r += u32::from(src[i + 2]);
                     n += 1;
+                    x += sx;
                 }
+                y += sy;
             }
             if n == 0 {
                 continue;
             }
+            let inv = RECIP[(n as usize).min(RECIP.len() - 1)];
             let o = (ty as usize * dst_w as usize + tx as usize) * 4;
-            out[o] = (b / n) as u8;
-            out[o + 1] = (g / n) as u8;
-            out[o + 2] = (r / n) as u8;
+            out[o] = ((b * inv) >> 16) as u8;
+            out[o + 1] = ((g * inv) >> 16) as u8;
+            out[o + 2] = ((r * inv) >> 16) as u8;
             out[o + 3] = 0xff;
         }
     }
@@ -356,7 +418,8 @@ impl Expose {
                 .map_or(Point::ZERO, |p| Point::new(i32::from(p.root_x), i32::from(p.root_y)));
             monitor_at(&wm.monitors, at).unwrap_or(screen)
         };
-        self.shot = conn.grab_root_window().ok();
+        let live = self.prefs.live_thumbnails && conn.composite_supported();
+        self.shot = if live { None } else { conn.grab_root_window().ok() };
         let built = Self::build_tiles(wm, self.area, self.shot.as_ref(), &self.prefs);
         self.awaiting_capture = built.missing_live > 0;
         self.tiles = built.tiles;
@@ -419,26 +482,19 @@ impl Expose {
             .filter(|f| prefs.all_monitors || on_monitor(f.frame_rect(), area))
             .map(|f| {
                 let rect = if prefs.include_frame { f.frame_rect() } else { f.client_rect() };
-                let live = if prefs.live_thumbnails && !f.state().minimized {
-                    wm.backend().and_then(|b| {
-                        let client = || b.capture_window(f.client().xid()).ok();
-                        if prefs.include_frame {
-                            b.capture_window(f.frame().id()).ok().or_else(client)
-                        } else {
-                            client()
-                        }
-                    })
-                } else {
-                    None
-                };
-                let thumb = live.is_some() || (shot.is_some() && !f.state().minimized);
-                let mode = pick_mode(&modes, thumb, !f.client().icons().is_empty());
+                let alive = !f.state().minimized;
+                let thumb = alive && (shot.is_some() || can_capture(wm, prefs));
+                let has_icon = !f.client().icons().is_empty();
+                let mode = pick_mode(&modes, thumb, has_icon);
                 Candidate {
                     client: f.client_id(),
                     title: f.client().title().to_string(),
                     rect,
                     mode,
-                    live,
+                    windows: (f.frame().id(), f.client().xid()),
+                    live: None,
+                    capturable: alive && can_capture(wm, prefs),
+                    has_icon,
                 }
             })
             .filter(|c| c.mode != DispMode::None)
@@ -447,11 +503,6 @@ impl Expose {
         if wanted.is_empty() {
             return Built { tiles: Vec::new(), missing_live: 0 };
         }
-        let missing_live = if prefs.live_thumbnails {
-            wanted.iter().filter(|c| c.live.is_none()).count()
-        } else {
-            0
-        };
         let sizes: Vec<(i32, i32)> = wanted
             .iter()
             .map(|c| (c.rect.w.max(1), c.rect.h.max(1)))
@@ -463,11 +514,23 @@ impl Expose {
             margin(),
             prefs.allow_upscale,
         );
+        for (cand, cell) in wanted.iter_mut().zip(cells.iter()) {
+            if !cand.capturable || !matches!(cand.mode, DispMode::Thumbnail | DispMode::ThumbnailIcon)
+            {
+                continue;
+            }
+            cand.live = snap_window(wm, cand.windows, (cell.w as u16, cell.h as u16));
+            if cand.live.is_none() && shot.is_none() {
+                cand.mode = pick_mode(&modes, false, cand.has_icon);
+            }
+        }
+        let missing_live = wanted.iter().filter(|c| c.capturable && c.live.is_none()).count();
         let tiles = wanted
             .into_iter()
             .zip(cells)
-            .map(|(cand, cell)| {
-                let art = Self::art_for(wm, &cand, cell, shot, prefs);
+            .map(|(mut cand, cell)| {
+                let live = cand.live.take();
+                let art = Self::art_for(wm, &cand, live, cell, shot, prefs);
                 let dim = match &art {
                     Art::Thumb(px) | Art::ThumbIcon(px, _) => {
                         blend_pixels(px, TileStyle::of(prefs, false), backdrop())
@@ -502,15 +565,19 @@ impl Expose {
     fn art_for(
         wm: &WindowManager<dyn DisplayBackend>,
         cand: &Candidate,
+        live: Option<(u16, u16, Vec<u8>)>,
         cell: Cell,
         shot: Option<&(u16, u16, Vec<u8>)>,
         prefs: &ExposePrefs,
     ) -> Art {
         let thumb = || {
             let (dw, dh) = (cell.w as u16, cell.h as u16);
-            if let Some((cw, ch, data)) = &cand.live {
-                let whole = Rect::new(0, 0, i32::from(*cw), i32::from(*ch));
-                if let Some(px) = crop_scale(data, *cw, *ch, whole, dw, dh) {
+            if let Some((cw, ch, data)) = live {
+                if cw == dw && ch == dh {
+                    return Some(data);
+                }
+                let whole = Rect::new(0, 0, i32::from(cw), i32::from(ch));
+                if let Some(px) = crop_scale(&data, cw, ch, whole, dw, dh) {
                     return Some(px);
                 }
             }

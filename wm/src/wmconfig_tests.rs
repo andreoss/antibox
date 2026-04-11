@@ -342,3 +342,19 @@
         assert!(ExposePrefs::default().live_thumbnails);
         assert!(!parse_prefs("[expose]\nlive_thumbnails = false\n").expose.live_thumbnails);
     }
+
+    #[test]
+    fn test_parse_prefs_hover_previews() {
+        let d = Prefs::default();
+        assert!(d.taskbar.preview && d.omni.preview);
+        assert!(d.winlist.preview && d.pager.preview);
+        assert!(default_prefs().winlist.preview && default_prefs().pager.preview);
+        let off = parse_prefs("[winlist]\npreview = false\n[pager]\npreview = false\n");
+        assert!(!off.winlist.preview && !off.pager.preview);
+        assert_eq!(off.winlist.position, d.winlist.position);
+        assert!(default_prefs().taskbar.preview && default_prefs().omni.preview);
+        let p = parse_prefs("[taskbar]\npreview = false\n[omni]\npreview = false\n");
+        assert!(!p.taskbar.preview && !p.omni.preview);
+        assert_eq!(p.taskbar.layout, d.taskbar.layout);
+        assert!(parse_prefs("[omni]\npreview = \"yes\"\n").omni.preview);
+    }

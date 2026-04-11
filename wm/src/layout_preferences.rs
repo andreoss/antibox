@@ -17,6 +17,10 @@ static TASKBAR_DOUBLE: AtomicBool = AtomicBool::new(false);
 static TASKBAR_WHEEL: AtomicBool = AtomicBool::new(true);
 static PAGER_NUMBERS: AtomicBool = AtomicBool::new(false);
 static PAGER_PREVIEW: AtomicBool = AtomicBool::new(true);
+static TASKBAR_PREVIEW: AtomicBool = AtomicBool::new(true);
+static OMNI_PREVIEW: AtomicBool = AtomicBool::new(true);
+static PAGER_HOVER: AtomicBool = AtomicBool::new(true);
+static WINLIST_PREVIEW: AtomicBool = AtomicBool::new(true);
 static MINIMIZE_ANIMATION: AtomicBool = AtomicBool::new(false);
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -167,6 +171,38 @@ pub fn pager_numbers() -> bool {
 
 pub fn pager_preview() -> bool {
     PAGER_PREVIEW.load(Ordering::Relaxed)
+}
+
+pub fn set_pager_hover_preview(v: bool) {
+    PAGER_HOVER.store(v, Ordering::Relaxed);
+}
+
+pub fn pager_hover_preview() -> bool {
+    PAGER_HOVER.load(Ordering::Relaxed)
+}
+
+pub fn set_winlist_preview(v: bool) {
+    WINLIST_PREVIEW.store(v, Ordering::Relaxed);
+}
+
+pub fn winlist_preview() -> bool {
+    WINLIST_PREVIEW.load(Ordering::Relaxed)
+}
+
+pub fn set_taskbar_preview(v: bool) {
+    TASKBAR_PREVIEW.store(v, Ordering::Relaxed);
+}
+
+pub fn taskbar_preview() -> bool {
+    TASKBAR_PREVIEW.load(Ordering::Relaxed)
+}
+
+pub fn set_omni_preview(v: bool) {
+    OMNI_PREVIEW.store(v, Ordering::Relaxed);
+}
+
+pub fn omni_preview() -> bool {
+    OMNI_PREVIEW.load(Ordering::Relaxed)
 }
 
 pub fn set_minimize_animation(v: bool) {

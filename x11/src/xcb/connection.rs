@@ -26,6 +26,7 @@ pub struct XcbConnection {
     render_rgb24: u32,
     render_argb32: u32,
     atom_cache: std::cell::RefCell<std::collections::HashMap<String, u32>>,
+    composite_ok: std::cell::Cell<Option<bool>>,
     last_event_time: antibox_core::sync::atomic::AtomicU32,
     xkb_group: antibox_core::sync::atomic::AtomicU32,
 }
@@ -93,6 +94,10 @@ fn render_init(conn: *mut xcb_connection_t) -> (u32, u32, u32) {
     }
     unsafe { libc::free(r.cast::<libc::c_void>()) };
     (a8, rgb24, argb32)
+}
+
+pub(crate) fn shrink_to(from: (u16, u16), max: (u16, u16)) -> (u16, u16) {
+    (from.0.min(max.0).max(1), from.1.min(max.1).max(1))
 }
 
 const fn map_state(raw: u8) -> MapState {
@@ -163,6 +168,7 @@ impl XcbConnection {
             render_rgb24,
             render_argb32,
             atom_cache: std::cell::RefCell::new(std::collections::HashMap::new()),
+            composite_ok: std::cell::Cell::new(None),
             last_event_time: antibox_core::sync::atomic::AtomicU32::new(0),
             xkb_group: antibox_core::sync::atomic::AtomicU32::new(u32::MAX),
         }))
@@ -260,6 +266,15 @@ impl XcbConnection {
     }
 
     pub(crate) fn composite_probe(&self) -> bool {
+        if let Some(known) = self.composite_ok.get() {
+            return known;
+        }
+        let ok = self.probe_composite_once();
+        self.composite_ok.set(Some(ok));
+        ok
+    }
+
+    fn probe_composite_once(&self) -> bool {
         if !self.extension_probe("Composite") {
             return false;
         }
@@ -302,6 +317,67 @@ impl XcbConnection {
             return None;
         }
         Some((w, h, data))
+    }
+
+    pub(crate) fn scaled_image_of(
+        &self,
+        pixmap: u32,
+        from: (u16, u16),
+        to: (u16, u16),
+    ) -> Option<(u16, u16, Vec<u8>)> {
+        let format = self.render_format_for(self.depth);
+        if format == 0 || to.0 == 0 || to.1 == 0 {
+            return None;
+        }
+        let src = self.alloc_id();
+        unsafe { xcb_render_create_picture(self.conn, src, pixmap, format, 0, std::ptr::null()) };
+        let filter = b"good\0";
+        unsafe {
+            xcb_render_set_picture_filter(
+                self.conn,
+                src,
+                4,
+                filter.as_ptr().cast::<c_char>(),
+                0,
+                std::ptr::null(),
+            )
+        };
+        let scale = |from: u16, to: u16| ((i64::from(from) << 16) / i64::from(to.max(1))) as i32;
+        let transform = xcb_render_transform_t {
+            matrix11: scale(from.0, to.0),
+            matrix22: scale(from.1, to.1),
+            matrix33: 1 << 16,
+            ..xcb_render_transform_t::default()
+        };
+        unsafe { xcb_render_set_picture_transform(self.conn, src, transform) };
+        let small = self.alloc_id();
+        unsafe { xcb_create_pixmap(self.conn, self.depth, small, self.root.read_id(), to.0, to.1) };
+        let dst = self.alloc_id();
+        unsafe { xcb_render_create_picture(self.conn, dst, small, format, 0, std::ptr::null()) };
+        unsafe {
+            xcb_render_composite(
+                self.conn,
+                XCB_RENDER_PICT_OP_SRC,
+                src,
+                0,
+                dst,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                to.0,
+                to.1,
+            )
+        };
+        let shot = self.image_of(small, to.0, to.1);
+        unsafe {
+            xcb_render_free_picture(self.conn, dst);
+            xcb_render_free_picture(self.conn, src);
+            xcb_free_pixmap(self.conn, small);
+        };
+        shot
     }
 
     pub(crate) fn randr_monitors(&self) -> Vec<MonitorInfo> {
@@ -1050,12 +1126,11 @@ impl DisplayBackend for XcbConnection {
         let a = (opacity.clamp(0.0, 1.0) * u32::MAX as f32) as u32;
         self.change_property32(PropMode::Replace, window, opacity_atom, self.intern_atom("CARDINAL")?, &[a])
     }
-    fn capture_window(&self, window: u32) -> Result<(u16, u16, Vec<u8>)> {
+    fn capture_window(&self, window: u32, max: Option<(u16, u16)>) -> Result<(u16, u16, Vec<u8>)> {
         if !self.composite_probe() {
             return Err(err("capture_window needs the composite extension"));
         }
-        let attrs = self.get_window_attributes(window)?;
-        if attrs.map_state != MapState::Viewable {
+        if self.get_window_attributes(window)?.map_state != MapState::Viewable {
             return Err(err("capture_window needs a viewable window"));
         }
         let geom = self.window_geometry(window)?;
@@ -1065,10 +1140,15 @@ impl DisplayBackend for XcbConnection {
         self.composite_redirect_window(window);
         let pixmap = self.alloc_id();
         unsafe { xcb_composite_name_window_pixmap(self.conn, window, pixmap) };
-        let shot = self.image_of(pixmap, geom.0, geom.1);
+        let want = max.map(|m| shrink_to(geom, m)).filter(|s| *s != geom);
+        let shot = match want {
+            Some(small) => self
+                .scaled_image_of(pixmap, geom, small)
+                .or_else(|| self.image_of(pixmap, geom.0, geom.1)),
+            None => self.image_of(pixmap, geom.0, geom.1),
+        };
         unsafe { xcb_free_pixmap(self.conn, pixmap) };
         self.composite_unredirect_window(window);
-        let _ = self.flush();
         shot.ok_or_else(|| err("capture_window could not read the window pixmap"))
     }
 

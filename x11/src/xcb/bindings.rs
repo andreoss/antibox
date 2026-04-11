@@ -1653,3 +1653,51 @@ extern "C" {
     ) -> xcb_randr_monitor_info_iterator_t;
     pub fn xcb_randr_monitor_info_next(i: *mut xcb_randr_monitor_info_iterator_t);
 }
+
+pub const XCB_RENDER_PICT_OP_SRC: u8 = 1;
+
+#[repr(C)]
+#[derive(Copy, Clone, Default)]
+pub struct xcb_render_transform_t {
+    pub matrix11: i32,
+    pub matrix12: i32,
+    pub matrix13: i32,
+    pub matrix21: i32,
+    pub matrix22: i32,
+    pub matrix23: i32,
+    pub matrix31: i32,
+    pub matrix32: i32,
+    pub matrix33: i32,
+}
+
+#[link(name = "xcb-render")]
+extern "C" {
+    pub fn xcb_render_composite(
+        c: *mut xcb_connection_t,
+        op: u8,
+        src: u32,
+        mask: u32,
+        dst: u32,
+        src_x: i16,
+        src_y: i16,
+        mask_x: i16,
+        mask_y: i16,
+        dst_x: i16,
+        dst_y: i16,
+        width: u16,
+        height: u16,
+    ) -> c_uint;
+    pub fn xcb_render_set_picture_transform(
+        c: *mut xcb_connection_t,
+        picture: u32,
+        transform: xcb_render_transform_t,
+    ) -> c_uint;
+    pub fn xcb_render_set_picture_filter(
+        c: *mut xcb_connection_t,
+        picture: u32,
+        filter_len: u16,
+        filter: *const c_char,
+        values_len: u32,
+        values: *const i32,
+    ) -> c_uint;
+}

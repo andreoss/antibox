@@ -236,3 +236,29 @@ fn enter_on_a_leaf_activates_its_payload() {
         _ => panic!("expected activation"),
     }
 }
+
+#[test]
+fn test_row_at_local_ignores_the_window_position() {
+    let conn = MockDisplay::new(1280, 800, 24);
+    let mut view = shown(&conn);
+    view.pos_set(Point::new(500, 340));
+    let local = Point::new(20, view.list_top() as i32 + row_h() as i32 * 3 + 2);
+    let root = Point::new(local.x + 500, local.y + 340);
+    assert_eq!(view.row_at_local(local), Some(3));
+    assert_eq!(view.row_at(root), Some(3));
+    assert_eq!(view.row_at(local), None);
+}
+
+#[test]
+fn test_row_at_local_follows_the_scroll_offset() {
+    let conn = MockDisplay::new(1280, 800, 24);
+    let mut view = shown(&conn);
+    view.pos_set(Point::new(500, 340));
+    view.scroll_by(4);
+    let first = Point::new(20, view.list_top() as i32 + 2);
+    assert_eq!(view.row_at_local(first), Some(view.offset as usize));
+    let above = Point::new(20, view.list_top() as i32 - 4);
+    assert_eq!(view.row_at_local(above), None);
+    let below = Point::new(20, view.list_top() as i32 + row_h() as i32 * 500);
+    assert_eq!(view.row_at_local(below), None);
+}
