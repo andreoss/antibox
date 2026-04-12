@@ -32,6 +32,10 @@ impl TaskPane {
         self.buttons.retain(|b| b.window_id != id);
     }
 
+    pub fn set_vertical(&mut self, vertical: bool) {
+        self.vertical = vertical;
+    }
+
     pub(super) fn max_button_w() -> i32 {
         antibox_ui::metrics::text_w(antibox_ui::theme::taskbar_item_chars() as usize)
             + antibox_ui::metrics::pad() * 2
@@ -69,6 +73,16 @@ impl TaskPane {
                 antibox_ui::widget::LabelAlign::Left => 0,
             }
         };
+        if self.vertical {
+            let cell = antibox_ui::metrics::panel_height() as i16;
+            let width = pane_w.saturating_sub(vin as u16 * 2).max(1);
+            let mut y = vin;
+            for btn in &mut self.buttons {
+                btn.rect = (vin, y, width, cell.max(1) as u16);
+                y += cell + gap as i16;
+            }
+            return;
+        }
         let btn_w = btn_w as u16;
         let mut x = start as i16;
         for btn in &mut self.buttons {
@@ -248,11 +262,20 @@ impl TaskPane {
         None
     }
 
-    pub fn button_index_at(&self, x: i32) -> Option<usize> {
+    pub fn button_index_at(&self, along: i32) -> Option<usize> {
         self.buttons.iter().position(|b| {
-            let (bx, _, bw, _) = b.rect;
-            x >= bx as i32 && x < (bx + bw as i16) as i32
+            let (bx, by, bw, bh) = b.rect;
+            let (start, span) = if self.vertical { (by, bh) } else { (bx, bw) };
+            along >= start as i32 && along < (start + span as i16) as i32
         })
+    }
+
+    pub const fn along(&self, x: i32, y: i32) -> i32 {
+        if self.vertical {
+            y
+        } else {
+            x
+        }
     }
 
     pub fn members_at(&self, x: i32) -> Option<Vec<u32>> {

@@ -95,6 +95,7 @@ pub struct TickerPrefs {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TaskbarPrefs {
     pub layout: String,
+    pub position: String,
     pub preview: bool,
 }
 
@@ -214,6 +215,7 @@ impl Default for Prefs {
             },
             taskbar: TaskbarPrefs {
                 layout: DEFAULT_TASKBAR_LAYOUT.to_string(),
+                position: "bottom".to_string(),
                 preview: true,
             },
             omni: OmniPrefs { preview: true },
@@ -541,6 +543,13 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                 ("expose", "include_frame") => {
                     if let Some(v) = value.as_bool() {
                         p.expose.include_frame = v;
+                    }
+                }
+                ("taskbar", "position") => {
+                    if let Some(v) = value.as_str() {
+                        if crate::taskbar::TaskBarPosition::parse(v).is_some() {
+                            p.taskbar.position = v.trim().to_ascii_lowercase();
+                        }
                     }
                 }
                 ("taskbar", "preview") => {

@@ -1126,6 +1126,12 @@ impl DisplayBackend for XcbConnection {
         let a = (opacity.clamp(0.0, 1.0) * u32::MAX as f32) as u32;
         self.change_property32(PropMode::Replace, window, opacity_atom, self.intern_atom("CARDINAL")?, &[a])
     }
+    fn read_pixels(&self, drawable: u32, w: u16, h: u16) -> Result<Vec<u8>> {
+        self.image_of(drawable, w, h)
+            .map(|(_, _, data)| data)
+            .ok_or_else(|| err("read_pixels could not read the drawable"))
+    }
+
     fn capture_window(&self, window: u32, max: Option<(u16, u16)>) -> Result<(u16, u16, Vec<u8>)> {
         if !self.composite_probe() {
             return Err(err("capture_window needs the composite extension"));

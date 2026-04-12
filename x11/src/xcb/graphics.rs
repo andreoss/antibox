@@ -9,6 +9,8 @@ use antibox_core::point::Point;
 use antibox_core::rect::Rect;
 use std::sync::Arc;
 
+const MAX_IMAGE_BYTES: usize = 64 * 1024;
+
 pub struct XcbGraphics {
     conn: Arc<XcbConnection>,
     drawable: u32,
@@ -379,12 +381,26 @@ impl GraphicsContext for XcbGraphics {
     }
 
     fn draw_image(&self, x: i16, y: i16, w: u16, h: u16, data: &[u8]) -> Result<()> {
-        unsafe {
-            xcb_put_image(
-                self.conn.raw(), XCB_IMAGE_FORMAT_Z_PIXMAP, self.drawable, self.gc,
-                w, h, x, y, 0, self.depth, data.len() as u32, data.as_ptr(),
-            )
-        };
+        let stride = w as usize * 4;
+        if stride == 0 || h == 0 {
+            return Ok(());
+        }
+        let band = (MAX_IMAGE_BYTES / stride).max(1);
+        let mut row = 0usize;
+        while row < h as usize {
+            let rows = band.min(h as usize - row);
+            let from = row * stride;
+            let to = from + rows * stride;
+            let Some(chunk) = data.get(from..to) else { break };
+            unsafe {
+                xcb_put_image(
+                    self.conn.raw(), XCB_IMAGE_FORMAT_Z_PIXMAP, self.drawable, self.gc,
+                    w, rows as u16, x, y + row as i16, 0, self.depth,
+                    chunk.len() as u32, chunk.as_ptr(),
+                )
+            };
+            row += rows;
+        }
         Ok(())
     }
 

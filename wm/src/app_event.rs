@@ -4,6 +4,24 @@ use antibox_core::logevent;
 use antibox_core::point::Point;
 use antibox_core::rect::Rect;
 
+pub(crate) fn rotated_point(
+    position: Option<crate::taskbar::TaskBarPosition>,
+    _window: u32,
+    size: &(u16, u16),
+    x: i32,
+    y: i32,
+) -> (i32, i32) {
+    match position {
+        Some(p) if p.is_rotated() => crate::taskbar::unrotate_point(
+            p,
+            (x, y),
+            i32::from(size.0),
+            i32::from(size.1),
+        ),
+        _ => (x, y),
+    }
+}
+
 pub(crate) fn event_timing_enabled() -> bool {
     use std::cell::RefCell;
     thread_local! {
@@ -583,10 +601,17 @@ impl App {
             }
             BackendEvent::MotionNotify { window, point, .. } if own(window) => {
                 let backend = &self.backend;
+                let tb_at = self.taskbar.as_ref().map(|tb| tb.position);
+                let geoms = self
+                    .taskbar
+                    .as_ref()
+                    .map(|tb| tb.applet_size(window))
+                    .unwrap_or((1, 1));
                 let _ = self.taskbar.as_mut().map(|tb| {
                     for a in &mut tb.applets {
                         if a.window().id() == window {
-                            a.handle_motion(point.x, point.y);
+                            let (mx, my) = rotated_point(tb_at, window, &geoms, point.x, point.y);
+                            a.handle_motion(mx, my);
                         } else if a.owns_window(window) {
                             a.handle_other_event(event, backend);
                         }
@@ -621,9 +646,16 @@ impl App {
         }
     }
 
+    fn repaint_panels(&self) {
+        if let Some(tb) = self.taskbar.as_ref() {
+            let _ = tb.paint();
+        }
+    }
+
     fn toggle_expose(&mut self) {
         if self.expose.visible {
             self.expose.hide(&self.backend);
+            self.repaint_panels();
             return;
         }
         if !self.expose.show(&self.backend, &self.wm) {
@@ -647,10 +679,14 @@ impl App {
         match action {
             crate::expose::ExposeAction::None => {}
             crate::expose::ExposeAction::Repaint => self.expose.paint(&self.backend),
-            crate::expose::ExposeAction::Cancel => self.expose.hide(&self.backend),
+            crate::expose::ExposeAction::Cancel => {
+                self.expose.hide(&self.backend);
+                self.repaint_panels();
+            }
             crate::expose::ExposeAction::Activate(client) => {
                 let warp = self.expose.prefs().warp_on_activate;
                 self.expose.hide(&self.backend);
+                self.repaint_panels();
                 crate::focus::activate_window(&mut self.wm, client);
                 if warp {
                     self.warp_onto_client(client);

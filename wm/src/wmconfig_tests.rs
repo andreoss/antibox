@@ -358,3 +358,25 @@
         assert_eq!(p.taskbar.layout, d.taskbar.layout);
         assert!(parse_prefs("[omni]\npreview = \"yes\"\n").omni.preview);
     }
+
+    #[test]
+    fn test_parse_prefs_taskbar_position() {
+        let d = Prefs::default();
+        assert_eq!(d.taskbar.position, "bottom");
+        assert_eq!(default_prefs().taskbar.position, "bottom");
+        let p = |t: &str| parse_prefs(t).taskbar.position;
+        for want in [
+            "top",
+            "bottom",
+            "left",
+            "right",
+            "left-vertical",
+            "right-vertical",
+            "disabled",
+        ] {
+            assert_eq!(p(&format!("[taskbar]\nposition = \"{want}\"\n")), want);
+        }
+        assert_eq!(p("[taskbar]\nposition = \"RIGHT\"\n"), "right");
+        assert_eq!(p("[taskbar]\nposition = \"sideways\"\n"), d.taskbar.position);
+        assert_eq!(p("[taskbar]\nposition = 4\n"), d.taskbar.position);
+    }

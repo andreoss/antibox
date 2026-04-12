@@ -19,6 +19,7 @@ static PAGER_NUMBERS: AtomicBool = AtomicBool::new(false);
 static PAGER_PREVIEW: AtomicBool = AtomicBool::new(true);
 static TASKBAR_PREVIEW: AtomicBool = AtomicBool::new(true);
 static OMNI_PREVIEW: AtomicBool = AtomicBool::new(true);
+static TASKBAR_UPRIGHT: AtomicBool = AtomicBool::new(false);
 static PAGER_HOVER: AtomicBool = AtomicBool::new(true);
 static WINLIST_PREVIEW: AtomicBool = AtomicBool::new(true);
 static MINIMIZE_ANIMATION: AtomicBool = AtomicBool::new(false);
@@ -187,6 +188,14 @@ pub fn set_winlist_preview(v: bool) {
 
 pub fn winlist_preview() -> bool {
     WINLIST_PREVIEW.load(Ordering::Relaxed)
+}
+
+pub fn set_taskbar_upright(v: bool) {
+    TASKBAR_UPRIGHT.store(v, Ordering::Relaxed);
+}
+
+pub fn taskbar_upright() -> bool {
+    TASKBAR_UPRIGHT.load(Ordering::Relaxed)
 }
 
 pub fn set_taskbar_preview(v: bool) {

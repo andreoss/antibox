@@ -350,6 +350,23 @@ impl DisplayBackend for WaylandCompositor {
         })
     }
 
+    fn read_pixels(&self, drawable: u32, w: u16, h: u16) -> R<Vec<u8>> {
+        let pm = self
+            .buffers
+            .snapshot(drawable)
+            .ok_or_else(|| antibox_core::error::Error::message("read_pixels: no such drawable"))?;
+        let mut out = Vec::with_capacity(w as usize * h as usize * 4);
+        for y in 0..h as usize {
+            for x in 0..w as usize {
+                let i = (y.min(pm.height as usize - 1) * pm.width as usize
+                    + x.min(pm.width as usize - 1))
+                    * 4;
+                out.extend_from_slice(&[pm.data[i + 2], pm.data[i + 1], pm.data[i], 0xff]);
+            }
+        }
+        Ok(out)
+    }
+
     fn capture_window(&self, window: u32, _max: Option<(u16, u16)>) -> R<(u16, u16, Vec<u8>)> {
         let mut s = self.shared.lock();
         if let Some(shot) = s.captures.get(&window) {

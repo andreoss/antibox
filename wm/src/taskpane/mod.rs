@@ -21,6 +21,7 @@ pub struct TaskPane {
     pane_w: u16,
     pane_h: u16,
     hovered: Option<usize>,
+    pub(crate) vertical: bool,
     tooltip: Option<crate::tooltip::ToolTip>,
     preview: crate::winpreview::WindowPreview,
     drag: Option<Drag>,
@@ -53,6 +54,7 @@ impl TaskPane {
             pane_w: 200,
             pane_h: 28,
             hovered: None,
+            vertical: false,
             tooltip: None,
             preview: crate::winpreview::WindowPreview::new(),
             drag: None,
@@ -107,7 +109,7 @@ impl Applet for TaskPane {
             return None;
         }
         if button == 1 {
-            if let Some(i) = self.button_index_at(x) {
+            if let Some(i) = self.button_index_at(self.along(x, _y)) {
                 let (bx, _, bw, _) = self.buttons[i].rect;
                 self.drag = Some(Drag {
                     index: i,
@@ -143,7 +145,7 @@ impl Applet for TaskPane {
             self.drag_motion(x);
             return;
         }
-        let idx = self.button_index_at(x);
+        let idx = self.button_index_at(self.along(x, _y));
         if idx == self.hovered {
             return;
         }

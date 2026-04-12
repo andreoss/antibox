@@ -523,7 +523,8 @@ impl App {
             logevent::set_atom_resolver(move |atom: u32| rev.get(&atom).cloned());
         }
 
-        let taskbar_position = crate::taskbar::TaskBarPosition::Bottom;
+        let taskbar_position = crate::taskbar::TaskBarPosition::parse(&prefs.taskbar.position)
+            .unwrap_or(crate::taskbar::TaskBarPosition::Bottom);
         wm.cursors = crate::cursors::init_cursors(&*b);
         let (taskbar, tray_opcode_atom) = Self::create_taskbar(
             &b,
@@ -795,7 +796,10 @@ impl App {
             }
             Widget::Windows => TaskPane::new(conn, wid, wm.theme_colours)
                 .ok()
-                .map(|p| Box::new(p) as Box<dyn Applet>),
+                .map(|mut p| {
+                    p.set_vertical(crate::layout_preferences::taskbar_upright());
+                    Box::new(p) as Box<dyn Applet>
+                }),
             #[cfg(feature = "tray")]
             Widget::Tray => TrayApplet::new(conn, wid, atom_manager, tray.cloned(), composite_available)
                 .ok()
@@ -891,6 +895,14 @@ impl App {
             time_format,
             position,
         } = cfg;
+        if position == crate::taskbar::TaskBarPosition::Disabled {
+            return (None, 0);
+        }
+        crate::layout_preferences::set_taskbar_upright(matches!(
+            position,
+            crate::taskbar::TaskBarPosition::LeftVertical
+                | crate::taskbar::TaskBarPosition::RightVertical
+        ));
         let strut_atom = atom_manager.get("_NET_WM_STRUT").unwrap_or(0);
         let Ok(mut tb) = TaskBar::new(conn, position, strut_atom) else { return (None, 0) };
         wm.reserved_strut = tb.strut();

@@ -14,6 +14,78 @@ pub enum TaskBarPosition {
     Bottom,
     Left,
     Right,
+    LeftVertical,
+    RightVertical,
+    Disabled,
+}
+
+impl TaskBarPosition {
+    pub fn parse(text: &str) -> Option<Self> {
+        match text.trim().to_ascii_lowercase().as_str() {
+            "top" => Some(Self::Top),
+            "bottom" => Some(Self::Bottom),
+            "left" => Some(Self::Left),
+            "right" => Some(Self::Right),
+            "left-vertical" | "leftvertical" => Some(Self::LeftVertical),
+            "right-vertical" | "rightvertical" => Some(Self::RightVertical),
+            "disabled" | "none" | "off" => Some(Self::Disabled),
+            _ => None,
+        }
+    }
+
+    pub const fn is_side(self) -> bool {
+        matches!(
+            self,
+            Self::Left | Self::Right | Self::LeftVertical | Self::RightVertical
+        )
+    }
+
+    pub const fn is_rotated(self) -> bool {
+        matches!(self, Self::Left | Self::Right)
+    }
+
+    pub const fn on_right(self) -> bool {
+        matches!(self, Self::Right | Self::RightVertical)
+    }
+}
+
+pub fn rotate_cw(src: &[u8], w: u16, h: u16) -> Vec<u8> {
+    let (w, h) = (w as usize, h as usize);
+    let mut out = vec![0u8; w * h * 4];
+    for y in 0..h {
+        for x in 0..w {
+            let s = (y * w + x) * 4;
+            let d = (x * h + (h - 1 - y)) * 4;
+            out[d..d + 4].copy_from_slice(&src[s..s + 4]);
+        }
+    }
+    out
+}
+
+pub fn rotate_ccw(src: &[u8], w: u16, h: u16) -> Vec<u8> {
+    let (w, h) = (w as usize, h as usize);
+    let mut out = vec![0u8; w * h * 4];
+    for y in 0..h {
+        for x in 0..w {
+            let s = (y * w + x) * 4;
+            let d = ((w - 1 - x) * h + y) * 4;
+            out[d..d + 4].copy_from_slice(&src[s..s + 4]);
+        }
+    }
+    out
+}
+
+pub const fn unrotate_point(
+    position: TaskBarPosition,
+    p: (i32, i32),
+    len: i32,
+    thick: i32,
+) -> (i32, i32) {
+    match position {
+        TaskBarPosition::Left => (p.1, thick - 1 - p.0),
+        TaskBarPosition::Right => (len - 1 - p.1, p.0),
+        _ => p,
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -51,14 +123,11 @@ impl TaskBar {
     ) -> Result<Self> {
         let screen_w = conn.screen_width();
         let screen_h = conn.screen_height();
-        let bar_height = Self::bar_height();
-        let y = match position {
-            TaskBarPosition::Bottom => screen_h as i16 - bar_height as i16,
-            _ => 0,
-        };
+        let bar_height = Self::thickness_for(position);
+        let (length, place) = Self::place_on_screen(position, screen_w, screen_h, bar_height);
         let window = conn.create_window(
             conn.root().as_parent(),
-            Rect::new(0, y as i32, screen_w as i32, bar_height as i32),
+            Rect::new(place.0, place.1, place.2 as i32, place.3 as i32),
             WmWindowClass::InputOutput,
             true,
             EventMask::BUTTON_PRESS
@@ -71,13 +140,13 @@ impl TaskBar {
             window,
             position,
             applets: Vec::new(),
-            width: screen_w,
-            height: bar_height,
+            width: if position.is_rotated() { length } else { place.2 },
+            height: if position.is_rotated() { bar_height } else { place.3 },
             gradients_enabled: false,
             task_bar_colour: crate::render::ThemeColors::default().task_bar_colour,
             menu_colours: crate::menu::MenuColors::default(),
-            window_x: 0,
-            window_y: y as i32,
+            window_x: place.0,
+            window_y: place.1,
             menu: None,
             pending_action: None,
             strut_atom,
@@ -85,6 +154,39 @@ impl TaskBar {
             geom_cache: std::cell::RefCell::new(std::collections::HashMap::new()),
             tray_x: std::cell::Cell::new(-1),
         })
+    }
+
+    pub(crate) fn thickness_for(position: TaskBarPosition) -> u16 {
+        match position {
+            TaskBarPosition::LeftVertical | TaskBarPosition::RightVertical => {
+                antibox_core::scale::scaled(160) as u16
+            }
+            _ => Self::bar_height(),
+        }
+    }
+
+    pub(crate) const fn place_on_screen(
+        position: TaskBarPosition,
+        screen_w: u16,
+        screen_h: u16,
+        thickness: u16,
+    ) -> (u16, (i32, i32, u16, u16)) {
+        match position {
+            TaskBarPosition::Bottom => (
+                screen_w,
+                (0, screen_h as i32 - thickness as i32, screen_w, thickness),
+            ),
+            TaskBarPosition::Top | TaskBarPosition::Disabled => {
+                (screen_w, (0, 0, screen_w, thickness))
+            }
+            TaskBarPosition::Left | TaskBarPosition::LeftVertical => {
+                (screen_h, (0, 0, thickness, screen_h))
+            }
+            TaskBarPosition::Right | TaskBarPosition::RightVertical => (
+                screen_h,
+                (screen_w as i32 - thickness as i32, 0, thickness, screen_h),
+            ),
+        }
     }
 
     fn bar_height_for(double: bool) -> u16 {
@@ -121,6 +223,51 @@ impl TaskBar {
         self.gradients_enabled = gradients;
         self.set_taskbar_colour(tc.task_bar_colour);
         self.menu_colours = crate::menu::MenuColors::with_bg(tc.menu_bg);
+    }
+
+    pub(crate) const fn map_rect(&self, x: i16, y: i16, w: u16, h: u16) -> (i16, i16, u16, u16) {
+        match self.position {
+            TaskBarPosition::Left => (self.height as i16 - y - h as i16, x, h, w),
+            TaskBarPosition::Right => (y, self.width as i16 - x - w as i16, h, w),
+            _ => (x, y, w, h),
+        }
+    }
+
+    fn place_applet(&mut self, index: usize, x: i16, y: i16, w: u16, h: u16) {
+        self.applets[index].set_geometry(x, y, w, h);
+        if self.position.is_rotated() {
+            let (wx, wy, ww, wh) = self.map_rect(x, y, w, h);
+            let _ = self.applets[index].window().configure(
+                Some(i32::from(wx)),
+                Some(i32::from(wy)),
+                Some(ww),
+                Some(wh),
+            );
+        }
+        self.geom_cache
+            .borrow_mut()
+            .insert(self.applets[index].window().id(), (w, h));
+    }
+
+    pub(crate) fn applet_size(&self, window: u32) -> (u16, u16) {
+        self.geom_cache
+            .borrow()
+            .get(&window)
+            .copied()
+            .unwrap_or((1, 1))
+    }
+
+    pub(crate) fn applet_point(&self, window: u32, x: i32, y: i32) -> (i32, i32) {
+        if !self.position.is_rotated() {
+            return (x, y);
+        }
+        let (w, h) = self
+            .geom_cache
+            .borrow()
+            .get(&window)
+            .copied()
+            .unwrap_or((1, 1));
+        unrotate_point(self.position, (x, y), i32::from(w), i32::from(h))
     }
 
     fn applet_geom(&self, applet: &dyn Applet) -> Option<(u16, u16)> {
@@ -163,15 +310,43 @@ impl TaskBar {
             }
         }
         for &(wid, pm, w, h) in &blits {
-            if let Some(wg) = Self::gfx(&mut cache, &self.conn, wid) {
-                let _ = wg.copy_from(pm, Rect::px(0, 0, w, h), Point::ZERO);
-            }
+            self.blit(&mut cache, wid, pm, w, h);
         }
         let _ = self.conn.flush();
         for &(_, pm, _, _) in &blits {
             let _ = self.conn.free_pixmap(pm);
         }
         Ok(())
+    }
+
+    fn blit(
+        &self,
+        cache: &mut std::collections::HashMap<u32, Box<dyn GraphicsContext>>,
+        wid: u32,
+        pm: u32,
+        w: u16,
+        h: u16,
+    ) {
+        let turned = if self.position.is_rotated() {
+            self.conn.read_pixels(pm, w, h).ok().map(|px| {
+                if self.position == TaskBarPosition::Left {
+                    rotate_cw(&px, w, h)
+                } else {
+                    rotate_ccw(&px, w, h)
+                }
+            })
+        } else {
+            None
+        };
+        let Some(wg) = Self::gfx(cache, &self.conn, wid) else { return };
+        match turned {
+            Some(px) => {
+                let _ = wg.draw_image(0, 0, h, w, &px);
+            }
+            None => {
+                let _ = wg.copy_from(pm, Rect::px(0, 0, w, h), Point::ZERO);
+            }
+        }
     }
 
     fn paint_applet_buffered(
@@ -185,9 +360,7 @@ impl TaskBar {
         let Ok(pm) = self.conn.create_pixmap(w, h, depth) else { return };
         if let Ok(pg) = self.conn.create_graphics(pm) {
             let _ = guard_applet("paint", || applet.paint(&*pg));
-            if let Some(wg) = Self::gfx(cache, &self.conn, wid) {
-                let _ = wg.copy_from(pm, Rect::px(0, 0, w, h), Point::ZERO);
-            }
+            self.blit(cache, wid, pm, w, h);
         }
         let _ = self.conn.free_pixmap(pm);
     }
@@ -211,9 +384,7 @@ impl TaskBar {
         if let Ok(pm) = self.conn.create_pixmap(self.width, self.height, depth) {
             if let Ok(pg) = self.conn.create_graphics(pm) {
                 self.draw_background_to(&*pg);
-                if let Some(wg) = Self::gfx(cache, &self.conn, self.window.id()) {
-                    let _ = wg.copy_from(pm, Rect::px(0, 0, self.width, self.height), Point::ZERO);
-                }
+                self.blit(cache, self.window.id(), pm, self.width, self.height);
             }
             let _ = self.conn.free_pixmap(pm);
         } else if let Some(g) = Self::gfx(cache, &self.conn, self.window.id()) {
@@ -262,6 +433,7 @@ impl TaskBar {
     }
 
     pub fn handle_click(&mut self, window: u32, x: i32, y: i32, button: u8) -> Option<u32> {
+        let (x, y) = self.applet_point(window, x, y);
         let mut hit = None;
         for applet in &mut self.applets {
             if applet.window().id() == window {
@@ -288,6 +460,7 @@ impl TaskBar {
     }
 
     pub fn handle_release(&mut self, window: u32, x: i32, y: i32, button: u8) -> Option<u32> {
+        let (x, y) = self.applet_point(window, x, y);
         let mut id = None;
         let mut relayout = false;
         for applet in &mut self.applets {
@@ -406,18 +579,25 @@ impl TaskBar {
         true
     }
 
-    pub fn strut(&self) -> Strut {
-        let h = self.height as u32;
+    pub(crate) const fn thickness(&self) -> u16 {
         match self.position {
-            TaskBarPosition::Bottom => Strut {
-                bottom: h,
-                ..Default::default()
-            },
-            TaskBarPosition::Top => Strut {
-                top: h,
-                ..Default::default()
-            },
-            _ => Strut::default(),
+            TaskBarPosition::LeftVertical | TaskBarPosition::RightVertical => self.width,
+            _ => self.height,
+        }
+    }
+
+    pub fn strut(&self) -> Strut {
+        let t = self.thickness() as u32;
+        match self.position {
+            TaskBarPosition::Bottom => Strut { bottom: t, ..Default::default() },
+            TaskBarPosition::Top => Strut { top: t, ..Default::default() },
+            TaskBarPosition::Left | TaskBarPosition::LeftVertical => {
+                Strut { left: t, ..Default::default() }
+            }
+            TaskBarPosition::Right | TaskBarPosition::RightVertical => {
+                Strut { right: t, ..Default::default() }
+            }
+            TaskBarPosition::Disabled => Strut::default(),
         }
     }
 
@@ -425,11 +605,13 @@ impl TaskBar {
         if self.strut_atom == 0 {
             return;
         }
-        let h = self.height as u32;
+        let t = self.thickness() as u32;
         let strut = match self.position {
-            TaskBarPosition::Bottom => [0u32, 0, 0, h],
-            TaskBarPosition::Top => [0u32, 0, h, 0],
-            _ => [0u32, 0, 0, 0],
+            TaskBarPosition::Bottom => [0u32, 0, 0, t],
+            TaskBarPosition::Top => [0u32, 0, t, 0],
+            TaskBarPosition::Left | TaskBarPosition::LeftVertical => [t, 0, 0, 0],
+            TaskBarPosition::Right | TaskBarPosition::RightVertical => [0, t, 0, 0],
+            TaskBarPosition::Disabled => [0, 0, 0, 0],
         };
         if strut.iter().any(|&s| s > 0) {
             let _ = self.conn.change_property32(
@@ -445,16 +627,19 @@ impl TaskBar {
     pub fn fit_to_screen(&mut self) {
         let screen_w = self.conn.screen_width();
         let screen_h = self.conn.screen_height();
-        let y = match self.position {
-            TaskBarPosition::Bottom => screen_h as i32 - self.height as i32,
-            _ => 0,
-        };
-        self.width = screen_w;
-        self.window_x = 0;
-        self.window_y = y;
-        let _ = self
-            .window
-            .configure(Some(0), Some(y), Some(screen_w), Some(self.height));
+        let (length, place) = Self::place_on_screen(self.position, screen_w, screen_h, self.height);
+        self.width = if self.position.is_rotated() { length } else { place.2 };
+        if !self.position.is_rotated() {
+            self.height = place.3;
+        }
+        self.window_x = place.0;
+        self.window_y = place.1;
+        let _ = self.window.configure(
+            Some(place.0),
+            Some(place.1),
+            Some(place.2),
+            Some(place.3),
+        );
         self.update_strut();
         self.relayout();
         let _ = self.paint();
@@ -775,6 +960,10 @@ fn slot_wanted(slot: PanelSlot) -> bool {
         .any(|w| PanelSlot::from_widget(w) == slot && crate::layout_preferences::taskbar_wants(w))
 }
 
+fn upright_cell() -> i16 {
+    antibox_ui::metrics::panel_height() as i16
+}
+
 fn effective_slots(
     layout: Option<Vec<crate::layout_preferences::Widget>>,
 ) -> (Vec<PanelSlot>, Vec<PanelSlot>) {
@@ -796,6 +985,55 @@ fn effective_slots(
 }
 
 impl TaskBar {
+    fn relayout_upright(&mut self) {
+        let width = self.width;
+        let edge = antibox_ui::theme::panel_edge_height() as i16;
+        let gap = antibox_ui::metrics::pad() as i16;
+        let cell = upright_cell();
+        let idx = |this: &Self, which: PanelSlot| -> Option<usize> {
+            this.applets.iter().position(|a| which.matches(a.as_ref()))
+        };
+        let task_idx = idx(self, PanelSlot::Task);
+        let (top_slots, bottom_slots) =
+            effective_slots(crate::layout_preferences::taskbar_layout());
+
+        let mut top_y = edge + gap;
+        for slot in top_slots {
+            if let Some(i) = idx(self, slot) {
+                if self.applets[i].preferred_width() == 0 {
+                    self.place_applet(i, 0, top_y, 1, 1);
+                    let _ = self.applets[i].window().unmap();
+                    continue;
+                }
+                let h = self.applets[i].preferred_height().max(1) as u16;
+                self.place_applet(i, 0, top_y, width, h);
+                let _ = self.applets[i].window().map();
+                top_y += h as i16 + gap;
+            }
+        }
+
+        let mut bottom_y = self.height as i16 - gap;
+        for slot in bottom_slots.iter().rev() {
+            if let Some(i) = idx(self, *slot) {
+                if self.applets[i].preferred_width() == 0 {
+                    self.place_applet(i, 0, bottom_y, 1, 1);
+                    let _ = self.applets[i].window().unmap();
+                    continue;
+                }
+                bottom_y -= cell;
+                self.place_applet(i, 0, bottom_y, width, cell as u16);
+                let _ = self.applets[i].window().map();
+                bottom_y -= gap;
+            }
+        }
+
+        if let Some(i) = task_idx {
+            let h = (bottom_y - top_y).max(cell) as u16;
+            self.place_applet(i, 0, top_y, width, h);
+            let _ = self.applets[i].window().map();
+        }
+    }
+
     pub fn sync_applets<F>(&mut self, mut make: F)
     where
         F: FnMut(crate::layout_preferences::Widget) -> Option<Box<dyn Applet>>,
@@ -819,6 +1057,13 @@ impl TaskBar {
 
 impl AppletContainer for TaskBar {
     fn relayout(&mut self) {
+        if matches!(
+            self.position,
+            TaskBarPosition::LeftVertical | TaskBarPosition::RightVertical
+        ) {
+            self.relayout_upright();
+            return;
+        }
         let bar_w = self.width as i16;
         let edge = antibox_ui::theme::panel_edge_height() as i16;
         let bar_h = self.height.saturating_sub(edge as u16);
@@ -839,14 +1084,11 @@ impl AppletContainer for TaskBar {
                 let w = self.applets[i].preferred_width() as u16;
                 let (ay, ah) = (edge, bar_h);
                 if w == 0 {
-                    self.applets[i].set_geometry(left_x, ay, 1, ah);
+                    self.place_applet(i, left_x, ay, 1, ah);
                     let _ = self.applets[i].window().unmap();
                     continue;
                 }
-                self.applets[i].set_geometry(left_x, ay, w, ah);
-                self.geom_cache
-                    .borrow_mut()
-                    .insert(self.applets[i].window().id(), (w, ah));
+                self.place_applet(i, left_x, ay, w, ah);
                 let _ = self.applets[i].window().map();
                 left_x += w as i16 + gap;
             }
@@ -873,11 +1115,11 @@ impl AppletContainer for TaskBar {
             if let Some(i) = idx(self, slot) {
                 let w = self.applets[i].preferred_width() as u16;
                 if w == 0 {
-                    self.applets[i].set_geometry(rx, inset_y, 1, inset_h);
+                    self.place_applet(i, rx, inset_y, 1, inset_h);
                     let _ = self.applets[i].window().unmap();
                     continue;
                 }
-                self.applets[i].set_geometry(rx, inset_y, w, inset_h);
+                self.place_applet(i, rx, inset_y, w, inset_h);
                 self.geom_cache
                     .borrow_mut()
                     .insert(self.applets[i].window().id(), (w, inset_h));
@@ -889,7 +1131,7 @@ impl AppletContainer for TaskBar {
         if let Some(i) = task_idx {
             let tew = antibox_ui::theme::tray_edge_width() as i16;
             let w = (right_start - tew - left_x - gap).max(1) as u16;
-            self.applets[i].set_geometry(left_x, edge, w, bar_h);
+            self.place_applet(i, left_x, edge, w, bar_h);
             self.geom_cache
                 .borrow_mut()
                 .insert(self.applets[i].window().id(), (w, bar_h));
