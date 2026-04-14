@@ -211,21 +211,15 @@ pub fn show_rect_tip(
     conn: &dyn DisplayBackend,
     window: &dyn WindowHandle,
     local: (i16, i16, u16, u16),
+    logical: (u16, u16),
     text: &str,
 ) {
     if text.is_empty() {
         hide_tip(slot, conn);
         return;
     }
-    let (lx, ly, w, h) = local;
-    let (rx, ry) = window
-        .translate_coords(antibox_core::point::Point::new(lx as i32, ly as i32))
-        .map_or((lx as i32, ly as i32), |p| (p.x, p.y));
-    slot.get_or_insert_with(ToolTip::new).request(
-        conn,
-        text,
-        Rect::new(rx, ry, w as i32, h as i32),
-    );
+    let (near, _) = crate::taskbar::applet_anchor(window, local, logical);
+    slot.get_or_insert_with(ToolTip::new).request(conn, text, near);
 }
 
 pub fn hide_tip(slot: &mut Option<ToolTip>, conn: &dyn DisplayBackend) {

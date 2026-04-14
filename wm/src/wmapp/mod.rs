@@ -895,14 +895,10 @@ impl App {
             time_format,
             position,
         } = cfg;
+        crate::layout_preferences::set_taskbar_position(position);
         if position == crate::taskbar::TaskBarPosition::Disabled {
             return (None, 0);
         }
-        crate::layout_preferences::set_taskbar_upright(matches!(
-            position,
-            crate::taskbar::TaskBarPosition::LeftVertical
-                | crate::taskbar::TaskBarPosition::RightVertical
-        ));
         let strut_atom = atom_manager.get("_NET_WM_STRUT").unwrap_or(0);
         let Ok(mut tb) = TaskBar::new(conn, position, strut_atom) else { return (None, 0) };
         wm.reserved_strut = tb.strut();

@@ -78,6 +78,7 @@ pub struct WorkspacesPane {
     pub(crate) active_workspace: u32,
     pub(crate) theme_colours: ThemeColors,
     pub(crate) total_width: u32,
+    pub(crate) pane_h: u16,
     pub(crate) pending: Option<crate::action::Action>,
     pub(crate) conn: Arc<dyn DisplayBackend>,
     hovered: Option<usize>,
@@ -109,6 +110,7 @@ impl WorkspacesPane {
             active_workspace: 0,
             theme_colours,
             total_width: 1,
+            pane_h: 28,
             pending: None,
             conn: Arc::clone(conn),
             hovered: None,
@@ -133,12 +135,11 @@ impl WorkspacesPane {
                 icon: m.icon.clone(),
             })
             .collect();
-        let (lx, ly, w, h) = btn.rect;
-        let at = self
-            .window
-            .translate_coords(antibox_core::point::Point::new(i32::from(lx), i32::from(ly)))
-            .unwrap_or_else(|_| antibox_core::point::Point::new(i32::from(lx), i32::from(ly)));
-        let near = Rect::new(at.x, at.y, i32::from(w), i32::from(h));
+        let (near, beside) = crate::taskbar::applet_anchor(
+            &*self.window,
+            btn.rect,
+            (self.total_width as u16, self.pane_h),
+        );
         let screen = Rect::new(
             0,
             0,
@@ -151,7 +152,7 @@ impl WorkspacesPane {
             wins,
             screen,
             near,
-            false,
+            beside,
         );
     }
 
@@ -402,6 +403,7 @@ impl Applet for WorkspacesPane {
                     self.conn.as_ref(),
                     &*self.window,
                     rect,
+                    (self.total_width as u16, self.pane_h),
                     &label,
                 );
             }
@@ -424,6 +426,7 @@ impl Applet for WorkspacesPane {
         crate::tooltip::tip_pending(&self.tooltip)
     }
     fn set_geometry(&mut self, x: i16, y: i16, w: u16, h: u16) {
+        self.pane_h = h;
         let _ = self
             .window
             .configure(Some(x as i32), Some(y as i32), Some(w), Some(h));

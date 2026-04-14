@@ -66,13 +66,9 @@ impl TaskPane {
         if !crate::layout_preferences::taskbar_preview() {
             return;
         }
-        let (lx, ly, w, h) = local;
-        let at = self
-            .window
-            .translate_coords(antibox_core::point::Point::new(i32::from(lx), i32::from(ly)))
-            .unwrap_or_else(|_| antibox_core::point::Point::new(i32::from(lx), i32::from(ly)));
-        let near = Rect::new(at.x, at.y, i32::from(w), i32::from(h));
-        self.preview.show(self.conn.as_ref(), client, icon, near, false);
+        let (near, beside) =
+            crate::taskbar::applet_anchor(&*self.window, local, (self.pane_w, self.pane_h));
+        self.preview.show(self.conn.as_ref(), client, icon, near, beside);
     }
 }
 
@@ -165,6 +161,7 @@ impl Applet for TaskPane {
                         self.conn.as_ref(),
                         &*self.window,
                         rect,
+                        (self.pane_w, self.pane_h),
                         &label,
                     );
                 } else {

@@ -209,6 +209,7 @@ impl PowerAudioApplet {
             self.conn.as_ref(),
             &*self.window,
             (x, 0i16, w, self.h),
+            (self.w, self.h),
             &text,
         );
     }

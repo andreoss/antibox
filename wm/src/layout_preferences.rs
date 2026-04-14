@@ -19,7 +19,7 @@ static PAGER_NUMBERS: AtomicBool = AtomicBool::new(false);
 static PAGER_PREVIEW: AtomicBool = AtomicBool::new(true);
 static TASKBAR_PREVIEW: AtomicBool = AtomicBool::new(true);
 static OMNI_PREVIEW: AtomicBool = AtomicBool::new(true);
-static TASKBAR_UPRIGHT: AtomicBool = AtomicBool::new(false);
+static TASKBAR_POSITION: AtomicU8 = AtomicU8::new(1);
 static PAGER_HOVER: AtomicBool = AtomicBool::new(true);
 static WINLIST_PREVIEW: AtomicBool = AtomicBool::new(true);
 static MINIMIZE_ANIMATION: AtomicBool = AtomicBool::new(false);
@@ -190,12 +190,16 @@ pub fn winlist_preview() -> bool {
     WINLIST_PREVIEW.load(Ordering::Relaxed)
 }
 
-pub fn set_taskbar_upright(v: bool) {
-    TASKBAR_UPRIGHT.store(v, Ordering::Relaxed);
+pub fn set_taskbar_position(position: crate::taskbar::TaskBarPosition) {
+    TASKBAR_POSITION.store(position.code(), Ordering::Relaxed);
+}
+
+pub fn taskbar_position() -> crate::taskbar::TaskBarPosition {
+    crate::taskbar::TaskBarPosition::from_code(TASKBAR_POSITION.load(Ordering::Relaxed))
 }
 
 pub fn taskbar_upright() -> bool {
-    TASKBAR_UPRIGHT.load(Ordering::Relaxed)
+    taskbar_position().is_upright()
 }
 
 pub fn set_taskbar_preview(v: bool) {

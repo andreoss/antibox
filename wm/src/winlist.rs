@@ -198,14 +198,10 @@ impl WinListMenu {
             h as i32,
             switcher,
             |c, id| {
-                let _ = c.change_property8(PropMode::Replace, id, 39, 31, b"Window List");
-                let _ = c.change_property8(
-                    PropMode::Replace,
-                    id,
-                    67,
-                    31,
-                    b"antibox-winlist\0Antibox\0",
-                );
+                if let Ok(w) = c.wrap_window(id) {
+                    let _ = w.set_title("Window List");
+                    let _ = w.set_class("antibox-winlist", "Antibox");
+                }
                 if let (Some(state), Some(skip)) = (atoms_state, atoms_skip) {
                     let _ = c.change_property32(PropMode::Replace, id, state, 4, &[skip]);
                 }

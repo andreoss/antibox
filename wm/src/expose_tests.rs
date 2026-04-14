@@ -590,3 +590,26 @@
         assert_eq!(pick_mode(&modes, false, true), DispMode::Icon);
         assert_eq!(pick_mode(&modes, false, false), DispMode::Filled);
     }
+
+    #[test]
+    fn test_tip_starts_where_the_pointer_is() {
+        let d = Arc::new(MockDisplay::new(1280, 720, 24));
+        d.set_pointer(500, 300);
+        let conn: Arc<dyn DisplayBackend> = d;
+        let mut wm = WindowManager::<dyn DisplayBackend>::new_test();
+        wm.backend = Some(Arc::clone(&conn));
+        insert_client(&mut wm, Rect::new(0, 0, 600, 400));
+        let mut e = Expose::new();
+        e.prefs = ExposePrefs { all_monitors: true, ..ExposePrefs::default() };
+        assert!(e.show(&conn, &wm));
+        assert_eq!(e.pointer, Point::new(500, 300));
+        let off = antibox_core::scale::scaled(e.prefs.tooltip_offset_x) as i16;
+        let at = e.tip_origin(&e.tiles[0], 60, 20, 1280);
+        assert_eq!(at, (500 + off, 300 + off));
+    }
+
+    #[test]
+    fn test_capture_order_follows_the_frame_preference() {
+        assert_eq!(capture_order(true, 7, 9), (7, 9));
+        assert_eq!(capture_order(false, 7, 9), (9, 7));
+    }

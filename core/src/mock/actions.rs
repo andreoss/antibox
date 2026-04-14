@@ -113,9 +113,10 @@ impl DisplayBackend for MockDisplay {
         Ok(())
     }
     fn query_pointer(&self, _window: u32) -> Result<PointerState> {
+        let (root_x, root_y) = *self.pointer.lock().unwrap();
         Ok(PointerState {
-            root_x: 0,
-            root_y: 0,
+            root_x,
+            root_y,
             mask: KeyButMask(0),
         })
     }

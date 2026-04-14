@@ -47,6 +47,26 @@ impl TaskBarPosition {
     pub const fn on_right(self) -> bool {
         matches!(self, Self::Right | Self::RightVertical)
     }
+
+    pub const fn is_upright(self) -> bool {
+        matches!(self, Self::LeftVertical | Self::RightVertical)
+    }
+
+    pub const fn code(self) -> u8 {
+        self as u8
+    }
+
+    pub const fn from_code(code: u8) -> Self {
+        match code {
+            0 => Self::Top,
+            2 => Self::Left,
+            3 => Self::Right,
+            4 => Self::LeftVertical,
+            5 => Self::RightVertical,
+            6 => Self::Disabled,
+            _ => Self::Bottom,
+        }
+    }
 }
 
 pub fn rotate_cw(src: &[u8], w: u16, h: u16) -> Vec<u8> {
@@ -73,6 +93,44 @@ pub fn rotate_ccw(src: &[u8], w: u16, h: u16) -> Vec<u8> {
         }
     }
     out
+}
+
+pub const fn logical_to_window(
+    position: TaskBarPosition,
+    rect: (i32, i32, i32, i32),
+    len: i32,
+    thick: i32,
+) -> (i32, i32, i32, i32) {
+    let (x, y, w, h) = rect;
+    match position {
+        TaskBarPosition::Left => (thick - y - h, x, h, w),
+        TaskBarPosition::Right => (y, len - x - w, h, w),
+        _ => rect,
+    }
+}
+
+pub fn applet_anchor(
+    window: &dyn WindowHandle,
+    local: (i16, i16, u16, u16),
+    logical: (u16, u16),
+) -> (Rect, bool) {
+    let position = crate::layout_preferences::taskbar_position();
+    let rect = (
+        i32::from(local.0),
+        i32::from(local.1),
+        i32::from(local.2),
+        i32::from(local.3),
+    );
+    let (x, y, w, h) = logical_to_window(
+        position,
+        rect,
+        i32::from(logical.0),
+        i32::from(logical.1),
+    );
+    let at = window
+        .translate_coords(Point::new(x, y))
+        .unwrap_or_else(|_| Point::new(x, y));
+    (Rect::new(at.x, at.y, w, h), position.is_side())
 }
 
 pub const fn unrotate_point(

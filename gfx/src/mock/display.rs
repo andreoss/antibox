@@ -16,6 +16,7 @@ pub struct MockDisplay {
     pub visual: u32,
     pub screen_num: usize,
     pub warps: Arc<Mutex<Vec<(u32, i16, i16)>>>,
+    pub pointer: Arc<Mutex<(i16, i16)>>,
     pub lifecycle: LifecycleLog,
     pub broken: Arc<Mutex<std::collections::HashSet<u32>>>,
 }
@@ -50,9 +51,14 @@ impl MockDisplay {
             visual: 42,
             screen_num,
             warps: Arc::new(Mutex::new(Vec::new())),
+            pointer: Arc::new(Mutex::new((0, 0))),
             lifecycle,
             broken: Arc::new(Mutex::new(std::collections::HashSet::new())),
         }
+    }
+
+    pub fn set_pointer(&self, x: i16, y: i16) {
+        *self.pointer.lock().unwrap() = (x, y);
     }
 
     pub fn get_window(&self, id: u32) -> Option<MockWindow> {

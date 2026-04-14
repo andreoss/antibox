@@ -86,6 +86,7 @@ struct Part {
 
 pub struct WindowPreview {
     window: Option<Box<dyn WindowHandle>>,
+    frame: (i32, i32),
     shown: Option<u64>,
     parts: Vec<Part>,
     wanted: Option<(Want, Rect, bool)>,
@@ -103,6 +104,7 @@ impl WindowPreview {
     pub const fn new() -> Self {
         Self {
             window: None,
+            frame: (0, 0),
             shown: None,
             parts: Vec::new(),
             wanted: None,
@@ -229,17 +231,28 @@ impl WindowPreview {
         let Some((size, parts)) = Self::compose(conn, want, self.icon.as_ref()) else { return };
         let (near, beside, key) = (*near, *beside, want.key());
         self.parts = parts;
-        if self.shown == Some(key) && self.window.is_some() {
-            self.paint(conn);
-            let _ = conn.flush();
-            return;
-        }
         let screen = (conn.screen_width() as i32, conn.screen_height() as i32);
         let frame = (
             i32::from(size.0) + edge() * 2,
             i32::from(size.1) + edge() * 2,
         );
         let (x, y) = place(near, (frame.0 as u16, frame.1 as u16), screen, beside);
+        if self.shown == Some(key) {
+            if let Some(win) = self.window.as_ref() {
+                if self.frame != frame {
+                    let _ = win.configure(
+                        Some(x),
+                        Some(y),
+                        Some(frame.0 as u16),
+                        Some(frame.1 as u16),
+                    );
+                    self.frame = frame;
+                }
+                self.paint(conn);
+                let _ = conn.flush();
+                return;
+            }
+        }
         let Ok(window) = conn.create_window(
             conn.root().as_parent(),
             Rect::new(x, y, frame.0, frame.1),
@@ -253,6 +266,7 @@ impl WindowPreview {
         let _ = window.raise();
         self.window = Some(window);
         self.shown = Some(key);
+        self.frame = frame;
         self.paint(conn);
         let _ = conn.flush();
     }
@@ -264,6 +278,7 @@ impl WindowPreview {
             let _ = conn.flush();
         }
         self.shown = None;
+        self.frame = (0, 0);
         self.parts.clear();
         self.wanted = None;
         self.icon = None;

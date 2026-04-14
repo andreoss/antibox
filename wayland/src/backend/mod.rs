@@ -220,6 +220,11 @@ impl WindowHandle for WaylandWindow {
         let rec = s.windows.get(&self.id);
         Ok(rec.map_or((0, 0), |r| (r.rect.w as u16, r.rect.h as u16)))
     }
+    fn get_geometry_rect(&self) -> R<Rect> {
+        let s = self.shared.lock();
+        let rec = s.windows.get(&self.id);
+        Ok(rec.map_or(Rect::new(0, 0, 0, 0), |r| r.rect))
+    }
     fn move_window(&self, point: antibox_core::point::Point) -> R {
         self.configure(Some(point.x), Some(point.y), None, None)
     }

@@ -136,3 +136,38 @@ fn test_unrotate_point_inverts_the_turn() {
     }
     assert_eq!(unrotate_point(P::Bottom, (4, 9), len, thick), (4, 9));
 }
+
+#[test]
+fn test_logical_rect_lands_where_the_bar_drew_it() {
+    use TaskBarPosition as P;
+    let (len, thick) = (600, 22);
+    let rect = (0, 2, 180, 18);
+    assert_eq!(logical_to_window(P::Left, rect, len, thick), (2, 0, 18, 180));
+    assert_eq!(logical_to_window(P::Right, rect, len, thick), (2, 420, 18, 180));
+    assert_eq!(logical_to_window(P::Bottom, rect, len, thick), rect);
+    assert_eq!(logical_to_window(P::LeftVertical, rect, len, thick), rect);
+}
+
+#[test]
+fn test_mapped_rect_holds_the_points_it_answers_for() {
+    use TaskBarPosition as P;
+    let (len, thick) = (600, 22);
+    let rect = (30, 0, 90, 22);
+    for position in [P::Left, P::Right] {
+        let (wx, wy, ww, wh) = logical_to_window(position, rect, len, thick);
+        for (px, py) in [(wx, wy), (wx + ww - 1, wy + wh - 1), (wx + ww / 2, wy + wh / 2)] {
+            let (lx, ly) = unrotate_point(position, (px, py), len, thick);
+            assert!(lx >= rect.0 && lx < rect.0 + rect.2, "{position:?} x {lx}");
+            assert!(ly >= rect.1 && ly < rect.1 + rect.3, "{position:?} y {ly}");
+        }
+    }
+}
+
+#[test]
+fn test_position_survives_the_round_trip_through_a_code() {
+    use TaskBarPosition as P;
+    for position in [P::Top, P::Bottom, P::Left, P::Right, P::LeftVertical, P::RightVertical, P::Disabled] {
+        assert_eq!(P::from_code(position.code()), position);
+    }
+    assert_eq!(P::from_code(200), P::Bottom);
+}

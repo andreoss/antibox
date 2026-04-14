@@ -90,16 +90,24 @@ fn can_capture(wm: &WindowManager<dyn DisplayBackend>, prefs: &ExposePrefs) -> b
     prefs.live_thumbnails && wm.backend().is_some_and(DisplayBackend::composite_supported)
 }
 
+pub const fn capture_order(include_frame: bool, frame: u32, client: u32) -> (u32, u32) {
+    if include_frame {
+        (frame, client)
+    } else {
+        (client, frame)
+    }
+}
+
 fn snap_window(
     wm: &WindowManager<dyn DisplayBackend>,
     windows: (u32, u32),
     max: (u16, u16),
 ) -> Option<(u16, u16, Vec<u8>)> {
     let b = wm.backend()?;
-    let (frame, client) = windows;
-    b.capture_window(frame, Some(max))
+    let (first, fallback) = windows;
+    b.capture_window(first, Some(max))
         .ok()
-        .or_else(|| b.capture_window(client, Some(max)).ok())
+        .or_else(|| b.capture_window(fallback, Some(max)).ok())
 }
 
 pub fn pick_mode(modes: &[DispMode], thumb: bool, icon: bool) -> DispMode {
@@ -410,14 +418,15 @@ impl Expose {
             return false;
         }
         let screen = Rect::new(0, 0, conn.screen_width() as i32, conn.screen_height() as i32);
+        let at = conn
+            .query_pointer(conn.root().read_id())
+            .map_or(Point::ZERO, |p| Point::new(i32::from(p.root_x), i32::from(p.root_y)));
         self.area = if self.prefs.all_monitors {
             screen
         } else {
-            let at = conn
-                .query_pointer(conn.root().read_id())
-                .map_or(Point::ZERO, |p| Point::new(i32::from(p.root_x), i32::from(p.root_y)));
             monitor_at(&wm.monitors, at).unwrap_or(screen)
         };
+        self.pointer = Point::new(at.x - self.area.x, at.y - self.area.y);
         let live = self.prefs.live_thumbnails && conn.composite_supported();
         self.shot = if live { None } else { conn.grab_root_window().ok() };
         let built = Self::build_tiles(wm, self.area, self.shot.as_ref(), &self.prefs);
@@ -491,7 +500,11 @@ impl Expose {
                     title: f.client().title().to_string(),
                     rect,
                     mode,
-                    windows: (f.frame().id(), f.client().xid()),
+                    windows: capture_order(
+                        prefs.include_frame,
+                        f.frame().id(),
+                        f.client().xid(),
+                    ),
                     live: None,
                     capturable: alive && can_capture(wm, prefs),
                     has_icon,
