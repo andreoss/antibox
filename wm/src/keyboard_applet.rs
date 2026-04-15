@@ -402,6 +402,9 @@ impl KeyboardApplet {
 }
 
 impl Applet for KeyboardApplet {
+    fn shutdown(&mut self) {
+        Self::shutdown(self);
+    }
     fn set_theme_colours(&mut self, tc: &crate::render::ThemeColors) {
         self.set_colours(tc);
     }

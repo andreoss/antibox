@@ -171,3 +171,41 @@ fn test_position_survives_the_round_trip_through_a_code() {
     }
     assert_eq!(P::from_code(200), P::Bottom);
 }
+
+fn bar_on_mock(position: TaskBarPosition) -> TaskBar {
+    let conn: Arc<dyn DisplayBackend> =
+        Arc::new(antibox_core::mock::MockDisplay::new(1280, 800, 24));
+    TaskBar::new(&conn, position, 0).expect("the mock backend makes windows")
+}
+
+#[test]
+fn test_an_upright_bar_keeps_its_length_through_a_reload() {
+    let mut tb = bar_on_mock(TaskBarPosition::RightVertical);
+    let thick = TaskBar::thickness_for(TaskBarPosition::RightVertical);
+    assert_eq!(tb.thickness(), thick);
+    assert_eq!(tb.height, 800);
+    assert!(!tb.update_height(), "an upright bar has no bar height to chase");
+    assert_eq!(tb.thickness(), thick);
+    assert_eq!(tb.height, 800, "the bar length must survive a reload");
+    assert_eq!(tb.strut().right, u32::from(thick));
+}
+
+#[test]
+fn test_fitting_a_rotated_bar_keeps_its_thickness() {
+    let mut tb = bar_on_mock(TaskBarPosition::Left);
+    let thick = tb.thickness();
+    tb.fit_to_screen();
+    assert_eq!(tb.thickness(), thick);
+    assert_eq!(tb.width, 800, "the length runs down the screen");
+    assert_eq!(tb.strut().left, u32::from(thick));
+}
+
+#[test]
+fn test_closing_a_bar_drops_its_applets() {
+    let mut tb = bar_on_mock(TaskBarPosition::Bottom);
+    let id = tb.window.id();
+    tb.close();
+    assert!(tb.applets.is_empty());
+    assert!(tb.menu.is_none());
+    assert_eq!(id, tb.window.id());
+}

@@ -425,6 +425,18 @@ impl Applet for TrayApplet {
     fn tooltip_pending(&self) -> bool {
         crate::tooltip::tip_pending(&self.tooltip)
     }
+    fn shutdown(&mut self) {
+        let root = self.conn.root().read_id();
+        let icons: Vec<u32> = self.embedded.iter().map(|e| e.window).collect();
+        for icon in icons {
+            let _ = self.conn.unmap_window(icon);
+            let _ = self.conn.reparent_window(icon, root, antibox_core::point::Point::ZERO);
+            let _ = self.conn.change_save_set(icon, false);
+            self.remove_client(icon);
+        }
+        self.hide_tooltip();
+        let _ = self.conn.flush();
+    }
 
     fn set_geometry(&mut self, x: i16, y: i16, w: u16, h: u16) {
         self.height = h;

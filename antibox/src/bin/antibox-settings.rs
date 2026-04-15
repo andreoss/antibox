@@ -112,6 +112,22 @@ fn fields(p: &wmconfig::Prefs) -> Vec<Field> {
             false,
         ),
         f(
+            "taskbar",
+            "position",
+            "Taskbar position",
+            Kind::Choice(&[
+                "top",
+                "bottom",
+                "left",
+                "right",
+                "left-vertical",
+                "right-vertical",
+                "disabled",
+            ]),
+            p.taskbar.position.clone(),
+            false,
+        ),
+        f(
             "clock",
             "format",
             "Clock format",
@@ -182,6 +198,38 @@ fn fields(p: &wmconfig::Prefs) -> Vec<Field> {
             Kind::Bool,
             String::new(),
             p.pointer.warp,
+        ),
+        f(
+            "taskbar",
+            "preview",
+            "Taskbar previews",
+            Kind::Bool,
+            String::new(),
+            p.taskbar.preview,
+        ),
+        f(
+            "pager",
+            "preview",
+            "Pager previews",
+            Kind::Bool,
+            String::new(),
+            p.pager.preview,
+        ),
+        f(
+            "winlist",
+            "preview",
+            "Window list previews",
+            Kind::Bool,
+            String::new(),
+            p.winlist.preview,
+        ),
+        f(
+            "omni",
+            "preview",
+            "Omni previews",
+            Kind::Bool,
+            String::new(),
+            p.omni.preview,
         ),
     ]
 }
@@ -828,4 +876,43 @@ fn handle(app: &mut App, ev: &BackendEvent, mapping: Option<&KeyboardMapping>) -
         _ => {}
     }
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_every_choice_offers_the_configured_value() {
+        let p = wmconfig::Prefs::default();
+        for f in fields(&p) {
+            if let Kind::Choice(options) = f.kind {
+                assert!(
+                    options.contains(&f.text.as_str()),
+                    "{} {} = {:?} is not offered",
+                    f.section,
+                    f.key,
+                    f.text
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_the_bar_position_is_on_offer() {
+        let p = wmconfig::Prefs::default();
+        let fields = fields(&p);
+        let bar = fields
+            .iter()
+            .find(|f| (f.section, f.key) == ("taskbar", "position"))
+            .expect("taskbar position belongs in settings");
+        let Kind::Choice(options) = bar.kind else { panic!("it should be a choice") };
+        for name in options {
+            assert!(
+                antibox_wm::taskbar::TaskBarPosition::parse(name).is_some(),
+                "{name} is offered but the bar cannot parse it"
+            );
+        }
+        assert_eq!(options.len(), 7);
+    }
 }

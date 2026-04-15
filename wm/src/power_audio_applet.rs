@@ -316,6 +316,9 @@ impl Applet for PowerAudioApplet {
     fn tick_tooltip(&mut self) {
         crate::tooltip::pump_tip(&mut self.tooltip, self.conn.as_ref());
     }
+    fn shutdown(&mut self) {
+        crate::tooltip::hide_tip(&mut self.tooltip, self.conn.as_ref());
+    }
 
     fn tooltip_pending(&self) -> bool {
         crate::tooltip::tip_pending(&self.tooltip)

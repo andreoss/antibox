@@ -185,6 +185,11 @@ impl App {
         crate::layout_preferences::set_omni_preview(prefs.omni.preview);
         crate::layout_preferences::set_winlist_preview(prefs.winlist.preview);
         crate::layout_preferences::set_pager_hover_preview(prefs.pager.preview);
+        let position = crate::taskbar::TaskBarPosition::parse(&prefs.taskbar.position)
+            .unwrap_or(crate::taskbar::TaskBarPosition::Bottom);
+        if position != crate::layout_preferences::taskbar_position() {
+            self.move_taskbar(position, prefs.clock.format.clone());
+        }
         self.sync_taskbar_layout(&prefs);
 
         let (count, names) = wmconfig::workspaces_from(&prefs);

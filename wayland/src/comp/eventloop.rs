@@ -34,6 +34,7 @@ pub struct WaylandEventLoop {
     timers: BinaryHeap<TimerEntry>,
     next_timer_id: u64,
     timer_callbacks: Vec<(u64, TimerCallback)>,
+    extra_fds: Vec<(RawFd, Box<dyn FnMut() + Send>)>,
 }
 
 impl WaylandEventLoop {
@@ -45,6 +46,7 @@ impl WaylandEventLoop {
             timers: BinaryHeap::new(),
             next_timer_id: 0,
             timer_callbacks: Vec::new(),
+            extra_fds: Vec::new(),
         }
     }
 
@@ -60,6 +62,37 @@ impl WaylandEventLoop {
         }
         Ok(())
     }
+
+    fn drain_extra_fds(&mut self) {
+        if self.extra_fds.is_empty() {
+            return;
+        }
+        let mut pollfds: Vec<antibox_core::libc::pollfd> = self
+            .extra_fds
+            .iter()
+            .map(|(fd, _)| antibox_core::libc::pollfd {
+                fd: *fd,
+                events: antibox_core::libc::POLLIN,
+                revents: 0,
+            })
+            .collect();
+        let rc = unsafe {
+            antibox_core::libc::poll(
+                pollfds.as_mut_ptr(),
+                pollfds.len() as antibox_core::libc::nfds_t,
+                0,
+            )
+        };
+        if rc <= 0 {
+            return;
+        }
+        for (i, pf) in pollfds.iter().enumerate() {
+            if pf.revents & (antibox_core::libc::POLLIN | antibox_core::libc::POLLHUP) != 0 {
+                let cb = &mut self.extra_fds[i].1;
+                cb();
+            }
+        }
+    }
 }
 
 impl EventLoopTrait for WaylandEventLoop {
@@ -67,9 +100,13 @@ impl EventLoopTrait for WaylandEventLoop {
         &self.backend
     }
 
-    fn add_fd(&mut self, _fd: RawFd, _callback: Box<dyn FnMut() + Send>) {}
+    fn add_fd(&mut self, fd: RawFd, callback: Box<dyn FnMut() + Send>) {
+        self.extra_fds.push((fd, callback));
+    }
 
-    fn remove_fd(&mut self, _fd: RawFd) {}
+    fn remove_fd(&mut self, fd: RawFd) {
+        self.extra_fds.retain(|(f, _)| *f != fd);
+    }
 
     fn add_timer(&mut self, delay: Duration, callback: TimerCallback) -> u64 {
         let id = self.next_timer_id;
@@ -108,6 +145,7 @@ impl EventLoopTrait for WaylandEventLoop {
 
     fn wait_for_one_event(&mut self, timeout: Duration) -> Result<Option<BackendEvent>> {
         self.pump(timeout)?;
+        self.drain_extra_fds();
         Ok(self.server.shared.lock().events.pop())
     }
 

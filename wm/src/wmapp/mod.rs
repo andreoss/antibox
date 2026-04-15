@@ -850,6 +850,29 @@ impl App {
         }
     }
 
+    fn move_taskbar(&mut self, position: crate::taskbar::TaskBarPosition, time_format: String) {
+        if let Some(mut old) = self.taskbar.take() {
+            old.close();
+        }
+        self.wm.above_windows.clear();
+        self.wm.reserved_strut = Strut::default();
+        let (taskbar, tray_opcode_atom) = Self::create_taskbar(
+            &self.backend,
+            &mut self.wm,
+            &self.atom_manager,
+            self.tray.as_ref(),
+            self.tray_composite,
+            TaskbarConfig {
+                time_format,
+                position,
+            },
+        );
+        self.taskbar = taskbar;
+        self.tray_opcode_atom = tray_opcode_atom;
+        crate::placement::update_workarea_from_struts(&mut self.wm);
+        let _ = self.backend.flush();
+    }
+
     fn sync_taskbar_layout(&mut self, prefs: &wmconfig::Prefs) {
         let Some(mut tb) = self.taskbar.take() else { return };
         let wid = tb.window.id();

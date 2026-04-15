@@ -261,6 +261,22 @@ impl TaskBar {
         self.window.map()
     }
 
+    pub fn close(&mut self) {
+        if let Some(menu) = self.menu.as_mut() {
+            menu.hide(&*self.conn);
+        }
+        self.menu = None;
+        for a in &mut self.applets {
+            a.shutdown();
+        }
+        self.applets.clear();
+        self.gfx_cache.borrow_mut().clear();
+        self.geom_cache.borrow_mut().clear();
+        let _ = self.window.unmap();
+        let _ = self.window.destroy();
+        let _ = self.conn.flush();
+    }
+
     pub(crate) fn apply_background(&self, win: u32) {
         const CFG_BACK_PIXEL: u32 = 2;
         let _ = self
@@ -627,6 +643,9 @@ impl TaskBar {
     }
 
     pub fn update_height(&mut self) -> bool {
+        if self.position.is_upright() {
+            return false;
+        }
         let h = Self::bar_height();
         if h == self.height {
             return false;
@@ -685,7 +704,8 @@ impl TaskBar {
     pub fn fit_to_screen(&mut self) {
         let screen_w = self.conn.screen_width();
         let screen_h = self.conn.screen_height();
-        let (length, place) = Self::place_on_screen(self.position, screen_w, screen_h, self.height);
+        let (length, place) =
+            Self::place_on_screen(self.position, screen_w, screen_h, self.thickness());
         self.width = if self.position.is_rotated() { length } else { place.2 };
         if !self.position.is_rotated() {
             self.height = place.3;
