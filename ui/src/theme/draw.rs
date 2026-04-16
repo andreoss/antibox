@@ -730,6 +730,23 @@ pub fn panel_edge(g: &dyn GraphicsContext, w: u16) {
     let _ = g.fill_rect(0, s as i16, w, s);
 }
 
+pub fn panel_edge_left(g: &dyn GraphicsContext, h: u16) {
+    let s = antibox_gfx::scale::scaled(1).max(1) as u16;
+    let _ = g.set_foreground(light());
+    let _ = g.fill_rect(0, 0, s, h);
+    let _ = g.set_foreground(face_light());
+    let _ = g.fill_rect(s as i16, 0, s, h);
+}
+
+pub fn panel_edge_right(g: &dyn GraphicsContext, w: u16, h: u16) {
+    let s = antibox_gfx::scale::scaled(1).max(1) as u16;
+    let x = w.saturating_sub(s * 2) as i16;
+    let _ = g.set_foreground(light());
+    let _ = g.fill_rect(x, 0, s, h);
+    let _ = g.set_foreground(face_light());
+    let _ = g.fill_rect(x + s as i16, 0, s, h);
+}
+
 pub fn panel_surface(g: &dyn GraphicsContext, w: u16, h: u16, fallback: Colour) {
     let _ = g.set_foreground(fallback);
     let _ = g.fill_rect(0, 0, w, h);

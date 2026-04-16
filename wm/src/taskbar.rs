@@ -441,7 +441,15 @@ impl TaskBar {
 
     fn draw_background_to(&self, g: &dyn GraphicsContext) {
         antibox_ui::theme::panel_surface(g, self.width, self.height, self.task_bar_colour);
-        antibox_ui::theme::panel_edge(g, self.width);
+        match self.position {
+            TaskBarPosition::LeftVertical => {
+                antibox_ui::theme::panel_edge_right(g, self.width, self.height);
+            }
+            TaskBarPosition::RightVertical => {
+                antibox_ui::theme::panel_edge_left(g, self.height);
+            }
+            _ => antibox_ui::theme::panel_edge(g, self.width),
+        }
         let tx = self.tray_x.get();
         if tx > 0 {
             let edge = antibox_ui::theme::panel_edge_height() as i16;
@@ -1062,52 +1070,82 @@ fn effective_slots(
     }
 }
 
+pub fn flow_rows(sizes: &[(i16, i16)], avail: i16, gap: i16) -> (Vec<(i16, i16)>, i16) {
+    let avail = avail.max(1);
+    let mut spots = Vec::with_capacity(sizes.len());
+    let (mut x, mut y, mut row_h) = (0i16, 0i16, 0i16);
+    for &(w, h) in sizes {
+        let w = w.clamp(1, avail);
+        if x > 0 && x + w > avail {
+            y += row_h + gap;
+            x = 0;
+            row_h = 0;
+        }
+        spots.push((x, y));
+        x += w + gap;
+        row_h = row_h.max(h);
+    }
+    (spots, y + row_h)
+}
+
 impl TaskBar {
+    fn upright_group(&mut self, slots: &[PanelSlot], avail: i16) -> Vec<(usize, i16, i16)> {
+        let mut group = Vec::new();
+        for slot in slots {
+            let Some(i) = self.applets.iter().position(|a| slot.matches(a.as_ref())) else {
+                continue;
+            };
+            if let Some(p) = self.applets[i]
+                .as_any_mut()
+                .downcast_mut::<WorkspacesPane>()
+            {
+                p.set_wrap_width(Some(avail.max(1) as u16));
+            }
+            let w = self.applets[i].preferred_width() as i16;
+            if w <= 0 {
+                self.place_applet(i, 0, 0, 1, 1);
+                let _ = self.applets[i].window().unmap();
+                continue;
+            }
+            let h = (self.applets[i].preferred_height() as i16).max(upright_cell());
+            group.push((i, w.min(avail), h));
+        }
+        group
+    }
+
+    fn place_upright_group(&mut self, group: &[(usize, i16, i16)], left: i16, top: i16, avail: i16, gap: i16) -> i16 {
+        let sizes: Vec<(i16, i16)> = group.iter().map(|(_, w, h)| (*w, *h)).collect();
+        let (spots, height) = flow_rows(&sizes, avail, gap);
+        for ((i, w, h), (dx, dy)) in group.iter().zip(spots) {
+            self.place_applet(*i, left + dx, top + dy, *w as u16, *h as u16);
+            let _ = self.applets[*i].window().map();
+        }
+        height
+    }
+
     fn relayout_upright(&mut self) {
-        let width = self.width;
         let edge = antibox_ui::theme::panel_edge_height() as i16;
-        let gap = antibox_ui::metrics::pad() as i16;
-        let cell = upright_cell();
-        let idx = |this: &Self, which: PanelSlot| -> Option<usize> {
-            this.applets.iter().position(|a| which.matches(a.as_ref()))
-        };
-        let task_idx = idx(self, PanelSlot::Task);
+        let gap = antibox_ui::metrics::gap() as i16;
+        let margin = antibox_ui::metrics::pad() as i16;
+        let left = margin;
+        let avail = (self.width as i16 - margin * 2).max(1);
         let (top_slots, bottom_slots) =
             effective_slots(crate::layout_preferences::taskbar_layout());
 
-        let mut top_y = edge + gap;
-        for slot in top_slots {
-            if let Some(i) = idx(self, slot) {
-                if self.applets[i].preferred_width() == 0 {
-                    self.place_applet(i, 0, top_y, 1, 1);
-                    let _ = self.applets[i].window().unmap();
-                    continue;
-                }
-                let h = self.applets[i].preferred_height().max(1) as u16;
-                self.place_applet(i, 0, top_y, width, h);
-                let _ = self.applets[i].window().map();
-                top_y += h as i16 + gap;
-            }
-        }
+        let top = self.upright_group(&top_slots, avail);
+        let top_y = edge + margin;
+        let top_h = self.place_upright_group(&top, left, top_y, avail, gap);
 
-        let mut bottom_y = self.height as i16 - gap;
-        for slot in bottom_slots.iter().rev() {
-            if let Some(i) = idx(self, *slot) {
-                if self.applets[i].preferred_width() == 0 {
-                    self.place_applet(i, 0, bottom_y, 1, 1);
-                    let _ = self.applets[i].window().unmap();
-                    continue;
-                }
-                bottom_y -= cell;
-                self.place_applet(i, 0, bottom_y, width, cell as u16);
-                let _ = self.applets[i].window().map();
-                bottom_y -= gap;
-            }
-        }
+        let bottom = self.upright_group(&bottom_slots, avail);
+        let sizes: Vec<(i16, i16)> = bottom.iter().map(|(_, w, h)| (*w, *h)).collect();
+        let (_, bottom_h) = flow_rows(&sizes, avail, gap);
+        let bottom_y = (self.height as i16 - margin - bottom_h).max(top_y + top_h + gap);
+        self.place_upright_group(&bottom, left, bottom_y, avail, gap);
 
-        if let Some(i) = task_idx {
-            let h = (bottom_y - top_y).max(cell) as u16;
-            self.place_applet(i, 0, top_y, width, h);
+        if let Some(i) = self.applets.iter().position(|a| PanelSlot::Task.matches(a.as_ref())) {
+            let task_y = top_y + top_h + if top_h > 0 { gap } else { 0 };
+            let task_h = (bottom_y - gap - task_y).max(upright_cell());
+            self.place_applet(i, left, task_y, avail as u16, task_h as u16);
             let _ = self.applets[i].window().map();
         }
     }

@@ -72,6 +72,22 @@ pub struct WorkspaceButton {
     pub minis: Vec<MiniWin>,
 }
 
+fn cell_at(buttons: &[WorkspaceButton], x: i32, y: i32, rows: u16) -> Option<usize> {
+    buttons.iter().position(|b| {
+        let (bx, by, bw, bh) = b.rect;
+        let in_x = x >= i32::from(bx) && x < i32::from(bx) + i32::from(bw);
+        let in_y = rows <= 1 || (y >= i32::from(by) && y < i32::from(by) + i32::from(bh));
+        in_x && in_y
+    })
+}
+
+fn grid_columns(wrap: Option<u16>, cell_w: u16, gap: u16, count: usize) -> usize {
+    let Some(avail) = wrap else { return count.max(1) };
+    let step = i32::from(cell_w) + i32::from(gap);
+    let fits = ((i32::from(avail) + i32::from(gap)) / step.max(1)).max(1) as usize;
+    fits.min(count.max(1))
+}
+
 pub struct WorkspacesPane {
     pub(crate) window: Box<dyn WindowHandle>,
     pub(crate) buttons: Vec<WorkspaceButton>,
@@ -79,6 +95,8 @@ pub struct WorkspacesPane {
     pub(crate) theme_colours: ThemeColors,
     pub(crate) total_width: u32,
     pub(crate) pane_h: u16,
+    wrap: Option<u16>,
+    rows: u16,
     pub(crate) pending: Option<crate::action::Action>,
     pub(crate) conn: Arc<dyn DisplayBackend>,
     hovered: Option<usize>,
@@ -111,6 +129,8 @@ impl WorkspacesPane {
             theme_colours,
             total_width: 1,
             pane_h: 28,
+            wrap: None,
+            rows: 1,
             pending: None,
             conn: Arc::clone(conn),
             hovered: None,
@@ -156,6 +176,21 @@ impl WorkspacesPane {
         );
     }
 
+    pub fn set_wrap_width(&mut self, wrap: Option<u16>) {
+        if self.wrap == wrap {
+            return;
+        }
+        self.wrap = wrap;
+        let names: Vec<String> = self.buttons.iter().map(|b| b.label.clone()).collect();
+        if !names.is_empty() {
+            self.set_names(&names);
+        }
+    }
+
+    pub const fn rows(&self) -> u16 {
+        self.rows
+    }
+
     pub fn set_names(&mut self, names: &[String]) {
         let sw = self.conn.screen_width().max(1) as i32;
         let sh = self.conn.screen_height().max(1) as i32;
@@ -165,21 +200,26 @@ impl WorkspacesPane {
         let cw_max = antibox_ui::metrics::panel_height() * 5 / 2;
         let cell_w = (cell_h as i32 * sw / sh).clamp(cw_min, cw_max) as u16;
         let gap = antibox_ui::metrics::gap() as i16;
-        let mut x = 0i16;
+        let cols = grid_columns(self.wrap, cell_w, gap as u16, names.len());
         let mut buttons = Vec::new();
         for (i, name) in names.iter().enumerate() {
+            let (col, row) = (i % cols, i / cols);
+            let x = col as i16 * (cell_w as i16 + gap);
+            let y = top + row as i16 * (cell_h + gap);
             buttons.push(WorkspaceButton {
                 label: name.clone(),
                 active: i as u32 == self.active_workspace,
                 urgent: false,
-                rect: (x, top, cell_w, cell_h as u16),
+                rect: (x, y, cell_w, cell_h as u16),
                 minis: Vec::new(),
             });
-            x += cell_w as i16 + gap;
         }
-        self.total_width = (x - gap).max(1) as u32;
+        let used = names.len().min(cols) as i16;
+        self.total_width = (used * (cell_w as i16 + gap) - gap).max(1) as u32;
+        self.rows = names.len().div_ceil(cols).max(1) as u16;
         self.buttons = buttons;
-        let h = antibox_ui::metrics::panel_height() as u16;
+        let h = self.preferred_height() as u16;
+        self.pane_h = h;
         let _ = self
             .window
             .configure(None, None, Some(self.total_width as u16), Some(h));
@@ -272,7 +312,7 @@ impl Applet for WorkspacesPane {
         antibox_ui::theme::panel_surface(
             g,
             self.total_width as u16,
-            antibox_ui::metrics::panel_height() as u16,
+            self.pane_h.max(antibox_ui::metrics::panel_height() as u16),
             self.theme_colours.task_bar_colour,
         );
         let face = self.theme_colours.task_bar_colour;
@@ -356,26 +396,29 @@ impl Applet for WorkspacesPane {
         self.total_width
     }
     fn preferred_height(&self) -> u32 {
-        antibox_ui::metrics::panel_height() as u32
+        let base = antibox_ui::metrics::panel_height() as u32;
+        if self.rows <= 1 {
+            return base;
+        }
+        let cell_h = antibox_ui::metrics::button_height() as u32;
+        let gap = antibox_ui::metrics::gap() as u32;
+        let inset = antibox_ui::metrics::button_inset() as u32;
+        u32::from(self.rows) * (cell_h + gap) - gap + inset * 2
     }
-    fn handle_click(&mut self, x: i32, _y: i32, button: u8) -> Option<u32> {
+    fn handle_click(&mut self, x: i32, y: i32, button: u8) -> Option<u32> {
         if (button == 4 || button == 5) && !crate::layout_preferences::taskbar_wheel_enabled() {
             return None;
         }
-        for (i, btn) in self.buttons.iter().enumerate() {
-            let (bx, _, bw, _) = btn.rect;
-            if x >= bx as i32 && x < (bx + bw as i16) as i32 {
-                if button == 3 {
-                    self.pending = Some(crate::action::Action::Workspace(
-                        WorkspaceOp::WorkspaceMenu(i as u32),
-                    ));
-                } else {
-                    self.active_workspace = i as u32;
-                    self.pending = Some(crate::action::Action::Workspace(WorkspaceOp::Workspace(
-                        i as u32,
-                    )));
-                }
-                break;
+        if let Some(i) = cell_at(&self.buttons, x, y, self.rows) {
+            if button == 3 {
+                self.pending = Some(crate::action::Action::Workspace(
+                    WorkspaceOp::WorkspaceMenu(i as u32),
+                ));
+            } else {
+                self.active_workspace = i as u32;
+                self.pending = Some(crate::action::Action::Workspace(WorkspaceOp::Workspace(
+                    i as u32,
+                )));
             }
         }
         None
@@ -384,11 +427,8 @@ impl Applet for WorkspacesPane {
     fn take_action(&mut self) -> Option<crate::action::Action> {
         self.pending.take()
     }
-    fn handle_motion(&mut self, x: i32, _y: i32) {
-        let idx = self.buttons.iter().position(|b| {
-            let (bx, _, bw, _) = b.rect;
-            x >= bx as i32 && x < (bx + bw as i16) as i32
-        });
+    fn handle_motion(&mut self, x: i32, y: i32) {
+        let idx = cell_at(&self.buttons, x, y, self.rows);
         if idx == self.hovered {
             return;
         }

@@ -48,3 +48,61 @@
         assert!(ix as i32 + side as i32 <= 50);
         assert!(iy as i32 + side as i32 <= 45);
     }
+
+    fn pane_with(names: &[&str]) -> WorkspacesPane {
+        let conn = Arc::new(MockDisplay::new(1280, 800, 24)) as Arc<dyn DisplayBackend>;
+        let owned: Vec<String> = names.iter().map(|s| (*s).to_string()).collect();
+        WorkspacesPane::new(&conn, conn.root().read_id(), &owned, make_theme()).unwrap()
+    }
+
+    #[test]
+    fn test_columns_fit_the_wrap_width() {
+        assert_eq!(grid_columns(None, 26, 3, 9), 9);
+        assert_eq!(grid_columns(Some(148), 26, 3, 9), 5);
+        assert_eq!(grid_columns(Some(148), 26, 3, 3), 3);
+        assert_eq!(grid_columns(Some(10), 26, 3, 9), 1);
+    }
+
+    #[test]
+    fn test_wrapping_puts_the_desktops_on_several_rows() {
+        let mut pane = pane_with(&["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
+        assert_eq!(pane.rows(), 1);
+        let single = pane.total_width;
+        pane.set_wrap_width(Some(148));
+        assert!(pane.rows() > 1, "nine desktops must wrap in 148px");
+        assert!(pane.total_width < single);
+        assert!(pane.total_width <= 148, "{}", pane.total_width);
+        let cols = pane.buttons.iter().filter(|b| b.rect.1 == pane.buttons[0].rect.1).count();
+        assert!(cols * pane.rows() as usize >= 9);
+        let first_row_y = pane.buttons[0].rect.1;
+        assert!(pane.buttons[cols].rect.1 > first_row_y, "the next row sits lower");
+        assert_eq!(pane.buttons[cols].rect.0, pane.buttons[0].rect.0, "rows start at the same x");
+    }
+
+    #[test]
+    fn test_a_wrapped_pager_is_taller_than_one_row() {
+        let mut pane = pane_with(&["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
+        let flat = pane.preferred_height();
+        pane.set_wrap_width(Some(148));
+        assert!(pane.preferred_height() > flat);
+        assert_eq!(pane.pane_h, pane.preferred_height() as u16);
+    }
+
+    #[test]
+    fn test_a_click_finds_the_cell_on_the_second_row() {
+        let mut pane = pane_with(&["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
+        pane.set_wrap_width(Some(148));
+        let cols = pane.buttons.iter().filter(|b| b.rect.1 == pane.buttons[0].rect.1).count();
+        let target = &pane.buttons[cols + 1];
+        let (x, y) = (
+            i32::from(target.rect.0) + i32::from(target.rect.2) / 2,
+            i32::from(target.rect.1) + i32::from(target.rect.3) / 2,
+        );
+        assert_eq!(cell_at(&pane.buttons, x, y, pane.rows()), Some(cols + 1));
+        let top = &pane.buttons[1];
+        let (tx, ty) = (
+            i32::from(top.rect.0) + i32::from(top.rect.2) / 2,
+            i32::from(top.rect.1) + i32::from(top.rect.3) / 2,
+        );
+        assert_eq!(cell_at(&pane.buttons, tx, ty, pane.rows()), Some(1));
+    }

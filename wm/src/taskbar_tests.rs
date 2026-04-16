@@ -209,3 +209,31 @@ fn test_closing_a_bar_drops_its_applets() {
     assert!(tb.menu.is_none());
     assert_eq!(id, tb.window.id());
 }
+
+#[test]
+fn test_flow_rows_wraps_when_the_row_is_full() {
+    let sizes = [(40, 18), (40, 18), (40, 18), (64, 22)];
+    let (spots, height) = flow_rows(&sizes, 148, 3);
+    assert_eq!(spots[0], (0, 0));
+    assert_eq!(spots[1], (43, 0));
+    assert_eq!(spots[2], (86, 0));
+    assert_eq!(spots[3], (0, 21), "the fourth widget starts a new row");
+    assert_eq!(height, 21 + 22);
+}
+
+#[test]
+fn test_flow_rows_never_runs_past_the_bar() {
+    let sizes = [(200, 20), (30, 20)];
+    let (spots, height) = flow_rows(&sizes, 100, 4);
+    assert_eq!(spots[0], (0, 0), "an oversized widget is clamped, not shoved out");
+    assert_eq!(spots[1], (0, 24));
+    assert_eq!(height, 44);
+}
+
+#[test]
+fn test_flow_rows_keeps_one_row_when_everything_fits() {
+    let sizes = [(20, 10), (20, 14)];
+    let (spots, height) = flow_rows(&sizes, 100, 2);
+    assert_eq!(spots, vec![(0, 0), (22, 0)]);
+    assert_eq!(height, 14, "the row is as tall as its tallest widget");
+}
