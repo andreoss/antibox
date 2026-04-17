@@ -237,3 +237,51 @@ fn test_flow_rows_keeps_one_row_when_everything_fits() {
     assert_eq!(spots, vec![(0, 0), (22, 0)]);
     assert_eq!(height, 14, "the row is as tall as its tallest widget");
 }
+
+#[test]
+fn test_fit_row_keeps_widgets_on_one_line() {
+    let fitted = fit_row(&[90, 90, 90], 148, 3, 16).expect("three graphs share the line");
+    assert_eq!(fitted.len(), 3);
+    let span: i16 = fitted.iter().sum::<i16>() + 3 * 2;
+    assert!(span <= 148, "span {span}");
+    assert!(fitted.iter().all(|w| *w >= 16));
+}
+
+#[test]
+fn test_fit_row_leaves_room_alone_when_it_fits() {
+    assert_eq!(fit_row(&[40, 40], 148, 3, 16), Some(vec![40, 40]));
+}
+
+#[test]
+fn test_fit_row_gives_up_when_the_floor_does_not_fit() {
+    assert_eq!(fit_row(&[40, 40, 40, 40, 40, 40], 60, 3, 16), None);
+}
+
+#[test]
+fn test_bands_group_the_gauges_and_the_status_widgets() {
+    use PanelSlot as S;
+    let bands = bands_of(&[S::Cpu, S::Mem, S::Net, S::PowerAudio, S::Tray, S::Clock]);
+    assert_eq!(bands.len(), 3);
+    assert_eq!(bands[0], vec![S::Cpu, S::Mem, S::Net]);
+    assert_eq!(bands[1], vec![S::PowerAudio, S::Tray]);
+    assert_eq!(bands[2], vec![S::Clock]);
+}
+
+#[test]
+fn test_bands_keep_other_widgets_apart() {
+    use PanelSlot as S;
+    let bands = bands_of(&[S::Workspaces, S::Menu, S::Cpu]);
+    assert_eq!(bands.len(), 3);
+}
+
+#[test]
+fn test_wrapped_rows_are_centred() {
+    let sizes = [(60, 20), (60, 20), (60, 20)];
+    let (spots, _) = flow_rows(&sizes, 130, 4);
+    let offsets = row_offsets(&sizes, &spots, 130, 4);
+    let full_row = offsets[&spots[0].1];
+    let short_row = offsets[&spots[2].1];
+    assert_eq!(full_row, (130 - 124) / 2, "a full row keeps its slack halved");
+    assert!(short_row > full_row, "a lone widget is pushed to the middle");
+    assert_eq!(short_row, (130 - 60) / 2);
+}

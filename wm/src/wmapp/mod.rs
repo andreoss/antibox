@@ -919,6 +919,9 @@ impl App {
             position,
         } = cfg;
         crate::layout_preferences::set_taskbar_position(position);
+        crate::layout_preferences::set_taskbar_width_units(
+            wmconfig::Config::load_prefs().taskbar.width,
+        );
         if position == crate::taskbar::TaskBarPosition::Disabled {
             return (None, 0);
         }

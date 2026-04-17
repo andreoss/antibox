@@ -16,10 +16,11 @@ impl TaskPane {
         g: &dyn GraphicsContext,
         btn: &super::data::TaskButton,
         x: i16,
+        y: i16,
         sunken: bool,
         bold: bool,
     ) {
-        let (_, y, w, h) = btn.rect;
+        let (_, _, w, h) = btn.rect;
         let flash = btn.urgent && URGENT_PHASE.load(Ordering::Relaxed) & 1 != 0;
         let bg = if flash {
             self.colours.urgent_fg

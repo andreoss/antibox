@@ -1,6 +1,11 @@
 use super::data::{TaskButton, TaskSync};
 use super::TaskPane;
 
+pub(crate) fn task_columns(avail: i32, gap: i32) -> usize {
+    let min = TaskPane::min_task_w().max(1);
+    (((avail + gap) / (min + gap)).max(1) as usize).max(1)
+}
+
 impl TaskPane {
     pub(super) fn button_bg(face: antibox_core::colour::Colour, active: bool) -> u32 {
         if !active {
@@ -34,6 +39,10 @@ impl TaskPane {
 
     pub fn set_vertical(&mut self, vertical: bool) {
         self.vertical = vertical;
+    }
+
+    pub(crate) fn min_task_w() -> i32 {
+        antibox_ui::metrics::icon() + antibox_ui::metrics::text_w(6) + antibox_ui::metrics::pad() * 2
     }
 
     pub(super) fn max_button_w() -> i32 {
@@ -75,11 +84,18 @@ impl TaskPane {
         };
         if self.vertical {
             let cell = antibox_ui::metrics::panel_height() as i16;
-            let width = pane_w.saturating_sub(vin as u16 * 2).max(1);
-            let mut y = vin;
-            for btn in &mut self.buttons {
-                btn.rect = (vin, y, width, cell.max(1) as u16);
-                y += cell + gap as i16;
+            let avail = pane_w.saturating_sub(vin as u16 * 2).max(1) as i32;
+            let cols = task_columns(avail, gap);
+            let width = ((avail - gap * (cols as i32 - 1)) / cols as i32).max(1) as u16;
+            let full = cols as i32 * (width as i32 + gap) - gap;
+            for (i, btn) in self.buttons.iter_mut().enumerate() {
+                let (col, row) = (i % cols, i / cols);
+                let in_row = (n - row * cols).min(cols) as i32;
+                let used = in_row * (width as i32 + gap) - gap;
+                let indent = ((full - used).max(0) / 2) as i16;
+                let x = vin + indent + col as i16 * (width as i16 + gap as i16);
+                let y = vin + row as i16 * (cell + gap as i16);
+                btn.rect = (x, y, width, cell.max(1) as u16);
             }
             return;
         }
@@ -252,14 +268,22 @@ impl TaskPane {
         btn.members.first().copied().unwrap_or(btn.window_id)
     }
 
-    pub fn find_by_pos(&self, x: i32) -> Option<u32> {
-        for btn in &self.buttons {
-            let (bx, _, bw, _) = btn.rect;
-            if x >= bx as i32 && x < (bx + bw as i16) as i32 {
-                return Some(self.cycle_target(btn));
-            }
+    pub fn find_by_pos(&self, x: i32, y: i32) -> Option<u32> {
+        let i = self.button_at(x, y)?;
+        Some(self.cycle_target(&self.buttons[i]))
+    }
+
+    pub fn button_at(&self, x: i32, y: i32) -> Option<usize> {
+        if !self.vertical {
+            return self.button_index_at(x);
         }
-        None
+        self.buttons.iter().position(|b| {
+            let (bx, by, bw, bh) = b.rect;
+            x >= i32::from(bx)
+                && x < i32::from(bx) + i32::from(bw)
+                && y >= i32::from(by)
+                && y < i32::from(by) + i32::from(bh)
+        })
     }
 
     pub fn button_index_at(&self, along: i32) -> Option<usize> {
@@ -278,8 +302,7 @@ impl TaskPane {
         }
     }
 
-    pub fn members_at(&self, x: i32) -> Option<Vec<u32>> {
-        self.button_index_at(x)
-            .map(|i| self.buttons[i].members.clone())
+    pub fn members_at(&self, x: i32, y: i32) -> Option<Vec<u32>> {
+        self.button_at(x, y).map(|i| self.buttons[i].members.clone())
     }
 }

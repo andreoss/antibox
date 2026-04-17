@@ -97,6 +97,7 @@ pub struct TaskbarPrefs {
     pub layout: String,
     pub position: String,
     pub preview: bool,
+    pub width: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -217,6 +218,7 @@ impl Default for Prefs {
                 layout: DEFAULT_TASKBAR_LAYOUT.to_string(),
                 position: "bottom".to_string(),
                 preview: true,
+                width: 1,
             },
             omni: OmniPrefs { preview: true },
             expose: ExposePrefs::default(),
@@ -555,6 +557,11 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                 ("taskbar", "preview") => {
                     if let Some(v) = value.as_bool() {
                         p.taskbar.preview = v;
+                    }
+                }
+                ("taskbar", "width") => {
+                    if let Some(v) = value.as_integer() {
+                        p.taskbar.width = v.clamp(1, 8);
                     }
                 }
                 ("winlist", "preview") => {

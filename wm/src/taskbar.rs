@@ -171,6 +171,7 @@ pub struct TaskBar {
     gfx_cache: std::cell::RefCell<std::collections::HashMap<u32, Box<dyn GraphicsContext>>>,
     geom_cache: std::cell::RefCell<std::collections::HashMap<u32, (u16, u16)>>,
     tray_x: std::cell::Cell<i16>,
+    well: std::cell::Cell<Option<(i16, i16, u16, u16)>>,
 }
 
 impl TaskBar {
@@ -211,13 +212,21 @@ impl TaskBar {
             gfx_cache: std::cell::RefCell::new(std::collections::HashMap::new()),
             geom_cache: std::cell::RefCell::new(std::collections::HashMap::new()),
             tray_x: std::cell::Cell::new(-1),
+            well: std::cell::Cell::new(None),
         })
+    }
+
+    pub(crate) fn upright_thickness() -> u16 {
+        let base = antibox_ui::metrics::text_w(14) + antibox_ui::metrics::pad() * 2;
+        let row = antibox_ui::metrics::panel_height();
+        let units = i32::from(crate::layout_preferences::taskbar_width_units());
+        (base + row * (units - 1)).max(1) as u16
     }
 
     pub(crate) fn thickness_for(position: TaskBarPosition) -> u16 {
         match position {
             TaskBarPosition::LeftVertical | TaskBarPosition::RightVertical => {
-                antibox_core::scale::scaled(160) as u16
+                Self::upright_thickness()
             }
             _ => Self::bar_height(),
         }
@@ -439,6 +448,28 @@ impl TaskBar {
         let _ = self.conn.free_pixmap(pm);
     }
 
+    fn note_well(&self, i: usize, x: i16, y: i16, w: u16, h: u16) {
+        let a = self.applets[i].as_ref();
+        if !(PanelSlot::Tray.matches(a)
+            || PanelSlot::Clock.matches(a)
+            || PanelSlot::PowerAudio.matches(a))
+        {
+            return;
+        }
+        let add = (x, y, w, h);
+        let merged = match self.well.get() {
+            None => add,
+            Some((ux, uy, uw, uh)) => {
+                let x0 = ux.min(add.0);
+                let y0 = uy.min(add.1);
+                let x1 = (i32::from(ux) + i32::from(uw)).max(i32::from(add.0) + i32::from(add.2));
+                let y1 = (i32::from(uy) + i32::from(uh)).max(i32::from(add.1) + i32::from(add.3));
+                (x0, y0, (x1 - i32::from(x0)) as u16, (y1 - i32::from(y0)) as u16)
+            }
+        };
+        self.well.set(Some(merged));
+    }
+
     fn draw_background_to(&self, g: &dyn GraphicsContext) {
         antibox_ui::theme::panel_surface(g, self.width, self.height, self.task_bar_colour);
         match self.position {
@@ -455,6 +486,16 @@ impl TaskBar {
             let edge = antibox_ui::theme::panel_edge_height() as i16;
             let ew = antibox_ui::theme::tray_edge_width() as i16;
             antibox_ui::theme::tray_edge(g, tx - ew, edge, self.height.saturating_sub(edge as u16));
+        }
+        if let Some((x, y, w, h)) = self.well.get() {
+            let s = antibox_core::scale::scaled(2).max(2) as i16;
+            antibox_ui::theme::well(
+                g,
+                x - s,
+                y - s,
+                w + s as u16 * 2,
+                h + s as u16 * 2,
+            );
         }
     }
 
@@ -497,7 +538,7 @@ impl TaskBar {
         }
     }
 
-    pub fn group_members_at(&mut self, window: u32, x: i32) -> Option<Vec<u32>> {
+    pub fn group_members_at(&mut self, window: u32, x: i32, y: i32) -> Option<Vec<u32>> {
         for applet in &mut self.applets {
             if applet.window().id() != window {
                 continue;
@@ -505,7 +546,7 @@ impl TaskBar {
             let pane = applet
                 .as_any_mut()
                 .downcast_mut::<crate::taskpane::TaskPane>()?;
-            let members = pane.members_at(x)?;
+            let members = pane.members_at(x, y)?;
             if members.len() > 1 {
                 return Some(members);
             }
@@ -989,8 +1030,8 @@ const DEFAULT_RIGHT: [PanelSlot; 7] = [
     PanelSlot::Cpu,
     PanelSlot::Mem,
     PanelSlot::Net,
-    PanelSlot::PowerAudio,
     PanelSlot::Keyboard,
+    PanelSlot::PowerAudio,
     PanelSlot::Tray,
     PanelSlot::Clock,
 ];
@@ -1088,8 +1129,88 @@ pub fn flow_rows(sizes: &[(i16, i16)], avail: i16, gap: i16) -> (Vec<(i16, i16)>
     (spots, y + row_h)
 }
 
+type Placed = (usize, i16, i16);
+type Band = Vec<Placed>;
+
+pub fn row_offsets(
+    sizes: &[(i16, i16)],
+    spots: &[(i16, i16)],
+    avail: i16,
+    gap: i16,
+) -> std::collections::HashMap<i16, i16> {
+    let mut width: std::collections::HashMap<i16, i16> = std::collections::HashMap::new();
+    for ((w, _), (x, y)) in sizes.iter().zip(spots) {
+        let end = x + w.clamp(&1, &avail);
+        let slot = width.entry(*y).or_insert(0);
+        *slot = (*slot).max(end);
+    }
+    let _ = gap;
+    width
+        .into_iter()
+        .map(|(y, used)| (y, (avail - used).max(0) / 2))
+        .collect()
+}
+
+pub fn fit_row(widths: &[i16], avail: i16, gap: i16, floor: i16) -> Option<Vec<i16>> {
+    if widths.is_empty() {
+        return Some(Vec::new());
+    }
+    let n = widths.len() as i16;
+    let room = avail - gap * (n - 1);
+    if room < floor * n {
+        return None;
+    }
+    let want: i32 = widths.iter().map(|w| i32::from(*w).max(1)).sum();
+    if want <= i32::from(room) {
+        return Some(widths.iter().map(|w| (*w).max(1)).collect());
+    }
+    let mut out: Vec<i16> = widths
+        .iter()
+        .map(|w| {
+            let scaled = i32::from(*w).max(1) * i32::from(room) / want;
+            (scaled as i16).max(floor)
+        })
+        .collect();
+    let mut over: i32 = out.iter().map(|w| i32::from(*w)).sum::<i32>() - i32::from(room);
+    while over > 0 {
+        let Some(i) = out
+            .iter()
+            .enumerate()
+            .filter(|(_, w)| **w > floor)
+            .max_by_key(|(_, w)| **w)
+            .map(|(i, _)| i)
+        else {
+            break;
+        };
+        out[i] -= 1;
+        over -= 1;
+    }
+    Some(out)
+}
+
+const fn band_of(slot: PanelSlot) -> u8 {
+    match slot {
+        PanelSlot::Cpu | PanelSlot::Mem | PanelSlot::Net => 1,
+        PanelSlot::PowerAudio | PanelSlot::Keyboard | PanelSlot::Tray => 2,
+        PanelSlot::Clock => 3,
+        _ => 0,
+    }
+}
+
+fn bands_of(slots: &[PanelSlot]) -> Vec<Vec<PanelSlot>> {
+    let mut bands: Vec<Vec<PanelSlot>> = Vec::new();
+    for slot in slots {
+        let band = band_of(*slot);
+        match bands.last_mut() {
+            Some(last) if band != 0 && band_of(last[0]) == band => last.push(*slot),
+            _ => bands.push(vec![*slot]),
+        }
+    }
+    bands
+}
+
 impl TaskBar {
-    fn upright_group(&mut self, slots: &[PanelSlot], avail: i16) -> Vec<(usize, i16, i16)> {
+    fn upright_group(&mut self, slots: &[PanelSlot], avail: i16) -> Vec<Placed> {
         let mut group = Vec::new();
         for slot in slots {
             let Some(i) = self.applets.iter().position(|a| slot.matches(a.as_ref())) else {
@@ -1100,6 +1221,9 @@ impl TaskBar {
                 .downcast_mut::<WorkspacesPane>()
             {
                 p.set_wrap_width(Some(avail.max(1) as u16));
+            }
+            if let Some(c) = self.applets[i].as_any_mut().downcast_mut::<ClockApplet>() {
+                c.set_wrap_width(Some(avail.max(1) as u16));
             }
             let w = self.applets[i].preferred_width() as i16;
             if w <= 0 {
@@ -1113,14 +1237,56 @@ impl TaskBar {
         group
     }
 
-    fn place_upright_group(&mut self, group: &[(usize, i16, i16)], left: i16, top: i16, avail: i16, gap: i16) -> i16 {
-        let sizes: Vec<(i16, i16)> = group.iter().map(|(_, w, h)| (*w, *h)).collect();
+    fn place_upright_band(
+        &mut self,
+        band: &[Placed],
+        left: i16,
+        top: i16,
+        avail: i16,
+        gap: i16,
+    ) -> i16 {
+        let widths: Vec<i16> = band.iter().map(|(_, w, _)| *w).collect();
+        let floor = antibox_ui::metrics::icon() as i16;
+        if let Some(fitted) = fit_row(&widths, avail, gap, floor) {
+            let span: i16 = fitted.iter().sum::<i16>() + gap * (band.len() as i16 - 1).max(0);
+            let mut x = left + (avail - span).max(0) / 2;
+            let mut height = 0i16;
+            for ((i, _, h), w) in band.iter().zip(fitted) {
+                self.place_applet(*i, x, top, w as u16, *h as u16);
+                self.note_well(*i, x, top, w as u16, *h as u16);
+                let _ = self.applets[*i].window().map();
+                x += w + gap;
+                height = height.max(*h);
+            }
+            return height;
+        }
+        let sizes: Vec<(i16, i16)> = band.iter().map(|(_, w, h)| (*w, *h)).collect();
         let (spots, height) = flow_rows(&sizes, avail, gap);
-        for ((i, w, h), (dx, dy)) in group.iter().zip(spots) {
-            self.place_applet(*i, left + dx, top + dy, *w as u16, *h as u16);
+        let rows = row_offsets(&sizes, &spots, avail, gap);
+        for ((i, w, h), (dx, dy)) in band.iter().zip(spots) {
+            let centre = rows.get(&dy).copied().unwrap_or(0);
+            self.place_applet(*i, left + centre + dx, top + dy, *w as u16, *h as u16);
+            self.note_well(*i, left + centre + dx, top + dy, *w as u16, *h as u16);
             let _ = self.applets[*i].window().map();
         }
         height
+    }
+
+    fn upright_bands(&mut self, slots: &[PanelSlot], avail: i16) -> Vec<Band> {
+        bands_of(slots)
+            .into_iter()
+            .map(|band| self.upright_group(&band, avail))
+            .filter(|band| !band.is_empty())
+            .collect()
+    }
+
+    fn band_stack_height(bands: &[Band], gap: i16) -> i16 {
+        let mut total = 0i16;
+        for band in bands {
+            let tall = band.iter().map(|(_, _, h)| *h).max().unwrap_or(0);
+            total += tall + gap;
+        }
+        (total - gap).max(0)
     }
 
     fn relayout_upright(&mut self) {
@@ -1132,19 +1298,27 @@ impl TaskBar {
         let (top_slots, bottom_slots) =
             effective_slots(crate::layout_preferences::taskbar_layout());
 
-        let top = self.upright_group(&top_slots, avail);
-        let top_y = edge + margin;
-        let top_h = self.place_upright_group(&top, left, top_y, avail, gap);
+        let top_bands = self.upright_bands(&top_slots, avail);
+        let top_start = edge + margin;
+        let mut y = top_start;
+        for band in &top_bands {
+            let h = self.place_upright_band(band, left, y, avail, gap);
+            y += h + gap;
+        }
+        let top_end = (y - gap).max(top_start);
 
-        let bottom = self.upright_group(&bottom_slots, avail);
-        let sizes: Vec<(i16, i16)> = bottom.iter().map(|(_, w, h)| (*w, *h)).collect();
-        let (_, bottom_h) = flow_rows(&sizes, avail, gap);
-        let bottom_y = (self.height as i16 - margin - bottom_h).max(top_y + top_h + gap);
-        self.place_upright_group(&bottom, left, bottom_y, avail, gap);
+        let bottom_bands = self.upright_bands(&bottom_slots, avail);
+        let stack = Self::band_stack_height(&bottom_bands, gap);
+        let mut by = (self.height as i16 - margin - stack).max(top_end + gap);
+        let bottom_start = by;
+        for band in &bottom_bands {
+            let h = self.place_upright_band(band, left, by, avail, gap);
+            by += h + gap;
+        }
 
         if let Some(i) = self.applets.iter().position(|a| PanelSlot::Task.matches(a.as_ref())) {
-            let task_y = top_y + top_h + if top_h > 0 { gap } else { 0 };
-            let task_h = (bottom_y - gap - task_y).max(upright_cell());
+            let task_y = top_end + gap;
+            let task_h = (bottom_start - gap - task_y).max(upright_cell());
             self.place_applet(i, left, task_y, avail as u16, task_h as u16);
             let _ = self.applets[i].window().map();
         }
@@ -1173,6 +1347,7 @@ impl TaskBar {
 
 impl AppletContainer for TaskBar {
     fn relayout(&mut self) {
+        self.well.set(None);
         if matches!(
             self.position,
             TaskBarPosition::LeftVertical | TaskBarPosition::RightVertical
@@ -1236,6 +1411,7 @@ impl AppletContainer for TaskBar {
                     continue;
                 }
                 self.place_applet(i, rx, inset_y, w, inset_h);
+                self.note_well(i, rx, inset_y, w, inset_h);
                 self.geom_cache
                     .borrow_mut()
                     .insert(self.applets[i].window().id(), (w, inset_h));

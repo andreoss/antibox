@@ -87,10 +87,17 @@ impl Applet for TaskPane {
             if Some(i) == float_idx {
                 continue;
             }
-            self.draw_button(g, btn, btn.rect.0, btn.active, btn.active);
+            self.draw_button(g, btn, btn.rect.0, btn.rect.1, btn.active, btn.active);
         }
         if let Some(d) = floating {
-            self.draw_button(g, &self.buttons[d.index], self.float_x(d), false, true);
+            self.draw_button(
+                g,
+                &self.buttons[d.index],
+                self.float_x(d),
+                self.float_y(d),
+                false,
+                true,
+            );
         }
     }
     fn preferred_width(&self) -> u32 {
@@ -105,21 +112,25 @@ impl Applet for TaskPane {
             return None;
         }
         if button == 1 {
-            if let Some(i) = self.button_index_at(self.along(x, _y)) {
-                let (bx, _, bw, _) = self.buttons[i].rect;
+            if let Some(i) = self.button_at(x, _y) {
+                let (bx, by, bw, bh) = self.buttons[i].rect;
                 self.drag = Some(Drag {
                     index: i,
                     start_x: x,
+                    start_y: _y,
                     grab_dx: x - bx as i32,
+                    grab_dy: _y - by as i32,
                     cur_x: x,
+                    cur_y: _y,
                     bw,
+                    bh,
                     window_id: self.buttons[i].window_id,
                     moved: false,
                 });
             }
             return None;
         }
-        self.find_by_pos(x)
+        self.find_by_pos(x, _y)
     }
     fn handle_release(&mut self, _x: i32, _y: i32, button: u8) -> Option<u32> {
         if button != 1 {
@@ -138,10 +149,10 @@ impl Applet for TaskPane {
     fn handle_motion(&mut self, x: i32, _y: i32) {
         if self.drag.is_some() {
             self.preview.hide(self.conn.as_ref());
-            self.drag_motion(x);
+            self.drag_motion(x, _y);
             return;
         }
-        let idx = self.button_index_at(self.along(x, _y));
+        let idx = self.button_at(x, _y);
         if idx == self.hovered {
             return;
         }

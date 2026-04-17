@@ -76,7 +76,14 @@
         assert!(cols * pane.rows() as usize >= 9);
         let first_row_y = pane.buttons[0].rect.1;
         assert!(pane.buttons[cols].rect.1 > first_row_y, "the next row sits lower");
-        assert_eq!(pane.buttons[cols].rect.0, pane.buttons[0].rect.0, "rows start at the same x");
+        assert_eq!(pane.buttons[0].rect.0, 0, "a full row starts at the left");
+        let last = pane.buttons.last().expect("cells exist");
+        let right = pane.total_width as i16 - (last.rect.0 + last.rect.2 as i16);
+        assert_eq!(
+            pane.buttons[cols].rect.0, right,
+            "a short row is centred, not left-aligned"
+        );
+        assert!(pane.buttons[cols].rect.0 > 0);
     }
 
     #[test]

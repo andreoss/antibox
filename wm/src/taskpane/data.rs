@@ -21,9 +21,13 @@ pub(crate) struct TaskButton {
 pub(super) struct Drag {
     pub(super) index: usize,
     pub(super) start_x: i32,
+    pub(super) start_y: i32,
     pub(super) grab_dx: i32,
+    pub(super) grab_dy: i32,
     pub(super) cur_x: i32,
+    pub(super) cur_y: i32,
     pub(super) bw: u16,
+    pub(super) bh: u16,
     pub(super) window_id: u32,
     pub(super) moved: bool,
 }

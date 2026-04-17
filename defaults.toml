@@ -44,6 +44,7 @@ position = "top"
 [taskbar]
 layout = "pager tasks cpu mem net power mpris keyboard tray clock"
 position = "bottom"
+width = 1
 preview = true
 
 [omni]

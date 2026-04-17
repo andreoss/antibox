@@ -187,7 +187,10 @@ impl App {
         crate::layout_preferences::set_pager_hover_preview(prefs.pager.preview);
         let position = crate::taskbar::TaskBarPosition::parse(&prefs.taskbar.position)
             .unwrap_or(crate::taskbar::TaskBarPosition::Bottom);
-        if position != crate::layout_preferences::taskbar_position() {
+        let width_changed = position.is_upright()
+            && prefs.taskbar.width.clamp(1, 8) as u16
+                != crate::layout_preferences::taskbar_width_units();
+        if position != crate::layout_preferences::taskbar_position() || width_changed {
             self.move_taskbar(position, prefs.clock.format.clone());
         }
         self.sync_taskbar_layout(&prefs);
@@ -534,10 +537,16 @@ impl App {
                     return;
                 }
                 if button == 3 {
+                    let at = self
+                        .taskbar
+                        .as_ref()
+                        .map_or((point.x, point.y), |tb| {
+                            tb.applet_point(window, point.x, point.y)
+                        });
                     if let Some(members) = self
                         .taskbar
                         .as_mut()
-                        .and_then(|tb| tb.group_members_at(window, point.x))
+                        .and_then(|tb| tb.group_members_at(window, at.0, at.1))
                     {
                         self.show_group_menu(&members);
                         return;

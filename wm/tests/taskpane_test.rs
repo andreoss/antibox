@@ -14,8 +14,8 @@ fn make_taskpane() -> TaskPane {
 fn test_add_button() {
     let mut tp = make_taskpane();
     tp.add_button(42, "Test Window");
-    assert_eq!(tp.find_by_pos(10), Some(42));
-    assert_eq!(tp.find_by_pos(200), None);
+    assert_eq!(tp.find_by_pos(10, 8), Some(42));
+    assert_eq!(tp.find_by_pos(200, 8), None);
 }
 
 #[test]
@@ -23,7 +23,7 @@ fn test_add_multiple_buttons() {
     let mut tp = make_taskpane();
     tp.add_button(1, "First");
     tp.add_button(2, "Second");
-    assert_eq!(tp.find_by_pos(10), Some(1));
-    assert_eq!(tp.find_by_pos(130), Some(2));
+    assert_eq!(tp.find_by_pos(10, 8), Some(1));
+    assert_eq!(tp.find_by_pos(130, 8), Some(2));
 }
 

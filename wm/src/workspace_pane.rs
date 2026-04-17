@@ -201,10 +201,14 @@ impl WorkspacesPane {
         let cell_w = (cell_h as i32 * sw / sh).clamp(cw_min, cw_max) as u16;
         let gap = antibox_ui::metrics::gap() as i16;
         let cols = grid_columns(self.wrap, cell_w, gap as u16, names.len());
+        let full = cols as i16 * (cell_w as i16 + gap) - gap;
         let mut buttons = Vec::new();
         for (i, name) in names.iter().enumerate() {
             let (col, row) = (i % cols, i / cols);
-            let x = col as i16 * (cell_w as i16 + gap);
+            let in_row = (names.len() - row * cols).min(cols) as i16;
+            let used = in_row * (cell_w as i16 + gap) - gap;
+            let indent = (full - used).max(0) / 2;
+            let x = indent + col as i16 * (cell_w as i16 + gap);
             let y = top + row as i16 * (cell_h + gap);
             buttons.push(WorkspaceButton {
                 label: name.clone(),
@@ -214,8 +218,7 @@ impl WorkspacesPane {
                 minis: Vec::new(),
             });
         }
-        let used = names.len().min(cols) as i16;
-        self.total_width = (used * (cell_w as i16 + gap) - gap).max(1) as u32;
+        self.total_width = full.max(1) as u32;
         self.rows = names.len().div_ceil(cols).max(1) as u16;
         self.buttons = buttons;
         let h = self.preferred_height() as u16;
