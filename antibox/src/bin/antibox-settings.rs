@@ -201,6 +201,14 @@ fn fields(p: &wmconfig::Prefs) -> Vec<Field> {
         ),
         f(
             "taskbar",
+            "width",
+            "Taskbar width",
+            Kind::Int,
+            p.taskbar.width.to_string(),
+            false,
+        ),
+        f(
+            "taskbar",
             "preview",
             "Taskbar previews",
             Kind::Bool,

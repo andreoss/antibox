@@ -20,7 +20,7 @@ static PAGER_PREVIEW: AtomicBool = AtomicBool::new(true);
 static TASKBAR_PREVIEW: AtomicBool = AtomicBool::new(true);
 static OMNI_PREVIEW: AtomicBool = AtomicBool::new(true);
 static TASKBAR_POSITION: AtomicU8 = AtomicU8::new(1);
-static TASKBAR_WIDTH_UNITS: AtomicU8 = AtomicU8::new(1);
+static TASKBAR_WIDTH_PX: antibox_core::sync::atomic::AtomicU16 = antibox_core::sync::atomic::AtomicU16::new(0);
 static PAGER_HOVER: AtomicBool = AtomicBool::new(true);
 static WINLIST_PREVIEW: AtomicBool = AtomicBool::new(true);
 static MINIMIZE_ANIMATION: AtomicBool = AtomicBool::new(false);
@@ -203,12 +203,12 @@ pub fn taskbar_upright() -> bool {
     taskbar_position().is_upright()
 }
 
-pub fn set_taskbar_width_units(units: i64) {
-    TASKBAR_WIDTH_UNITS.store(units.clamp(1, 8) as u8, Ordering::Relaxed);
+pub fn set_taskbar_width_px(px: i64) {
+    TASKBAR_WIDTH_PX.store(px.clamp(0, 1000) as u16, Ordering::Relaxed);
 }
 
-pub fn taskbar_width_units() -> u16 {
-    u16::from(TASKBAR_WIDTH_UNITS.load(Ordering::Relaxed).max(1))
+pub fn taskbar_width_px() -> u16 {
+    TASKBAR_WIDTH_PX.load(Ordering::Relaxed)
 }
 
 pub fn set_taskbar_preview(v: bool) {

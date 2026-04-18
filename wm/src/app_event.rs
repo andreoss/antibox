@@ -188,8 +188,8 @@ impl App {
         let position = crate::taskbar::TaskBarPosition::parse(&prefs.taskbar.position)
             .unwrap_or(crate::taskbar::TaskBarPosition::Bottom);
         let width_changed = position.is_upright()
-            && prefs.taskbar.width.clamp(1, 8) as u16
-                != crate::layout_preferences::taskbar_width_units();
+            && prefs.taskbar.width.clamp(0, 1000) as u16
+                != crate::layout_preferences::taskbar_width_px();
         if position != crate::layout_preferences::taskbar_position() || width_changed {
             self.move_taskbar(position, prefs.clock.format.clone());
         }

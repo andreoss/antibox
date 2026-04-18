@@ -216,11 +216,16 @@ impl TaskBar {
         })
     }
 
+    pub(crate) fn upright_min_thickness() -> u16 {
+        (antibox_ui::metrics::text_w(14) + antibox_ui::metrics::pad() * 2).max(1) as u16
+    }
+
     pub(crate) fn upright_thickness() -> u16 {
-        let base = antibox_ui::metrics::text_w(14) + antibox_ui::metrics::pad() * 2;
-        let row = antibox_ui::metrics::panel_height();
-        let units = i32::from(crate::layout_preferences::taskbar_width_units());
-        (base + row * (units - 1)).max(1) as u16
+        let min = Self::upright_min_thickness();
+        let want =
+            antibox_core::scale::scaled(i32::from(crate::layout_preferences::taskbar_width_px()))
+                as u16;
+        want.max(min)
     }
 
     pub(crate) fn thickness_for(position: TaskBarPosition) -> u16 {
@@ -450,10 +455,7 @@ impl TaskBar {
 
     fn note_well(&self, i: usize, x: i16, y: i16, w: u16, h: u16) {
         let a = self.applets[i].as_ref();
-        if !(PanelSlot::Tray.matches(a)
-            || PanelSlot::Clock.matches(a)
-            || PanelSlot::PowerAudio.matches(a))
-        {
+        if !(PanelSlot::Tray.matches(a) || PanelSlot::Clock.matches(a)) {
             return;
         }
         let add = (x, y, w, h);
@@ -1191,8 +1193,9 @@ pub fn fit_row(widths: &[i16], avail: i16, gap: i16, floor: i16) -> Option<Vec<i
 const fn band_of(slot: PanelSlot) -> u8 {
     match slot {
         PanelSlot::Cpu | PanelSlot::Mem | PanelSlot::Net => 1,
-        PanelSlot::PowerAudio | PanelSlot::Keyboard | PanelSlot::Tray => 2,
-        PanelSlot::Clock => 3,
+        PanelSlot::PowerAudio | PanelSlot::Keyboard => 2,
+        PanelSlot::Tray => 3,
+        PanelSlot::Clock => 4,
         _ => 0,
     }
 }
@@ -1291,7 +1294,7 @@ impl TaskBar {
 
     fn relayout_upright(&mut self) {
         let edge = antibox_ui::theme::panel_edge_height() as i16;
-        let gap = antibox_ui::metrics::gap() as i16;
+        let gap = (antibox_ui::metrics::gap() + antibox_core::scale::scaled(2)) as i16;
         let margin = antibox_ui::metrics::pad() as i16;
         let left = margin;
         let avail = (self.width as i16 - margin * 2).max(1);

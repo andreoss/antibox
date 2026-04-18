@@ -81,11 +81,17 @@ fn cell_at(buttons: &[WorkspaceButton], x: i32, y: i32, rows: u16) -> Option<usi
     })
 }
 
+fn row_gap() -> i16 {
+    (antibox_ui::metrics::gap() + antibox_core::scale::scaled(2)) as i16
+}
+
 fn grid_columns(wrap: Option<u16>, cell_w: u16, gap: u16, count: usize) -> usize {
-    let Some(avail) = wrap else { return count.max(1) };
+    let count = count.max(1);
+    let Some(avail) = wrap else { return count };
     let step = i32::from(cell_w) + i32::from(gap);
-    let fits = ((i32::from(avail) + i32::from(gap)) / step.max(1)).max(1) as usize;
-    fits.min(count.max(1))
+    let fits = (((i32::from(avail) + i32::from(gap)) / step.max(1)).max(1) as usize).min(count);
+    let rows = count.div_ceil(fits);
+    count.div_ceil(rows)
 }
 
 pub struct WorkspacesPane {
@@ -209,7 +215,7 @@ impl WorkspacesPane {
             let used = in_row * (cell_w as i16 + gap) - gap;
             let indent = (full - used).max(0) / 2;
             let x = indent + col as i16 * (cell_w as i16 + gap);
-            let y = top + row as i16 * (cell_h + gap);
+            let y = top + row as i16 * (cell_h + row_gap());
             buttons.push(WorkspaceButton {
                 label: name.clone(),
                 active: i as u32 == self.active_workspace,
@@ -404,7 +410,7 @@ impl Applet for WorkspacesPane {
             return base;
         }
         let cell_h = antibox_ui::metrics::button_height() as u32;
-        let gap = antibox_ui::metrics::gap() as u32;
+        let gap = row_gap() as u32;
         let inset = antibox_ui::metrics::button_inset() as u32;
         u32::from(self.rows) * (cell_h + gap) - gap + inset * 2
     }

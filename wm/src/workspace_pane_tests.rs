@@ -56,11 +56,13 @@
     }
 
     #[test]
-    fn test_columns_fit_the_wrap_width() {
+    fn test_columns_fit_the_wrap_width_and_balance() {
         assert_eq!(grid_columns(None, 26, 3, 9), 9);
         assert_eq!(grid_columns(Some(148), 26, 3, 9), 5);
         assert_eq!(grid_columns(Some(148), 26, 3, 3), 3);
         assert_eq!(grid_columns(Some(10), 26, 3, 9), 1);
+        assert_eq!(grid_columns(Some(90), 26, 3, 4), 2, "four desktops split evenly");
+        assert_eq!(grid_columns(Some(148), 26, 3, 7), 4, "seven desktops become 4+3");
     }
 
     #[test]

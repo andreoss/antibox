@@ -586,6 +586,8 @@ pub fn update_workarea_from_struts<H: DisplayBackend + 'static + ?Sized>(
     wm.workareas = workareas;
     if workarea_changed {
         crate::wmaction::refit_maximized(wm);
+        let ws = wm.active_workspace();
+        wm.layout_for(ws).arrange(wm, ws);
     }
 
     let single_struts: Vec<Strut> = struts.iter().map(|(s, _)| *s).collect();

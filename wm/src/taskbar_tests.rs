@@ -258,13 +258,14 @@ fn test_fit_row_gives_up_when_the_floor_does_not_fit() {
 }
 
 #[test]
-fn test_bands_group_the_gauges_and_the_status_widgets() {
+fn test_bands_keep_the_tray_and_clock_on_their_own_lines() {
     use PanelSlot as S;
-    let bands = bands_of(&[S::Cpu, S::Mem, S::Net, S::PowerAudio, S::Tray, S::Clock]);
-    assert_eq!(bands.len(), 3);
+    let bands = bands_of(&[S::Cpu, S::Mem, S::Net, S::PowerAudio, S::Keyboard, S::Tray, S::Clock]);
+    assert_eq!(bands.len(), 4);
     assert_eq!(bands[0], vec![S::Cpu, S::Mem, S::Net]);
-    assert_eq!(bands[1], vec![S::PowerAudio, S::Tray]);
-    assert_eq!(bands[2], vec![S::Clock]);
+    assert_eq!(bands[1], vec![S::PowerAudio, S::Keyboard]);
+    assert_eq!(bands[2], vec![S::Tray], "the tray owns its line");
+    assert_eq!(bands[3], vec![S::Clock], "the clock owns its line");
 }
 
 #[test]
@@ -284,4 +285,18 @@ fn test_wrapped_rows_are_centred() {
     assert_eq!(full_row, (130 - 124) / 2, "a full row keeps its slack halved");
     assert!(short_row > full_row, "a lone widget is pushed to the middle");
     assert_eq!(short_row, (130 - 60) / 2);
+}
+
+#[test]
+fn test_the_upright_width_never_drops_below_the_minimum() {
+    let min = TaskBar::upright_min_thickness();
+    assert!(min > 0);
+    crate::layout_preferences::set_taskbar_width_px(0);
+    assert_eq!(TaskBar::upright_thickness(), min, "no width set means the minimum");
+    crate::layout_preferences::set_taskbar_width_px(10);
+    assert_eq!(TaskBar::upright_thickness(), min, "a tiny width is forced up");
+    let wide = i64::from(min) * 2;
+    crate::layout_preferences::set_taskbar_width_px(wide);
+    assert!(TaskBar::upright_thickness() >= min * 2, "a real width is honoured");
+    crate::layout_preferences::set_taskbar_width_px(0);
 }
