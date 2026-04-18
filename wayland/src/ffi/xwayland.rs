@@ -154,3 +154,39 @@ pub struct wlr_xwayland_surface_configure_event {
     pub height: u16,
     pub mask: u16,
 }
+
+#[repr(C)]
+pub struct wlr_xcursor_image {
+    pub width: u32,
+    pub height: u32,
+    pub hotspot_x: u32,
+    pub hotspot_y: u32,
+    pub delay: u32,
+    pub buffer: *mut u8,
+}
+
+#[repr(C)]
+pub struct wlr_xcursor {
+    pub image_count: std::os::raw::c_uint,
+    pub images: *mut *mut wlr_xcursor_image,
+    pub name: *mut c_char,
+    pub total_delay: u32,
+}
+
+#[link(name = "wlroots-0.19")]
+extern "C" {
+    pub fn wlr_xwayland_set_cursor(
+        xwayland: *mut wlr_xwayland,
+        pixels: *mut u8,
+        stride: u32,
+        width: u32,
+        height: u32,
+        hotspot_x: i32,
+        hotspot_y: i32,
+    );
+    pub fn wlr_xcursor_manager_get_xcursor(
+        manager: *mut crate::ffi::wlr::wlr_xcursor_manager,
+        name: *const c_char,
+        scale: f32,
+    ) -> *mut wlr_xcursor;
+}

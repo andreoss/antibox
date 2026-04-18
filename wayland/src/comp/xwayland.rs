@@ -40,6 +40,33 @@ impl Server {
         if let Some(name) = cstr_to_string((*self.xwayland).display_name) {
             std::env::set_var("DISPLAY", name);
         }
+        self.give_xwayland_a_cursor();
+    }
+
+    unsafe fn give_xwayland_a_cursor(&mut self) {
+        if self.cursor_mgr.is_null() {
+            return;
+        }
+        let Ok(name) = std::ffi::CString::new("default") else {
+            return;
+        };
+        let xcursor = wlr_xcursor_manager_get_xcursor(self.cursor_mgr, name.as_ptr(), 1.0);
+        if xcursor.is_null() || (*xcursor).image_count == 0 {
+            return;
+        }
+        let image = *(*xcursor).images;
+        if image.is_null() || (*image).buffer.is_null() {
+            return;
+        }
+        wlr_xwayland_set_cursor(
+            self.xwayland,
+            (*image).buffer,
+            (*image).width * 4,
+            (*image).width,
+            (*image).height,
+            (*image).hotspot_x as i32,
+            (*image).hotspot_y as i32,
+        );
     }
 
     pub(crate) unsafe fn on_xwayland_new_surface(

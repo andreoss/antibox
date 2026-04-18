@@ -21,6 +21,11 @@ use std::ffi::CString;
 use std::sync::Arc;
 
 pub fn build_nested() -> Result<(Arc<WaylandCompositor>, Box<dyn EventLoopTrait>)> {
+    let hosted = std::env::var_os("DISPLAY").is_some()
+        || std::env::var_os("WAYLAND_DISPLAY").is_some();
+    if hosted && std::env::var_os("WLR_NO_HARDWARE_CURSORS").is_none() {
+        std::env::set_var("WLR_NO_HARDWARE_CURSORS", "1");
+    }
     unsafe { build() }
 }
 
