@@ -240,7 +240,6 @@ impl Applet for PowerAudioApplet {
     fn paint(&self, g: &dyn GraphicsContext) {
         let _ = g.set_foreground(self.bg);
         let _ = g.fill_rect(0, 0, self.w, self.h);
-        theme::well(g, 0, 0, self.w, self.h);
         let _ = g.set_background(self.bg);
         let slot = Self::slot_w(self.h);
         for (seg, x, _) in self.segments() {

@@ -179,7 +179,6 @@ impl Applet for ClockApplet {
         let (w, h) = (self.w, self.h);
         let _ = g.set_foreground(self.face);
         let _ = g.fill_rect(0, 0, w, h);
-        antibox_ui::theme::well(g, 0, 0, w, h);
         let _ = g.set_background(self.face);
         let _ = g.set_font(&FontSpec::role(
             FontRole::Clock,

@@ -81,7 +81,7 @@ impl TrayApplet {
             composite_available,
             hovered: None,
             tooltip: None,
-            draw_bevel: true,
+            draw_bevel: false,
             bg: antibox_ui::theme::tray_face(),
             height: 28,
         };

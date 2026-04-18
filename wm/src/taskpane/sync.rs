@@ -1,11 +1,6 @@
 use super::data::{TaskButton, TaskSync};
 use super::TaskPane;
 
-pub(crate) fn task_columns(avail: i32, gap: i32) -> usize {
-    let min = TaskPane::min_task_w().max(1);
-    (((avail + gap) / (min + gap)).max(1) as usize).max(1)
-}
-
 impl TaskPane {
     pub(super) fn button_bg(face: antibox_core::colour::Colour, active: bool) -> u32 {
         if !active {
@@ -42,13 +37,29 @@ impl TaskPane {
     }
 
     pub(crate) fn min_task_w() -> i32 {
-        antibox_ui::metrics::icon() + antibox_ui::metrics::text_w(6) + antibox_ui::metrics::pad() * 2
+        antibox_ui::metrics::text_w(6) + antibox_ui::metrics::pad() * 2
     }
 
     pub(super) fn max_button_w() -> i32 {
         antibox_ui::metrics::text_w(antibox_ui::theme::taskbar_item_chars() as usize)
             + antibox_ui::metrics::pad() * 2
             + antibox_ui::metrics::gap() * 2
+    }
+
+    pub(crate) fn spread_widths(avail: i32, n: i32, gap: i32, min_w: i32, max_w: i32) -> Vec<i32> {
+        let per = (avail - gap * (n - 1)) / n.max(1);
+        if per >= max_w {
+            return vec![max_w; n as usize];
+        }
+        if per < min_w {
+            return vec![(max_w + 1) / 2; n as usize];
+        }
+        let mut out = vec![per; n as usize];
+        let extra = avail - gap * (n - 1) - per * n;
+        for w in out.iter_mut().take(extra.max(0) as usize) {
+            *w += 1;
+        }
+        out
     }
 
     pub fn layout_buttons(&mut self, pane_w: u16, pane_h: u16) {
@@ -59,19 +70,29 @@ impl TaskPane {
         let vin = antibox_ui::metrics::button_inset() as i16;
         let btn_h = (pane_h.saturating_sub(vin as u16 * 2)).max(1);
         let gap = antibox_ui::metrics::item_gap();
-        let min_w = antibox_ui::metrics::panel_height();
+        if self.vertical {
+            let cell = antibox_ui::metrics::panel_height() as i16;
+            let width = pane_w.saturating_sub(vin as u16 * 2).max(1);
+            let mut y = vin;
+            for btn in &mut self.buttons {
+                btn.rect = (vin, y, width, cell.max(1) as u16);
+                y += cell + gap as i16;
+            }
+            return;
+        }
+        let min_w = Self::min_task_w().max(antibox_ui::metrics::panel_height());
         let max_w = match antibox_ui::theme::taskbar_item_pct() {
             0 => Self::max_button_w(),
             pct => (pane_w as i32 * pct as i32 / 100).max(min_w),
         };
         let ni = n as i32;
         let fill = crate::layout_preferences::taskbar_fill();
-        let btn_w = if fill {
-            ((pane_w as i32 - gap * (ni - 1)) / ni).max(min_w)
+        let widths = if fill {
+            Self::spread_widths(pane_w as i32, ni, gap, 1, i32::from(pane_w))
         } else {
-            ((pane_w as i32 - gap.max(0) * (ni - 1)) / ni).clamp(min_w, max_w)
+            Self::spread_widths(pane_w as i32, ni, gap, min_w, max_w)
         };
-        let span = btn_w * ni + gap * (ni - 1);
+        let span: i32 = widths.iter().sum::<i32>() + gap * (ni - 1);
         let leftover = (pane_w as i32 - span).max(0);
         let start = if fill {
             0
@@ -82,28 +103,10 @@ impl TaskPane {
                 antibox_ui::widget::LabelAlign::Left => 0,
             }
         };
-        if self.vertical {
-            let cell = antibox_ui::metrics::panel_height() as i16;
-            let avail = pane_w.saturating_sub(vin as u16 * 2).max(1) as i32;
-            let cols = task_columns(avail, gap);
-            let width = ((avail - gap * (cols as i32 - 1)) / cols as i32).max(1) as u16;
-            let full = cols as i32 * (width as i32 + gap) - gap;
-            for (i, btn) in self.buttons.iter_mut().enumerate() {
-                let (col, row) = (i % cols, i / cols);
-                let in_row = (n - row * cols).min(cols) as i32;
-                let used = in_row * (width as i32 + gap) - gap;
-                let indent = ((full - used).max(0) / 2) as i16;
-                let x = vin + indent + col as i16 * (width as i16 + gap as i16);
-                let y = vin + row as i16 * (cell + gap as i16);
-                btn.rect = (x, y, width, cell.max(1) as u16);
-            }
-            return;
-        }
-        let btn_w = btn_w as u16;
         let mut x = start as i16;
-        for btn in &mut self.buttons {
-            btn.rect = (x, vin, btn_w, btn_h);
-            x += btn_w as i16 + gap as i16;
+        for (btn, w) in self.buttons.iter_mut().zip(widths) {
+            btn.rect = (x, vin, w.max(1) as u16, btn_h);
+            x += w as i16 + gap as i16;
         }
     }
 
