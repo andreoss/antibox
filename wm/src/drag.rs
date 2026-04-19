@@ -650,7 +650,7 @@ pub fn motion_notify<H: DisplayBackend + 'static + ?Sized>(
     }
     if edge == ResizeEdge::None {
         let mon = crate::snap::monitor_at(wm, cur);
-        let zone = crate::snap::zone_at(cur, mon).or_else(|| crate::snap::zone_for_window(new_rect, mon));
+        let zone = crate::snap::zone_at(cur, mon);
         let target = zone.and_then(|z| {
             crate::snap::zone_rect(z, crate::snap::snap_area(wm, cur)).map(|r| (z, r))
         });
