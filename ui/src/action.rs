@@ -108,6 +108,7 @@ pub enum MiscOp {
     Show,
     WinOptions,
     ReloadKeys,
+    PagerGrid(bool),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -230,6 +231,7 @@ const fn misc_name(op: &MiscOp) -> &'static str {
         MiscOp::Show => "Show",
         MiscOp::WinOptions => "WinOptions",
         MiscOp::ReloadKeys => "Reload Keys",
+        MiscOp::PagerGrid(_) => "Pager Style",
     }
 }
 

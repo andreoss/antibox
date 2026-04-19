@@ -145,3 +145,41 @@ fn test_the_vertical_list_scrolls_when_it_overflows() {
     pane.layout_buttons(100, 60);
     assert_eq!(pane.buttons[0].rect.1, antibox_ui::metrics::button_inset() as i16);
 }
+
+#[test]
+fn test_overflow_button_collects_the_windows_that_do_not_fit() {
+    let (mut pane, _d) = make_pane();
+    for i in 1..=40u32 {
+        pane.add_button(i, &format!("W{i}"));
+    }
+    pane.layout_buttons(240, 28);
+    assert!(pane.overflow.is_some(), "a narrow bar overflows 40 windows");
+    assert!(pane.visible_count < pane.buttons.len());
+    assert_eq!(
+        pane.overflow_ids.len(),
+        pane.buttons.len() - pane.visible_count,
+        "every hidden window is collected"
+    );
+    let last_visible = &pane.buttons[pane.visible_count - 1];
+    assert!(last_visible.rect.2 > 0, "visible buttons keep a real width");
+    for hidden in &pane.buttons[pane.visible_count..] {
+        assert_eq!(hidden.rect.2, 0, "hidden buttons are not drawn");
+    }
+    let (ox, oy, ow, _) = pane.overflow.unwrap();
+    assert!(ow > 0 && ox > 0, "the overflow button has a real rect");
+    let ids = pane
+        .overflow_at(ox as i32 + 1, oy as i32 + 1)
+        .expect("overflow is clickable");
+    assert_eq!(ids, pane.overflow_ids);
+}
+
+#[test]
+fn test_no_overflow_when_everything_fits() {
+    let (mut pane, _d) = make_pane();
+    pane.add_button(1, "A");
+    pane.add_button(2, "B");
+    pane.layout_buttons(800, 28);
+    assert!(pane.overflow.is_none());
+    assert_eq!(pane.visible_count, 2);
+    assert!(pane.overflow_at(400, 4).is_none());
+}

@@ -198,6 +198,7 @@ fn string_or(name: &str, fallback: &str) -> String {
 }
 
 pub use self::colour::contrast;
+pub use self::colour::distinct;
 pub(crate) use self::colour::mix_rgb;
 pub(crate) use self::colour::scale_rgb;
 pub(crate) use self::colour::tint_rgb;

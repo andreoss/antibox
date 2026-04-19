@@ -170,8 +170,8 @@ pub struct TaskBar {
     pub(crate) strut_atom: u32,
     gfx_cache: std::cell::RefCell<std::collections::HashMap<u32, Box<dyn GraphicsContext>>>,
     geom_cache: std::cell::RefCell<std::collections::HashMap<u32, (u16, u16)>>,
-    tray_x: std::cell::Cell<i16>,
-    well: std::cell::Cell<Option<(i16, i16, u16, u16)>>,
+    tray_x: i16,
+    well: Option<(i16, i16, u16, u16)>,
     pub(crate) resizing: std::cell::Cell<bool>,
 }
 
@@ -212,8 +212,8 @@ impl TaskBar {
             strut_atom,
             gfx_cache: std::cell::RefCell::new(std::collections::HashMap::new()),
             geom_cache: std::cell::RefCell::new(std::collections::HashMap::new()),
-            tray_x: std::cell::Cell::new(-1),
-            well: std::cell::Cell::new(None),
+            tray_x: -1,
+            well: None,
             resizing: std::cell::Cell::new(false),
         })
     }
@@ -486,13 +486,13 @@ impl TaskBar {
         let _ = self.conn.free_pixmap(pm);
     }
 
-    fn note_well(&self, i: usize, x: i16, y: i16, w: u16, h: u16) {
+    fn note_well(&mut self, i: usize, x: i16, y: i16, w: u16, h: u16) {
         let a = self.applets[i].as_ref();
         if !(PanelSlot::Tray.matches(a) || PanelSlot::Clock.matches(a)) {
             return;
         }
         let add = (x, y, w, h);
-        let merged = match self.well.get() {
+        let merged = match self.well {
             None => add,
             Some((ux, uy, uw, uh)) => {
                 let x0 = ux.min(add.0);
@@ -502,7 +502,7 @@ impl TaskBar {
                 (x0, y0, (x1 - i32::from(x0)) as u16, (y1 - i32::from(y0)) as u16)
             }
         };
-        self.well.set(Some(merged));
+        self.well = Some(merged);
     }
 
     fn draw_background_to(&self, g: &dyn GraphicsContext) {
@@ -516,13 +516,13 @@ impl TaskBar {
             }
             _ => antibox_ui::theme::panel_edge(g, self.width),
         }
-        let tx = self.tray_x.get();
+        let tx = self.tray_x;
         if tx > 0 {
             let edge = antibox_ui::theme::panel_edge_height() as i16;
             let ew = antibox_ui::theme::tray_edge_width() as i16;
             antibox_ui::theme::tray_edge(g, tx - ew, edge, self.height.saturating_sub(edge as u16));
         }
-        if let Some((x, y, w, h)) = self.well.get() {
+        if let Some((x, y, w, h)) = self.well {
             let s = antibox_core::scale::scaled(2).max(2) as i16;
             antibox_ui::theme::well(
                 g,
@@ -586,6 +586,19 @@ impl TaskBar {
                 return Some(members);
             }
             return None;
+        }
+        None
+    }
+
+    pub fn overflow_members_at(&mut self, window: u32, x: i32, y: i32) -> Option<Vec<u32>> {
+        for applet in &mut self.applets {
+            if applet.window().id() != window {
+                continue;
+            }
+            let pane = applet
+                .as_any_mut()
+                .downcast_mut::<crate::taskpane::TaskPane>()?;
+            return pane.overflow_at(x, y);
         }
         None
     }
@@ -676,6 +689,8 @@ impl TaskBar {
 
     pub fn show_menu(&mut self, x: i32, y: i32) {
         use crate::menu_tree::MenuNode;
+        let grid = crate::layout_preferences::pager_grid();
+        let mark = |on: bool| if on { "\u{2022} " } else { "  " };
         let nodes: Vec<MenuNode<Action>> = vec![
             MenuNode::leaf("_Cascade", Action::Tile(TileOp::Cascade)),
             MenuNode::leaf("Tile _Vertically", Action::Tile(TileOp::TileVertical)),
@@ -688,6 +703,20 @@ impl TaskBar {
                 Action::Workspace(WorkspaceOp::MinimizeAll),
             ),
             MenuNode::leaf("Hi_de All", Action::Workspace(WorkspaceOp::HideAll)),
+            MenuNode::separator(),
+            MenuNode::group(
+                "_Pager Style",
+                vec![
+                    MenuNode::leaf(
+                        format!("{}Buttons", mark(!grid)),
+                        Action::Misc(MiscOp::PagerGrid(false)),
+                    ),
+                    MenuNode::leaf(
+                        format!("{}Grid", mark(grid)),
+                        Action::Misc(MiscOp::PagerGrid(true)),
+                    ),
+                ],
+            ),
             MenuNode::separator(),
             MenuNode::leaf("_Window List", Action::Menu(MenuOp::WindowPickerList)),
         ];
@@ -703,7 +732,7 @@ impl TaskBar {
 
     pub fn show_workspace_menu(&mut self, ws: u32, current: crate::layout::Layout) {
         use crate::menu_tree::MenuNode;
-        let nodes: Vec<MenuNode<Action>> = crate::layout::Layout::ALL
+        let mut nodes: Vec<MenuNode<Action>> = crate::layout::Layout::ALL
             .iter()
             .enumerate()
             .map(|(i, l)| {
@@ -714,6 +743,22 @@ impl TaskBar {
                 )
             })
             .collect();
+        let grid = crate::layout_preferences::pager_grid();
+        let mark = |on: bool| if on { "\u{2022} " } else { "  " };
+        nodes.push(MenuNode::separator());
+        nodes.push(MenuNode::group(
+            "_Pager Style",
+            vec![
+                MenuNode::leaf(
+                    format!("{}Buttons", mark(!grid)),
+                    Action::Misc(MiscOp::PagerGrid(false)),
+                ),
+                MenuNode::leaf(
+                    format!("{}Grid", mark(grid)),
+                    Action::Misc(MiscOp::PagerGrid(true)),
+                ),
+            ],
+        ));
         let pos = self
             .conn
             .query_pointer(self.conn.root().read_id())
@@ -1403,7 +1448,7 @@ impl TaskBar {
 
 impl AppletContainer for TaskBar {
     fn relayout(&mut self) {
-        self.well.set(None);
+        self.well = None;
         if matches!(
             self.position,
             TaskBarPosition::LeftVertical | TaskBarPosition::RightVertical
@@ -1458,8 +1503,7 @@ impl AppletContainer for TaskBar {
             }
         }
         let right_start = (bar_w - vmargin - right_total).max(left_x);
-        self.tray_x
-            .set(if right_total > 0 { right_start } else { -1 });
+        self.tray_x = if right_total > 0 { right_start } else { -1 };
         let mut rx = right_start;
         for &slot in &right_slots {
             if let Some(i) = idx(self, slot) {

@@ -26,7 +26,7 @@
         ));
         for empty in ["", "   ", "nonsense"].iter().copied() {
             set_taskbar_align(empty);
-            assert_eq!(TASKBAR_ALIGN.load(Ordering::Relaxed), TASKBAR_ALIGN_THEME);
+            assert_eq!(with(|s| s.taskbar_align), TASKBAR_ALIGN_THEME);
             assert!(matches!(
                 taskbar_align(),
                 antibox_ui::widget::LabelAlign::Left

@@ -64,6 +64,9 @@ impl TaskPane {
 
     pub fn layout_buttons(&mut self, pane_w: u16, pane_h: u16) {
         let n = self.buttons.len();
+        self.overflow = None;
+        self.overflow_ids.clear();
+        self.visible_count = n;
         if n == 0 {
             return;
         }
@@ -91,10 +94,17 @@ impl TaskPane {
             pct => (pane_w as i32 * pct as i32 / 100).max(min_w),
         };
         let rows = usize::from(crate::layout_preferences::taskbar_rows()).max(1);
-        let per_row = n.div_ceil(rows).max(1);
+        let fill = crate::layout_preferences::taskbar_fill();
+
+        let per_row_cap = (((pane_w as i32 + gap) / (min_w + gap)).max(1)) as usize;
+        let capacity = per_row_cap.saturating_mul(rows).max(1);
+        let overflowing = n > capacity;
+        let visible = if overflowing { capacity - 1 } else { n };
+        let slots = visible + usize::from(overflowing);
+
+        let per_row = slots.div_ceil(rows).max(1);
         let row_h = ((i32::from(btn_h) - gap * (rows as i32 - 1)) / rows as i32).max(1) as u16;
         let ni = per_row as i32;
-        let fill = crate::layout_preferences::taskbar_fill();
         let widths = if fill {
             Self::spread_widths(pane_w as i32, ni, gap, 1, i32::from(pane_w))
         } else {
@@ -111,12 +121,23 @@ impl TaskPane {
                 antibox_ui::widget::LabelAlign::Left => 0,
             }
         };
-        for (i, btn) in self.buttons.iter_mut().enumerate() {
-            let (col, row) = (i % per_row, i / per_row);
-            let x = start as i16
-                + widths[..col].iter().map(|w| *w + gap).sum::<i32>() as i16;
+        let cell_rect = |slot: usize| -> (i16, i16, u16, u16) {
+            let (col, row) = (slot % per_row, slot / per_row);
+            let x = start as i16 + widths[..col].iter().map(|w| *w + gap).sum::<i32>() as i16;
             let y = vin + row as i16 * (row_h as i16 + gap as i16);
-            btn.rect = (x, y, widths[col].max(1) as u16, row_h);
+            (x, y, widths[col].max(1) as u16, row_h)
+        };
+        for (i, btn) in self.buttons.iter_mut().enumerate() {
+            btn.rect = if i < visible {
+                cell_rect(i)
+            } else {
+                (0, 0, 0, row_h)
+            };
+        }
+        self.visible_count = visible;
+        if overflowing {
+            self.overflow = Some(cell_rect(visible));
+            self.overflow_ids = self.buttons[visible..].iter().map(|b| b.window_id).collect();
         }
     }
 
@@ -312,6 +333,19 @@ impl TaskPane {
             y
         } else {
             x
+        }
+    }
+
+    pub fn overflow_at(&self, x: i32, y: i32) -> Option<Vec<u32>> {
+        let (ox, oy, ow, oh) = self.overflow?;
+        let hit = x >= i32::from(ox)
+            && x < i32::from(ox) + i32::from(ow)
+            && y >= i32::from(oy)
+            && y < i32::from(oy) + i32::from(oh);
+        if hit && !self.overflow_ids.is_empty() {
+            Some(self.overflow_ids.clone())
+        } else {
+            None
         }
     }
 

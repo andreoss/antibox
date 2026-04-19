@@ -98,6 +98,15 @@
     }
 
     #[test]
+    fn test_pager_cells_track_the_display_aspect() {
+        let cell_h = antibox_ui::metrics::button_height() as i16;
+        let wide = cell_width(cell_h, 1280, 800);
+        assert!(wide > cell_h as u16, "a landscape display gives wider cells");
+        let tall = cell_width(cell_h, 800, 1280);
+        assert!(tall < wide, "a portrait display gives narrower cells");
+    }
+
+    #[test]
     fn test_a_click_finds_the_cell_on_the_second_row() {
         let mut pane = pane_with(&["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
         pane.set_wrap_width(Some(148));

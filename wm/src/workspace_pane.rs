@@ -85,6 +85,12 @@ fn row_gap() -> i16 {
     (antibox_ui::metrics::gap() + antibox_core::scale::scaled(2)) as i16
 }
 
+fn cell_width(cell_h: i16, sw: i32, sh: i32) -> u16 {
+    let cw_min = antibox_ui::metrics::panel_height() * 2 / 3;
+    let cw_max = antibox_ui::metrics::panel_height() * 5 / 2;
+    (i32::from(cell_h) * sw / sh.max(1)).clamp(cw_min, cw_max) as u16
+}
+
 fn grid_columns(wrap: Option<u16>, cell_w: u16, gap: u16, count: usize) -> usize {
     let count = count.max(1);
     let Some(avail) = wrap else { return count };
@@ -202,10 +208,9 @@ impl WorkspacesPane {
         let sh = self.conn.screen_height().max(1) as i32;
         let top = antibox_ui::metrics::button_inset() as i16;
         let cell_h = antibox_ui::metrics::button_height() as i16;
-        let cw_min = antibox_ui::metrics::panel_height() * 2 / 3;
-        let cw_max = antibox_ui::metrics::panel_height() * 5 / 2;
-        let cell_w = (cell_h as i32 * sw / sh).clamp(cw_min, cw_max) as u16;
-        let gap = antibox_ui::metrics::gap() as i16;
+        let grid = crate::layout_preferences::pager_grid();
+        let cell_w = cell_width(cell_h, sw, sh);
+        let gap = if grid { 0 } else { antibox_ui::metrics::gap() as i16 };
         let cols = grid_columns(self.wrap, cell_w, gap as u16, names.len());
         let full = cols as i16 * (cell_w as i16 + gap) - gap;
         let mut buttons = Vec::new();
@@ -215,7 +220,8 @@ impl WorkspacesPane {
             let used = in_row * (cell_w as i16 + gap) - gap;
             let indent = (full - used).max(0) / 2;
             let x = indent + col as i16 * (cell_w as i16 + gap);
-            let y = top + row as i16 * (cell_h + row_gap());
+            let vgap = if grid { 0 } else { row_gap() };
+            let y = top + row as i16 * (cell_h + vgap);
             buttons.push(WorkspaceButton {
                 label: name.clone(),
                 active: i as u32 == self.active_workspace,
@@ -232,6 +238,44 @@ impl WorkspacesPane {
         let _ = self
             .window
             .configure(None, None, Some(self.total_width as u16), Some(h));
+    }
+
+    fn paint_grid(&self, g: &dyn GraphicsContext) {
+        if self.buttons.is_empty() {
+            return;
+        }
+        let base = crate::render::darken_colour(self.theme_colours.task_bar_colour, 0.30);
+        let active_bg = antibox_core::colour::distinct(
+            antibox_core::colour::lerp(base, self.theme_colours.workspace_active_bg, 0.3),
+            base,
+        );
+        let line = crate::render::darken_colour(self.theme_colours.task_bar_colour, 0.55);
+        let win = crate::render::brighten_colour(base, 0.55);
+        let win_focus = self.theme_colours.workspace_active_bg;
+        for btn in &self.buttons {
+            let (x, y, w, h) = btn.rect;
+            let bg = if btn.urgent {
+                self.theme_colours.urgent_bg
+            } else if btn.active {
+                active_bg
+            } else {
+                base
+            };
+            let _ = g.set_foreground(bg);
+            let _ = g.fill_rect(x, y, w, h);
+            for mini in &btn.minis {
+                let (mx, my, mw, mh) = mini.rect;
+                let _ = g.set_foreground(if mini.focused { win_focus } else { win });
+                let _ = g.fill_rect(mx, my, mw, mh);
+                let _ = g.set_foreground(line);
+                let _ = g.draw_rect(mx, my, mw, mh);
+            }
+        }
+        let _ = g.set_foreground(line);
+        for btn in &self.buttons {
+            let (x, y, w, h) = btn.rect;
+            let _ = g.draw_rect(x, y, w, h);
+        }
     }
 
     pub fn sync_from_frames(
@@ -324,6 +368,10 @@ impl Applet for WorkspacesPane {
             self.pane_h.max(antibox_ui::metrics::panel_height() as u16),
             self.theme_colours.task_bar_colour,
         );
+        if crate::layout_preferences::pager_grid() {
+            self.paint_grid(g);
+            return;
+        }
         let face = self.theme_colours.task_bar_colour;
         for (i, btn) in self.buttons.iter().enumerate() {
             let (x, y, w, h) = btn.rect;
@@ -410,7 +458,11 @@ impl Applet for WorkspacesPane {
             return base;
         }
         let cell_h = antibox_ui::metrics::button_height() as u32;
-        let gap = row_gap() as u32;
+        let gap = if crate::layout_preferences::pager_grid() {
+            0
+        } else {
+            row_gap() as u32
+        };
         let inset = antibox_ui::metrics::button_inset() as u32;
         u32::from(self.rows) * (cell_h + gap) - gap + inset * 2
     }

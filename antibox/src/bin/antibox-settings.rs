@@ -457,7 +457,8 @@ impl App {
             let y = (row as i16) * rh as i16;
             let selected = p.hover == Some(idx);
             let (fg, bg) = if selected {
-                (theme::menu_sel_fg(), theme::menu_sel_bg())
+                let bg = theme::distinct(theme::menu_sel_bg(), theme::list_bg());
+                (theme::contrast(theme::menu_sel_fg(), bg), bg)
             } else {
                 (theme::text(), theme::list_bg())
             };

@@ -112,13 +112,14 @@ impl InputLine {
             let pre = width_of(&text[..lo]);
             let selw = width_of(&text[lo..hi]);
             let sel_x = text_x + pre;
-            let _ = g.set_foreground(theme::sel_bg());
+            let sel_bg = theme::distinct(theme::sel_bg(), field_bg);
+            let _ = g.set_foreground(sel_bg);
             let _ = g.fill_rect(sel_x, 2, selw.max(1) as u16, self.h - 4);
             let _ = g.set_foreground(theme::text());
             let _ = g.set_background(field_bg);
             let _ = g.draw_text(text_x, baseline, &text[..lo]);
-            let _ = g.set_foreground(theme::sel_fg());
-            let _ = g.set_background(theme::sel_bg());
+            let _ = g.set_foreground(theme::contrast(theme::sel_fg(), sel_bg));
+            let _ = g.set_background(sel_bg);
             let _ = g.draw_text(sel_x, baseline, &text[lo..hi]);
             let _ = g.set_foreground(theme::text());
             let _ = g.set_background(field_bg);

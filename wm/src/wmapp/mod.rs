@@ -440,11 +440,7 @@ impl App {
         apply_font_prefs(&b, &prefs);
         apply_graph_prefs(&prefs);
         crate::layout_preferences::apply();
-        crate::layout_preferences::set_taskbar_layout(&prefs.taskbar.layout);
-        crate::layout_preferences::set_taskbar_preview(prefs.taskbar.preview);
-        crate::layout_preferences::set_omni_preview(prefs.omni.preview);
-        crate::layout_preferences::set_winlist_preview(prefs.winlist.preview);
-        crate::layout_preferences::set_pager_hover_preview(prefs.pager.preview);
+        crate::layout_preferences::apply_widget_prefs(&prefs);
         crate::tooltip::set_show_delay_ms(500);
         crate::tooltip::set_lifetime_ms(5000);
         crate::drag::set_multi_click_ms(400);

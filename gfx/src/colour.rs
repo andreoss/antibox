@@ -98,6 +98,24 @@ pub const fn contrast(fg: Colour, bg: Colour) -> Colour {
     }
 }
 
+pub const fn distinct(c: Colour, bg: Colour) -> Colour {
+    let lc = luma(c);
+    let lb = luma(bg);
+    let d = lc.abs_diff(lb);
+    if d >= 32 {
+        return c;
+    }
+    let step = (48 - d) as i32;
+    let up = lc > lb || (lc == lb && lb < 128);
+    let near = shift(c, if up { step } else { -step });
+    if luma(near).abs_diff(lb) >= 32 {
+        near
+    } else {
+        let far = step + 2 * d as i32;
+        shift(c, if up { -far } else { far })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RgbColour {
     pub r: u8,

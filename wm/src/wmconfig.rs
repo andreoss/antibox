@@ -86,6 +86,7 @@ pub struct WinlistPrefs {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PagerPrefs {
     pub preview: bool,
+    pub style: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -214,7 +215,10 @@ impl Default for Prefs {
                 position: "centre".to_string(),
                 preview: true,
             },
-            pager: PagerPrefs { preview: true },
+            pager: PagerPrefs {
+                preview: true,
+                style: "buttons".to_string(),
+            },
             tabs: TabsPrefs {
                 position: "top".to_string(),
             },
@@ -593,6 +597,11 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                 ("pager", "preview") => {
                     if let Some(v) = value.as_bool() {
                         p.pager.preview = v;
+                    }
+                }
+                ("pager", "style") => {
+                    if let Some(v) = value.as_str() {
+                        p.pager.style = v.trim().to_ascii_lowercase();
                     }
                 }
                 ("omni", "preview") => {

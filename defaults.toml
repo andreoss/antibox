@@ -37,6 +37,7 @@ preview = true
 
 [pager]
 preview = true
+style = "buttons"
 
 [tabs]
 position = "top"

@@ -180,11 +180,7 @@ impl App {
         self.expose.set_prefs(prefs.expose.clone());
         antibox_ui::ticker::set_enabled(prefs.ticker.enabled);
         crate::frame::set_tabs_on_bottom(prefs.tabs.position == "bottom");
-        crate::layout_preferences::set_taskbar_layout(&prefs.taskbar.layout);
-        crate::layout_preferences::set_taskbar_preview(prefs.taskbar.preview);
-        crate::layout_preferences::set_omni_preview(prefs.omni.preview);
-        crate::layout_preferences::set_winlist_preview(prefs.winlist.preview);
-        crate::layout_preferences::set_pager_hover_preview(prefs.pager.preview);
+        crate::layout_preferences::apply_widget_prefs(&prefs);
         let position = crate::taskbar::TaskBarPosition::parse(&prefs.taskbar.position)
             .unwrap_or(crate::taskbar::TaskBarPosition::Bottom);
         let width_changed = position.is_upright()
@@ -499,6 +495,22 @@ impl App {
                         tb.show_workspace_menu(ws, current);
                     }
                 }
+                Action::Misc(MiscOp::PagerGrid(grid)) => {
+                    crate::layout_preferences::set_pager_grid(grid);
+                    let names = self.wm.workspace_names.clone();
+                    if let Some(ref mut tb) = self.taskbar {
+                        tb.set_workspace_names(&names);
+                        let _ = tb.paint();
+                    }
+                    let _ = self.backend.flush();
+                    let _ = crate::settings_io::save(&[(
+                        "pager",
+                        "style",
+                        crate::settings_io::SettingValue::Text(
+                            if grid { "grid" } else { "buttons" }.to_string(),
+                        ),
+                    )]);
+                }
                 _ => self.wm.handle_action(&action),
             }
         }
@@ -560,6 +572,22 @@ impl App {
                         .taskbar
                         .as_mut()
                         .and_then(|tb| tb.group_members_at(window, at.0, at.1))
+                    {
+                        self.show_group_menu(&members);
+                        return;
+                    }
+                }
+                if button == 1 {
+                    let at = self
+                        .taskbar
+                        .as_ref()
+                        .map_or((point.x, point.y), |tb| {
+                            tb.applet_point(window, point.x, point.y)
+                        });
+                    if let Some(members) = self
+                        .taskbar
+                        .as_mut()
+                        .and_then(|tb| tb.overflow_members_at(window, at.0, at.1))
                     {
                         self.show_group_menu(&members);
                         return;
