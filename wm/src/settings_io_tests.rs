@@ -68,3 +68,19 @@ fn a_fresh_home_saves_under_xdg() {
     assert!(text.contains("kde"), "settings must land in the xdg path");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn test_saving_never_targets_a_system_dir() {
+    let user = crate::wmconfig::Config::user_config_dirs();
+    let system = antibox_core::paths::system_config_dirs();
+    for d in &user {
+        assert!(
+            !system.contains(d),
+            "writable user dir {d:?} must not be a read-only system dir"
+        );
+    }
+    let all = crate::wmconfig::Config::search_dirs();
+    for d in &system {
+        assert!(all.contains(d), "search still falls back to system dirs for reading");
+    }
+}

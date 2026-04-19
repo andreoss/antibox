@@ -658,7 +658,7 @@ impl Config {
             .map(|home| PathBuf::from(home).join(".config/antibox"))
     }
 
-    pub fn search_dirs() -> Vec<PathBuf> {
+    pub fn user_config_dirs() -> Vec<PathBuf> {
         let mut dirs = Vec::new();
 
         if let Some(priv_cfg) = std::env::var_os("ANTIBOX_PRIVCFG") {
@@ -670,6 +670,11 @@ impl Config {
             dirs.push(PathBuf::from(home).join(".antibox"));
         }
 
+        dirs
+    }
+
+    pub fn search_dirs() -> Vec<PathBuf> {
+        let mut dirs = Self::user_config_dirs();
         dirs.extend(antibox_core::paths::system_config_dirs());
         dirs
     }

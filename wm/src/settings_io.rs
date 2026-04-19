@@ -8,7 +8,7 @@ pub enum SettingValue {
 
 pub fn user_config_path() -> Option<PathBuf> {
     let file = crate::config_watch::CONFIG_FILE;
-    for dir in crate::wmconfig::Config::search_dirs() {
+    for dir in crate::wmconfig::Config::user_config_dirs() {
         let path = dir.join(file);
         if path.is_file() {
             return Some(path);
@@ -17,10 +17,28 @@ pub fn user_config_path() -> Option<PathBuf> {
     crate::wmconfig::Config::preferred_dir().map(|d| d.join(file))
 }
 
+fn first_existing_config() -> Option<PathBuf> {
+    let file = crate::config_watch::CONFIG_FILE;
+    crate::wmconfig::Config::search_dirs()
+        .into_iter()
+        .map(|d| d.join(file))
+        .find(|p| p.is_file())
+}
+
 pub fn save(values: &[(&str, &str, SettingValue)]) -> std::io::Result<PathBuf> {
     let path = user_config_path().ok_or_else(|| {
         std::io::Error::new(std::io::ErrorKind::NotFound, "no config directory")
     })?;
+    if !path.is_file() {
+        if let Some(seed) = first_existing_config() {
+            if let Ok(text) = std::fs::read_to_string(&seed) {
+                if let Some(dir) = path.parent() {
+                    std::fs::create_dir_all(dir)?;
+                }
+                let _ = std::fs::write(&path, text);
+            }
+        }
+    }
     save_to(&path, values)?;
     Ok(path)
 }
