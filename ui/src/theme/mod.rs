@@ -590,3 +590,15 @@ pub fn graph_heat() -> Colour {
 
 #[cfg(test)]
 mod theme_gen;
+
+pub fn language_bg() -> Colour {
+    colour_or("language_bg", sel_bg())
+}
+
+pub fn language_fg() -> Colour {
+    colour_or("language_fg", sel_fg())
+}
+
+pub fn start_label() -> String {
+    string_or("start_label", "Start")
+}

@@ -413,12 +413,11 @@ impl Applet for KeyboardApplet {
     }
     fn paint(&self, g: &dyn GraphicsContext) {
         use antibox_ui::metrics;
+        let badge_bg = antibox_ui::theme::language_bg();
+        let badge_fg = antibox_ui::theme::language_fg();
         let _ = g.set_foreground(self.face);
         let _ = g.fill_rect(0, 0, self.width, self.height);
-        antibox_ui::theme::well(g, 0, 0, self.width, self.height);
         let _ = g.set_font(&FontSpec::ui(metrics::font_pt()));
-        let _ = g.set_foreground(self.text);
-        let _ = g.set_background(self.face);
         let pad = metrics::pad() as u16;
         let avail = self.width.saturating_sub(pad * 2);
         let label = antibox_ui::widget::fit_label(g, &self.layout, avail);
@@ -426,8 +425,17 @@ impl Applet for KeyboardApplet {
             .text_width(&label)
             .unwrap_or_else(|_| metrics::text_w(label.chars().count()) as u32)
             as i16;
-        let x = ((self.width as i16 - tw) / 2).max(pad as i16);
-        let baseline = metrics::baseline(0, self.height as i32) as i16;
+        let side = (metrics::font_px() + metrics::pad()) as u16;
+        let bw = (tw as u16 + pad * 2).max(side).min(self.width);
+        let bh = side.min(self.height);
+        let bx = ((self.width as i16 - bw as i16) / 2).max(0);
+        let by = ((self.height as i16 - bh as i16) / 2).max(0);
+        let _ = g.set_foreground(badge_bg);
+        let _ = g.fill_rect(bx, by, bw, bh);
+        let _ = g.set_foreground(badge_fg);
+        let _ = g.set_background(badge_bg);
+        let x = bx + ((bw as i16 - tw) / 2).max(0);
+        let baseline = metrics::baseline(by as i32, bh as i32) as i16;
         let _ = g.draw_text_transparent(x, baseline, &label);
     }
     fn preferred_width(&self) -> u32 {
