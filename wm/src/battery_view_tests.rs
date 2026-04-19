@@ -118,13 +118,13 @@ fn test_time_remaining_from_minutes_left() {
 #[test]
 fn test_level_colour_critical_even_when_charging() {
     let v = view_with(vec![bat(5, true, false)], true);
-    assert_eq!(v.level_colour(), COLOR_CRITICAL);
+    assert_eq!(v.level_colour(), theme::battery_critical());
 }
 
 #[test]
 fn test_level_colour_critical() {
     let v = view_with(vec![bat(5, false, true)], false);
-    assert_eq!(v.level_colour(), COLOR_CRITICAL);
+    assert_eq!(v.level_colour(), theme::battery_critical());
     assert!(v.is_critical());
 }
 
@@ -138,7 +138,7 @@ fn test_is_critical_false_when_charging() {
 fn test_level_colour_low() {
     assert_eq!(
         view_with(vec![bat(20, false, true)], false).level_colour(),
-        COLOR_LOW
+        theme::battery_low()
     );
 }
 
@@ -146,7 +146,7 @@ fn test_level_colour_low() {
 fn test_level_colour_medium() {
     assert_eq!(
         view_with(vec![bat(35, false, true)], false).level_colour(),
-        COLOR_MEDIUM
+        theme::battery_low()
     );
 }
 
@@ -154,7 +154,7 @@ fn test_level_colour_medium() {
 fn test_level_colour_full() {
     assert_eq!(
         view_with(vec![bat(80, false, true)], false).level_colour(),
-        COLOR_FULL
+        theme::battery_ok()
     );
 }
 
@@ -253,11 +253,11 @@ fn test_vertical_battery_fill_height_tracks_charge() {
     view_with(vec![bat(60, false, true)], false).draw(&low, 0, 0, 18, 18);
     let high = antibox_core::mock::MockGraphics::new(1);
     view_with(vec![bat(95, false, true)], false).draw(&high, 0, 0, 18, 18);
-    let low_h = *gauge_fill_heights(&low.commands(), COLOR_FULL)
+    let low_h = *gauge_fill_heights(&low.commands(), theme::battery_ok())
         .iter()
         .max()
         .unwrap();
-    let high_h = *gauge_fill_heights(&high.commands(), COLOR_FULL)
+    let high_h = *gauge_fill_heights(&high.commands(), theme::battery_ok())
         .iter()
         .max()
         .unwrap();
@@ -324,4 +324,15 @@ fn test_fmt_power_mw() {
 fn test_update_no_crash() {
     let mut v = view_with(Vec::new(), false);
     let _ = v.update();
+}
+
+#[test]
+fn test_battery_fill_follows_the_theme_palette() {
+    use antibox_ui::theme::{load, NT_THEME, K3_THEME};
+    let nt = load::from_toml(NT_THEME).unwrap();
+    let xp = load::from_toml(K3_THEME).unwrap();
+    assert_eq!(nt.colour("battery_ok"), Some(0x008000), "nt Win98 green");
+    assert_eq!(xp.colour("battery_ok"), Some(0x4AAE4A), "2k3 XP green");
+    assert_eq!(nt.colour("battery_critical"), Some(0xFF0000));
+    assert_eq!(xp.colour("battery_low"), Some(0xD6A200));
 }

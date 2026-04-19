@@ -602,3 +602,27 @@ pub fn language_fg() -> Colour {
 pub fn start_label() -> String {
     string_or("start_label", "Start")
 }
+
+pub fn volume_bar() -> Colour {
+    colour_or("volume_bar", 0x00AA00)
+}
+
+pub fn volume_mute() -> Colour {
+    colour_or("volume_mute", 0xCC0000)
+}
+
+pub fn mic_on() -> Colour {
+    colour_or("mic_on", 0x00AA00)
+}
+
+pub fn battery_ok() -> Colour {
+    colour_or("battery_ok", 0x00AA00)
+}
+
+pub fn battery_low() -> Colour {
+    colour_or("battery_low", 0xCC8800)
+}
+
+pub fn battery_critical() -> Colour {
+    colour_or("battery_critical", 0xCC0000)
+}

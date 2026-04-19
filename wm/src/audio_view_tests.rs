@@ -100,7 +100,7 @@ fn rects_with_colour(commands: &[antibox_core::mock::MockCommand], colour: u32) 
 fn lit_bars(volume: i32) -> usize {
     let g = antibox_core::mock::MockGraphics::new(1);
     AudioView::new(Some(state(volume, false, false))).draw(&g, 0, 18);
-    rects_with_colour(&g.commands(), COLOR_ACTIVE)
+    rects_with_colour(&g.commands(), theme::volume_bar())
 }
 
 #[test]
@@ -131,10 +131,10 @@ fn test_zero_volume_lights_no_bars_but_keeps_them_visible() {
 fn test_muted_draws_no_bars_but_draws_shape() {
     let muted = antibox_core::mock::MockGraphics::new(1);
     AudioView::new(Some(state(90, true, false))).draw(&muted, 0, 18);
-    assert_eq!(rects_with_colour(&muted.commands(), COLOR_ACTIVE), 0);
+    assert_eq!(rects_with_colour(&muted.commands(), theme::volume_bar()), 0);
     assert_eq!(rects_with_colour(&muted.commands(), theme::graph_bg()), 0);
     assert!(
-        polys_with_colour(&muted.commands(), COLOR_MUTED) >= 2,
+        polys_with_colour(&muted.commands(), theme::volume_mute()) >= 2,
         "muted icon draws the red mute cross"
     );
     assert!(
@@ -146,7 +146,7 @@ fn test_muted_draws_no_bars_but_draws_shape() {
 #[test]
 fn test_active_colour_distinct_from_shape_colour() {
     assert_ne!(
-        COLOR_ACTIVE,
+        theme::volume_bar(),
         theme::text(),
         "wave colour must contrast, or it is invisible against the speaker body"
     );
@@ -155,7 +155,7 @@ fn test_active_colour_distinct_from_shape_colour() {
 #[test]
 fn test_muted_colour_distinct_from_shape_colour() {
     assert_ne!(
-        COLOR_MUTED,
+        theme::volume_mute(),
         theme::text(),
         "mute mark must contrast against the default speaker colour"
     );
@@ -201,7 +201,7 @@ fn test_muted_mic_view_draws_red_slash() {
     let g = antibox_core::mock::MockGraphics::new(1);
     MicView::new(Some(recording_state(true))).draw(&g, 0, 28);
     assert!(
-        polys_with_colour(&g.commands(), COLOR_MUTED) >= 1,
+        polys_with_colour(&g.commands(), theme::volume_mute()) >= 1,
         "muted recording mic must carry the red slash"
     );
 }
@@ -271,3 +271,14 @@ fn test_drawn_extent_fits_within_natural_width() {
         }
     }
 }
+
+    #[test]
+    fn test_volume_bars_follow_the_theme_palette() {
+        use antibox_ui::theme::{load, NT_THEME, K3_THEME};
+        let nt = load::from_toml(NT_THEME).unwrap();
+        let xp = load::from_toml(K3_THEME).unwrap();
+        assert_eq!(nt.colour("volume_bar"), Some(0x008000), "nt is Win98 green");
+        assert_eq!(xp.colour("volume_bar"), Some(0x3CB43C), "2k3 is XP green");
+        assert_eq!(nt.colour("volume_mute"), Some(0xFF0000));
+        assert_eq!(nt.colour("mic_on"), Some(0x008000));
+    }

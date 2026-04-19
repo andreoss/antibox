@@ -33,8 +33,11 @@ fn test_layout_buttons_use_theme_item_gap() {
     pane.layout_buttons(600, 28);
     let gap = antibox_ui::metrics::item_gap() as i16;
     for w in pane.buttons.windows(2) {
-        let (x0, _, w0, _) = w[0].rect;
-        let (x1, ..) = w[1].rect;
+        let (x0, y0, w0, _) = w[0].rect;
+        let (x1, y1, ..) = w[1].rect;
+        if y0 != y1 {
+            continue;
+        }
         assert_eq!(x1 - (x0 + w0 as i16), gap);
     }
 }

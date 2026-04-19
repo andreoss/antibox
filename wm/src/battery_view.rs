@@ -1,4 +1,3 @@
-use crate::icon_dsl::{COLOR_CRITICAL, COLOR_GOOD as COLOR_FULL, COLOR_LOW, COLOR_MEDIUM};
 use crate::power::{read_status, BatteryInfo as BatInfo};
 use antibox_core::backend::GraphicsContext;
 use antibox_ui::theme;
@@ -121,15 +120,13 @@ impl BatteryView {
     fn level_colour(&self) -> u32 {
         let pct = self.combined_percent();
         if pct < 0 {
-            COLOR_FULL
+            theme::battery_ok()
         } else if pct < 10 {
-            COLOR_CRITICAL
-        } else if pct < 25 {
-            COLOR_LOW
+            theme::battery_critical()
         } else if pct < 50 {
-            COLOR_MEDIUM
+            theme::battery_low()
         } else {
-            COLOR_FULL
+            theme::battery_ok()
         }
     }
 
@@ -214,7 +211,7 @@ impl BatteryView {
         if pct >= 0 {
             Some(self.level_colour())
         } else if self.ac_online {
-            Some(COLOR_FULL)
+            Some(theme::battery_ok())
         } else {
             None
         }
@@ -241,7 +238,7 @@ impl BatteryView {
 
     fn draw_overlays(&self, g: &dyn GraphicsContext, ix: i16, iy: i16, iw: u16, ih: u16) {
         if self.is_critical() {
-            self.draw_exclamation(g, ix, iy, iw, ih, COLOR_CRITICAL);
+            self.draw_exclamation(g, ix, iy, iw, ih, theme::battery_critical());
             return;
         }
         if self.combined_charging() {
@@ -276,7 +273,7 @@ impl BatteryView {
         let gx = x0 + (w as i16 - gw) / 2;
         let gy = y0 + icon_dsl::glyph_top();
         let body = if self.is_critical() {
-            COLOR_CRITICAL
+            theme::battery_critical()
         } else {
             theme::text()
         };
@@ -305,7 +302,7 @@ impl BatteryView {
             let _ = g.fill_rect(ix, iy + ih - fillh, iw, fillh as u16);
         }
         if self.is_critical() {
-            self.draw_exclamation(g, ix, iy, iw, ih as u16, COLOR_CRITICAL);
+            self.draw_exclamation(g, ix, iy, iw, ih as u16, theme::battery_critical());
         } else if self.combined_charging() {
             let bw2 = (iw as i16 * 4 / 5).max(4);
             let bh2 = (ih * 4 / 5).max(6);
@@ -341,7 +338,7 @@ impl BatteryView {
         let by = oy + (ih - body_h as i16) / 2;
 
         let edge = if self.is_critical() {
-            COLOR_CRITICAL
+            theme::battery_critical()
         } else {
             theme::text()
         };

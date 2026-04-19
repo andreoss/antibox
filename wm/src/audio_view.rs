@@ -1,7 +1,5 @@
 use crate::audio::AudioState;
-use crate::icon_dsl::{
-    self, thick_line, COLOR_CRITICAL as COLOR_MUTED, COLOR_GOOD as COLOR_ACTIVE,
-};
+use crate::icon_dsl::{self, thick_line};
 use antibox_core::backend::GraphicsContext;
 use antibox_ui::theme;
 
@@ -108,7 +106,7 @@ impl AudioView {
 
         if muted {
             let cw = content_w(h);
-            draw_mute_x(g, sx, gy, cw, gh, COLOR_MUTED);
+            draw_mute_x(g, sx, gy, cw, gh, theme::volume_mute());
         } else {
             let lit = wave_count(state.volume);
             let bw = bar_w(h);
@@ -118,7 +116,7 @@ impl AudioView {
                 let bx = bx0 + i * (bw + gap);
                 let by = gy + gh - bh;
                 let colour = if i < lit {
-                    COLOR_ACTIVE
+                    theme::volume_bar()
                 } else if bw >= 5 {
                     theme::graph_bg()
                 } else {
@@ -172,7 +170,7 @@ impl MicView {
         let colour = if state.source_muted {
             theme::text()
         } else {
-            COLOR_ACTIVE
+            theme::mic_on()
         };
         if gw >= 8 {
             icon_dsl::MIC_ICON.draw_outlined(g, gx, gy, gw as u16, gh as u16, colour, theme::shadow());
@@ -183,7 +181,7 @@ impl MicView {
             let t = (gw / 5).max(2);
             let _ = g.set_foreground(theme::light());
             let _ = g.fill_polygon(&thick_line(gx, gy + gh, gx + gw, gy, t + 2));
-            let _ = g.set_foreground(COLOR_MUTED);
+            let _ = g.set_foreground(theme::volume_mute());
             let _ = g.fill_polygon(&thick_line(gx, gy + gh, gx + gw, gy, t));
         }
     }

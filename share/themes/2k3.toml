@@ -28,6 +28,12 @@ tray_face = "000000"
 list_bg = "000000"
 menu_bg = "000000"
 arrow_colour = "000000"
+volume_bar = "3CB43C"
+volume_mute = "D83A3A"
+mic_on = "3CB43C"
+battery_ok = "4AAE4A"
+battery_low = "D6A200"
+battery_critical = "D83A3A"
 
 [metrics]
 corner_radius = 0

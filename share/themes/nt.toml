@@ -25,6 +25,12 @@ tray_face = "000000"
 list_bg = "000000"
 menu_bg = "000000"
 arrow_colour = "000000"
+volume_bar = "008000"
+volume_mute = "FF0000"
+mic_on = "008000"
+battery_ok = "008000"
+battery_low = "808000"
+battery_critical = "FF0000"
 
 [metrics]
 corner_radius = 0
