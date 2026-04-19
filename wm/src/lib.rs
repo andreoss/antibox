@@ -42,6 +42,8 @@ pub mod config_watch;
 pub mod client;
 pub mod clientmsg;
 pub mod clock_applet;
+pub mod launch_applet;
+pub mod show_desktop_applet;
 pub mod container;
 pub mod cursors;
 pub mod dbus;

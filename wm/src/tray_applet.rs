@@ -241,22 +241,49 @@ impl TrayApplet {
         antibox_ui::metrics::pad() as i16
     }
 
+    fn icon_rows(&self) -> u16 {
+        let row = antibox_ui::metrics::panel_height().max(1) as u16;
+        ((self.height + row / 2) / row).clamp(1, 4)
+    }
+
+    fn row_height(&self) -> u16 {
+        (self.height / self.icon_rows()).max(1)
+    }
+
     fn icon_size(&self) -> u16 {
         let margin = antibox_ui::metrics::gap() as i16;
-        (self.height as i16 - 2 * margin).clamp(8, 64) as u16
+        (self.row_height() as i16 - 2 * margin).clamp(8, 64) as u16
     }
 
     fn slot(&self) -> u16 {
         (self.icon_size() as i16 + self.tgap()) as u16
     }
 
+    fn cell_of(&self, i: usize) -> (i16, i16) {
+        let rows = usize::from(self.icon_rows());
+        let (col, row) = (i / rows, i % rows);
+        let icon = self.icon_size() as i16;
+        let row_h = self.row_height() as i16;
+        let x = self.tpad() + col as i16 * self.slot() as i16;
+        let y = row as i16 * row_h + ((row_h - icon) / 2).max(0);
+        (x, y)
+    }
+
+    fn icon_index_at(&self, x: i32, y: i32) -> Option<usize> {
+        let icon = i32::from(self.icon_size());
+        (0..self.embedded.len()).find(|&i| {
+            let (cx, cy) = self.cell_of(i);
+            x >= i32::from(cx)
+                && x < i32::from(cx) + icon
+                && y >= i32::from(cy)
+                && y < i32::from(cy) + icon
+        })
+    }
+
     fn relayout(&mut self) {
         let icon = self.icon_size();
-        let pad = self.tpad();
-        let gap = self.tgap();
-        let y = ((self.height as i16 - icon as i16) / 2).max(0);
-        let mut x = pad;
-        for client in &self.embedded {
+        let spots: Vec<(i16, i16)> = (0..self.embedded.len()).map(|i| self.cell_of(i)).collect();
+        for (client, (x, y)) in self.embedded.iter().zip(spots) {
             let _ = self.conn.configure_window(
                 client.window,
                 &[x as u32, y as u32, icon as u32, icon as u32],
@@ -266,7 +293,6 @@ impl TrayApplet {
             } else {
                 self.conn.unmap_window(client.window)
             };
-            x += icon as i16 + gap;
         }
     }
 
@@ -373,11 +399,8 @@ impl Applet for TrayApplet {
             antibox_ui::theme::well(g, 0, 0, w, h);
         }
         let icon = self.icon_size();
-        let slot = self.slot();
-        let pad = self.tpad();
-        let iy = ((h as i16 - icon as i16) / 2).max(0);
         for (i, _) in self.embedded.iter().enumerate() {
-            let x = pad + i as i16 * slot as i16;
+            let (x, iy) = self.cell_of(i);
             if self.hovered == Some(i) {
                 let _ = g.set_foreground(crate::render::darken_colour(self.bg, 0.85));
                 let _ = g.fill_rect(x, iy, icon, icon);
@@ -393,22 +416,17 @@ impl Applet for TrayApplet {
         let pad = self.tpad() as u32;
         let icon = self.icon_size() as u32;
         let gap = self.tgap() as u32;
-        let content = self.embedded.len() as u32 * icon;
-        2 * pad + content + slots.saturating_sub(1) * gap
+        let cols = (self.embedded.len() as u32).div_ceil(u32::from(self.icon_rows())).max(1);
+        let _ = slots;
+        2 * pad + cols * icon + cols.saturating_sub(1) * gap
     }
 
     fn preferred_height(&self) -> u32 {
         antibox_ui::metrics::panel_height() as u32
     }
 
-    fn handle_click(&mut self, x: i32, _y: i32, _button: u8) -> Option<u32> {
-        if !self.embedded.is_empty() {
-            let idx = ((x - self.tpad() as i32).max(0) / self.slot() as i32) as usize;
-            if idx < self.embedded.len() {
-                return Some(self.embedded[idx].window);
-            }
-        }
-        None
+    fn handle_click(&mut self, x: i32, y: i32, _button: u8) -> Option<u32> {
+        self.icon_index_at(x, y).map(|i| self.embedded[i].window)
     }
 
     fn handle_motion(&mut self, _x: i32, _y: i32) {

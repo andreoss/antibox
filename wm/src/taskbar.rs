@@ -172,6 +172,7 @@ pub struct TaskBar {
     geom_cache: std::cell::RefCell<std::collections::HashMap<u32, (u16, u16)>>,
     tray_x: std::cell::Cell<i16>,
     well: std::cell::Cell<Option<(i16, i16, u16, u16)>>,
+    pub(crate) resizing: std::cell::Cell<bool>,
 }
 
 impl TaskBar {
@@ -213,6 +214,7 @@ impl TaskBar {
             geom_cache: std::cell::RefCell::new(std::collections::HashMap::new()),
             tray_x: std::cell::Cell::new(-1),
             well: std::cell::Cell::new(None),
+            resizing: std::cell::Cell::new(false),
         })
     }
 
@@ -262,9 +264,10 @@ impl TaskBar {
     }
 
     fn bar_height_for(double: bool) -> u16 {
-        let content = antibox_ui::metrics::panel_height() as u16;
-        let content = if double { content * 2 } else { content };
-        content + antibox_ui::theme::panel_edge_height()
+        let row = antibox_ui::metrics::panel_height() as u16;
+        let row = if double { row * 2 } else { row };
+        let rows = crate::layout_preferences::taskbar_rows();
+        row * rows + antibox_ui::theme::panel_edge_height()
     }
 
     pub(crate) fn bar_height() -> u16 {
@@ -273,6 +276,36 @@ impl TaskBar {
 
     pub fn show(&self) -> Result<()> {
         self.window.map()
+    }
+
+
+    pub fn edge_grab(&self, x: i32, y: i32) -> bool {
+        let grab = i32::from(antibox_ui::theme::panel_edge_height())
+            + antibox_core::scale::scaled(3);
+        match self.position {
+            TaskBarPosition::Bottom => y < grab,
+            TaskBarPosition::Top => y >= i32::from(self.height) - grab,
+            TaskBarPosition::LeftVertical => x >= i32::from(self.width) - grab,
+            TaskBarPosition::RightVertical => x < grab,
+            _ => false,
+        }
+    }
+
+    pub fn drag_rows(&self, y: i32) -> i64 {
+        let row = antibox_ui::metrics::panel_height().max(1);
+        let span = match self.position {
+            TaskBarPosition::Bottom => i32::from(self.height) - y,
+            _ => y,
+        };
+        i64::from(((span + row / 2) / row).clamp(1, 4))
+    }
+
+    pub fn drag_width(&self, x: i32) -> i64 {
+        let want = match self.position {
+            TaskBarPosition::RightVertical => i32::from(self.width) - x,
+            _ => x,
+        };
+        i64::from(want.clamp(1, 1000))
     }
 
     pub fn close(&mut self) {
@@ -592,6 +625,11 @@ impl TaskBar {
             if applet.window().id() == window {
                 id =
                     guard_applet("release", || applet.handle_release(x, y, button)).and_then(|v| v);
+                if let Some(action) =
+                    guard_applet("take_action", || applet.take_action()).and_then(|v| v)
+                {
+                    self.pending_action = Some(action);
+                }
                 relayout = applet.take_relayout();
                 break;
             }
@@ -1016,6 +1054,7 @@ impl TaskBar {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum PanelSlot {
     Menu,
+    Launch,
     Workspaces,
     Task,
     Tray,
@@ -1025,10 +1064,11 @@ enum PanelSlot {
     PowerAudio,
     Keyboard,
     Clock,
+    ShowDesktop,
 }
 
-const DEFAULT_LEFT: [PanelSlot; 1] = [PanelSlot::Workspaces];
-const DEFAULT_RIGHT: [PanelSlot; 7] = [
+const DEFAULT_LEFT: [PanelSlot; 3] = [PanelSlot::Menu, PanelSlot::Launch, PanelSlot::Workspaces];
+const DEFAULT_RIGHT: [PanelSlot; 8] = [
     PanelSlot::Cpu,
     PanelSlot::Mem,
     PanelSlot::Net,
@@ -1036,6 +1076,7 @@ const DEFAULT_RIGHT: [PanelSlot; 7] = [
     PanelSlot::PowerAudio,
     PanelSlot::Tray,
     PanelSlot::Clock,
+    PanelSlot::ShowDesktop,
 ];
 
 impl PanelSlot {
@@ -1052,6 +1093,8 @@ impl PanelSlot {
             Widget::Mpris | Widget::PowerAudio => Self::PowerAudio,
             Widget::Keyboard => Self::Keyboard,
             Widget::Clock => Self::Clock,
+            Widget::Launch => Self::Launch,
+            Widget::ShowDesktop => Self::ShowDesktop,
         }
     }
 
@@ -1059,6 +1102,8 @@ impl PanelSlot {
         let any = a.as_any();
         match self {
             Self::Menu => any.is::<crate::menu_applet::MenuApplet>(),
+            Self::Launch => any.is::<crate::launch_applet::LaunchApplet>(),
+            Self::ShowDesktop => any.is::<crate::show_desktop_applet::ShowDesktopApplet>(),
             Self::Workspaces => any.is::<WorkspacesPane>(),
             Self::Task => any.is::<crate::taskpane::TaskPane>(),
             Self::Cpu => any.is::<crate::cpu_status_applet::CpuStatusApplet>(),
@@ -1293,11 +1338,19 @@ impl TaskBar {
     }
 
     fn relayout_upright(&mut self) {
+        let mut inner_pad = 0i16;
+        if !crate::layout_preferences::taskbar_locked() {
+            inner_pad = antibox_core::scale::scaled(3) as i16;
+        }
         let edge = antibox_ui::theme::panel_edge_height() as i16;
         let gap = (antibox_ui::metrics::gap() + antibox_core::scale::scaled(2)) as i16;
         let margin = antibox_ui::metrics::pad() as i16;
-        let left = margin;
-        let avail = (self.width as i16 - margin * 2).max(1);
+        let left = if matches!(self.position, TaskBarPosition::RightVertical) {
+            margin + inner_pad
+        } else {
+            margin
+        };
+        let avail = (self.width as i16 - margin * 2 - inner_pad).max(1);
         let (top_slots, bottom_slots) =
             effective_slots(crate::layout_preferences::taskbar_layout());
 
@@ -1359,7 +1412,10 @@ impl AppletContainer for TaskBar {
             return;
         }
         let bar_w = self.width as i16;
-        let edge = antibox_ui::theme::panel_edge_height() as i16;
+        let mut edge = antibox_ui::theme::panel_edge_height() as i16;
+        if !crate::layout_preferences::taskbar_locked() {
+            edge += antibox_core::scale::scaled(3) as i16;
+        }
         let bar_h = self.height.saturating_sub(edge as u16);
         let gap = antibox_ui::metrics::pad() as i16;
         let tray_gap = gap;

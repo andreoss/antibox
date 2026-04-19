@@ -300,3 +300,36 @@ fn test_the_upright_width_never_drops_below_the_minimum() {
     assert!(TaskBar::upright_thickness() >= min * 2, "a real width is honoured");
     crate::layout_preferences::set_taskbar_width_px(0);
 }
+
+#[test]
+fn test_two_rows_double_the_bar() {
+    crate::layout_preferences::set_taskbar_rows(1);
+    let one = TaskBar::bar_height();
+    crate::layout_preferences::set_taskbar_rows(2);
+    let two = TaskBar::bar_height();
+    crate::layout_preferences::set_taskbar_rows(1);
+    let edge = antibox_ui::theme::panel_edge_height();
+    assert_eq!(two - edge, (one - edge) * 2, "each row adds one row height");
+}
+
+#[test]
+fn test_the_edge_grab_faces_the_desktop() {
+    let tb = bar_on_mock(TaskBarPosition::Bottom);
+    assert!(tb.edge_grab(50, 0));
+    assert!(!tb.edge_grab(50, i32::from(tb.height) - 1));
+    let tv = bar_on_mock(TaskBarPosition::LeftVertical);
+    assert!(tv.edge_grab(i32::from(tv.width) - 1, 300));
+    assert!(!tv.edge_grab(0, 300));
+}
+
+#[test]
+fn test_dragging_picks_rows_and_width() {
+    let tb = bar_on_mock(TaskBarPosition::Bottom);
+    let row = antibox_ui::metrics::panel_height();
+    assert_eq!(tb.drag_rows(i32::from(tb.height) - row / 2), 1);
+    assert_eq!(tb.drag_rows(i32::from(tb.height) - row * 2), 2);
+    assert_eq!(tb.drag_rows(-10_000), 4, "rows are clamped");
+    let tv = bar_on_mock(TaskBarPosition::LeftVertical);
+    assert_eq!(tv.drag_width(150), 150);
+    assert_eq!(tv.drag_width(-5), 1);
+}

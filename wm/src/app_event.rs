@@ -190,6 +190,8 @@ impl App {
         let width_changed = position.is_upright()
             && prefs.taskbar.width.clamp(0, 1000) as u16
                 != crate::layout_preferences::taskbar_width_px();
+        crate::layout_preferences::set_taskbar_rows(prefs.taskbar.rows);
+        crate::layout_preferences::set_taskbar_locked(prefs.taskbar.locked);
         if position != crate::layout_preferences::taskbar_position() || width_changed {
             self.move_taskbar(position, prefs.clock.format.clone());
         }
@@ -533,6 +535,17 @@ impl App {
                 button,
                 ..
             } if own(window) => {
+                if button == 1
+                    && !crate::layout_preferences::taskbar_locked()
+                    && self.taskbar.as_ref().is_some_and(|tb| {
+                        window == tb.window.id() && tb.edge_grab(point.x, point.y)
+                    })
+                {
+                    if let Some(tb) = self.taskbar.as_ref() {
+                        tb.resizing.set(true);
+                    }
+                    return;
+                }
                 if self.route_to_sub_applet(window, event) {
                     return;
                 }
@@ -598,6 +611,10 @@ impl App {
                 button,
                 ..
             } if own(window) => {
+                if self.taskbar.as_ref().is_some_and(|tb| tb.resizing.get()) {
+                    self.finish_bar_resize(point.x, point.y);
+                    return;
+                }
                 let clicked = self
                     .taskbar
                     .as_mut()
@@ -658,6 +675,39 @@ impl App {
             }
             _ => {}
         }
+    }
+
+    fn finish_bar_resize(&mut self, x: i32, y: i32) {
+        let Some(tb) = self.taskbar.as_ref() else { return };
+        tb.resizing.set(false);
+        let position = tb.position;
+        if position.is_upright() {
+            let want = tb.drag_width(x);
+            let _ = crate::settings_io::save(&[(
+                "taskbar",
+                "width",
+                crate::settings_io::SettingValue::Int(want),
+            )]);
+            return;
+        }
+        let rows = tb.drag_rows(y);
+        if rows as u16 == crate::layout_preferences::taskbar_rows() {
+            return;
+        }
+        crate::layout_preferences::set_taskbar_rows(rows);
+        if let Some(tb) = self.taskbar.as_mut() {
+            if tb.update_height() {
+                self.wm.reserved_strut = tb.strut();
+            }
+            let _ = tb.paint();
+        }
+        crate::placement::update_workarea_from_struts(&mut self.wm);
+        let _ = self.backend.flush();
+        let _ = crate::settings_io::save(&[(
+            "taskbar",
+            "rows",
+            crate::settings_io::SettingValue::Int(rows),
+        )]);
     }
 
     fn repaint_panels(&self) {

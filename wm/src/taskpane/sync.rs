@@ -73,19 +73,27 @@ impl TaskPane {
         if self.vertical {
             let cell = antibox_ui::metrics::panel_height() as i16;
             let width = pane_w.saturating_sub(vin as u16 * 2).max(1);
-            let mut y = vin;
+            let step = cell + gap as i16;
+            let content = n as i16 * step - gap as i16;
+            let max_scroll = (content - pane_h as i16 + vin * 2).max(0);
+            self.scroll = self.scroll.clamp(0, max_scroll);
+            let mut y = vin - self.scroll;
             for btn in &mut self.buttons {
                 btn.rect = (vin, y, width, cell.max(1) as u16);
-                y += cell + gap as i16;
+                y += step;
             }
             return;
         }
+        self.scroll = 0;
         let min_w = Self::min_task_w().max(antibox_ui::metrics::panel_height());
         let max_w = match antibox_ui::theme::taskbar_item_pct() {
             0 => Self::max_button_w(),
             pct => (pane_w as i32 * pct as i32 / 100).max(min_w),
         };
-        let ni = n as i32;
+        let rows = usize::from(crate::layout_preferences::taskbar_rows()).max(1);
+        let per_row = n.div_ceil(rows).max(1);
+        let row_h = ((i32::from(btn_h) - gap * (rows as i32 - 1)) / rows as i32).max(1) as u16;
+        let ni = per_row as i32;
         let fill = crate::layout_preferences::taskbar_fill();
         let widths = if fill {
             Self::spread_widths(pane_w as i32, ni, gap, 1, i32::from(pane_w))
@@ -103,10 +111,12 @@ impl TaskPane {
                 antibox_ui::widget::LabelAlign::Left => 0,
             }
         };
-        let mut x = start as i16;
-        for (btn, w) in self.buttons.iter_mut().zip(widths) {
-            btn.rect = (x, vin, w.max(1) as u16, btn_h);
-            x += w as i16 + gap as i16;
+        for (i, btn) in self.buttons.iter_mut().enumerate() {
+            let (col, row) = (i % per_row, i / per_row);
+            let x = start as i16
+                + widths[..col].iter().map(|w| *w + gap).sum::<i32>() as i16;
+            let y = vin + row as i16 * (row_h as i16 + gap as i16);
+            btn.rect = (x, y, widths[col].max(1) as u16, row_h);
         }
     }
 
@@ -277,7 +287,7 @@ impl TaskPane {
     }
 
     pub fn button_at(&self, x: i32, y: i32) -> Option<usize> {
-        if !self.vertical {
+        if !self.vertical && crate::layout_preferences::taskbar_rows() <= 1 {
             return self.button_index_at(x);
         }
         self.buttons.iter().position(|b| {

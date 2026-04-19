@@ -18,6 +18,7 @@ pub struct Prefs {
     pub ticker: TickerPrefs,
     pub taskbar: TaskbarPrefs,
     pub omni: OmniPrefs,
+    pub launch: LaunchPrefs,
     pub expose: ExposePrefs,
     pub theme: ThemePrefs,
     pub keys: Vec<(String, String)>,
@@ -26,6 +27,11 @@ pub struct Prefs {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ThemePrefs {
     pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LaunchPrefs {
+    pub items: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -98,6 +104,8 @@ pub struct TaskbarPrefs {
     pub position: String,
     pub preview: bool,
     pub width: i64,
+    pub rows: i64,
+    pub locked: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -173,7 +181,7 @@ impl Default for ExposePrefs {
 pub const DEFAULT_EXPOSE_MODES: &str = "thumbnail icon filled none";
 
 pub const DEFAULT_TASKBAR_LAYOUT: &str =
-    "pager tasks cpu mem net power mpris keyboard tray clock";
+    "menu launch pager tasks cpu mem net power mpris keyboard tray clock showdesktop";
 
 impl Default for Prefs {
     fn default() -> Self {
@@ -219,8 +227,11 @@ impl Default for Prefs {
                 position: "bottom".to_string(),
                 preview: true,
                 width: 120,
+                rows: 1,
+                locked: true,
             },
             omni: OmniPrefs { preview: true },
+            launch: LaunchPrefs { items: String::new() },
             expose: ExposePrefs::default(),
             keys: Vec::new(),
         }
@@ -564,6 +575,16 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                         p.taskbar.width = v.clamp(0, 1000);
                     }
                 }
+                ("taskbar", "rows") => {
+                    if let Some(v) = value.as_integer() {
+                        p.taskbar.rows = v.clamp(1, 4);
+                    }
+                }
+                ("taskbar", "locked") => {
+                    if let Some(v) = value.as_bool() {
+                        p.taskbar.locked = v;
+                    }
+                }
                 ("winlist", "preview") => {
                     if let Some(v) = value.as_bool() {
                         p.winlist.preview = v;
@@ -577,6 +598,11 @@ pub fn apply_prefs(p: &mut Prefs, text: &str) {
                 ("omni", "preview") => {
                     if let Some(v) = value.as_bool() {
                         p.omni.preview = v;
+                    }
+                }
+                ("launch", "items") => {
+                    if let Some(v) = value.as_str() {
+                        p.launch.items = v.to_string();
                     }
                 }
                 ("ticker", "enabled") => {

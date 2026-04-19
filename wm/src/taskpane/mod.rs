@@ -22,6 +22,7 @@ pub struct TaskPane {
     pane_h: u16,
     hovered: Option<usize>,
     pub(crate) vertical: bool,
+    pub(crate) scroll: i16,
     tooltip: Option<crate::tooltip::ToolTip>,
     preview: crate::winpreview::WindowPreview,
     drag: Option<Drag>,
@@ -55,6 +56,7 @@ impl TaskPane {
             pane_h: 28,
             hovered: None,
             vertical: false,
+            scroll: 0,
             tooltip: None,
             preview: crate::winpreview::WindowPreview::new(),
             drag: None,
@@ -108,6 +110,18 @@ impl Applet for TaskPane {
         antibox_ui::metrics::panel_height() as u32
     }
     fn handle_click(&mut self, x: i32, _y: i32, button: u8) -> Option<u32> {
+        if (button == 4 || button == 5) && self.vertical {
+            let step = antibox_ui::metrics::panel_height() as i16;
+            let content = self.buttons.len() as i16
+                * (step + antibox_ui::metrics::item_gap() as i16);
+            if content > self.pane_h as i16 {
+                self.scroll += if button == 4 { -step } else { step };
+                let (pw, ph) = (self.pane_w, self.pane_h);
+                self.layout_buttons(pw, ph);
+                self.repaint();
+                return None;
+            }
+        }
         if (button == 4 || button == 5) && !crate::layout_preferences::taskbar_wheel_enabled() {
             return None;
         }

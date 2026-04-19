@@ -42,9 +42,11 @@ preview = true
 position = "top"
 
 [taskbar]
-layout = "pager tasks cpu mem net power mpris keyboard tray clock"
+layout = "menu launch pager tasks cpu mem net power mpris keyboard tray clock showdesktop"
 position = "bottom"
 width = 120
+rows = 1
+locked = true
 preview = true
 
 [omni]
@@ -118,3 +120,6 @@ enabled = false
 "Ctrl+Alt+2" = "Workspace2"
 "Ctrl+Alt+3" = "Workspace3"
 "Ctrl+Alt+4" = "Workspace4"
+
+[launch]
+items = ""

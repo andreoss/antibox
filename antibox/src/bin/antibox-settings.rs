@@ -209,6 +209,22 @@ fn fields(p: &wmconfig::Prefs) -> Vec<Field> {
         ),
         f(
             "taskbar",
+            "rows",
+            "Taskbar rows",
+            Kind::Int,
+            p.taskbar.rows.to_string(),
+            false,
+        ),
+        f(
+            "launch",
+            "items",
+            "Quick launch",
+            Kind::Text,
+            p.launch.items.clone(),
+            false,
+        ),
+        f(
+            "taskbar",
             "preview",
             "Taskbar previews",
             Kind::Bool,
@@ -238,6 +254,14 @@ fn fields(p: &wmconfig::Prefs) -> Vec<Field> {
             Kind::Bool,
             String::new(),
             p.omni.preview,
+        ),
+        f(
+            "taskbar",
+            "locked",
+            "Lock the taskbar",
+            Kind::Bool,
+            String::new(),
+            p.taskbar.locked,
         ),
     ]
 }

@@ -789,6 +789,19 @@ impl App {
                     a.set_colours(&wm.theme_colours);
                     Box::new(a) as Box<dyn Applet>
                 }),
+            Widget::Launch => {
+                let items = wmconfig::split_layout_list(&prefs.launch.items);
+                if items.is_empty() {
+                    None
+                } else {
+                    crate::launch_applet::LaunchApplet::new(conn, wid, items)
+                        .ok()
+                        .map(|a| Box::new(a) as Box<dyn Applet>)
+                }
+            }
+            Widget::ShowDesktop => crate::show_desktop_applet::ShowDesktopApplet::new(conn, wid)
+                .ok()
+                .map(|a| Box::new(a) as Box<dyn Applet>),
             Widget::Workspaces => {
                 WorkspacesPane::new(conn, wid, &wm.workspace_names, wm.theme_colours)
                     .ok()
@@ -919,9 +932,12 @@ impl App {
             position,
         } = cfg;
         crate::layout_preferences::set_taskbar_position(position);
-        crate::layout_preferences::set_taskbar_width_px(
-            wmconfig::Config::load_prefs().taskbar.width,
-        );
+        {
+            let p = wmconfig::Config::load_prefs();
+            crate::layout_preferences::set_taskbar_width_px(p.taskbar.width);
+            crate::layout_preferences::set_taskbar_rows(p.taskbar.rows);
+            crate::layout_preferences::set_taskbar_locked(p.taskbar.locked);
+        }
         if position == crate::taskbar::TaskBarPosition::Disabled {
             return (None, 0);
         }

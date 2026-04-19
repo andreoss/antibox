@@ -21,6 +21,8 @@ static TASKBAR_PREVIEW: AtomicBool = AtomicBool::new(true);
 static OMNI_PREVIEW: AtomicBool = AtomicBool::new(true);
 static TASKBAR_POSITION: AtomicU8 = AtomicU8::new(1);
 static TASKBAR_WIDTH_PX: antibox_core::sync::atomic::AtomicU16 = antibox_core::sync::atomic::AtomicU16::new(0);
+static TASKBAR_ROWS: AtomicU8 = AtomicU8::new(1);
+static TASKBAR_LOCKED: AtomicBool = AtomicBool::new(true);
 static PAGER_HOVER: AtomicBool = AtomicBool::new(true);
 static WINLIST_PREVIEW: AtomicBool = AtomicBool::new(true);
 static MINIMIZE_ANIMATION: AtomicBool = AtomicBool::new(false);
@@ -28,6 +30,7 @@ static MINIMIZE_ANIMATION: AtomicBool = AtomicBool::new(false);
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Widget {
     Menu,
+    Launch,
     Workspaces,
     Windows,
     Tray,
@@ -38,12 +41,14 @@ pub enum Widget {
     PowerAudio,
     Keyboard,
     Clock,
+    ShowDesktop,
 }
 
 impl Widget {
-    pub const COUNT: usize = 11;
+    pub const COUNT: usize = 13;
     pub const ALL: [Self; Self::COUNT] = [
         Self::Menu,
+        Self::Launch,
         Self::Workspaces,
         Self::Windows,
         Self::Tray,
@@ -54,6 +59,7 @@ impl Widget {
         Self::PowerAudio,
         Self::Keyboard,
         Self::Clock,
+        Self::ShowDesktop,
     ];
     const fn index(self) -> usize {
         self as usize
@@ -73,6 +79,8 @@ fn widget_token(name: &str) -> Option<Widget> {
         "battery" | "power" | "batt" | "audio" | "volume" | "sound" => Some(Widget::PowerAudio),
         "keyboard" | "kbd" | "layout" => Some(Widget::Keyboard),
         "clock" | "time" => Some(Widget::Clock),
+        "launch" | "quicklaunch" | "launchers" => Some(Widget::Launch),
+        "showdesktop" | "desktop" => Some(Widget::ShowDesktop),
         _ => None,
     }
 }
@@ -117,7 +125,7 @@ pub fn apply() {
     set_taskbar_wheel(true);
     set_pager_style(false, true);
     set_minimize_animation(false);
-    let present = |w: Widget| !matches!(w, Widget::Menu);
+    let present = |_w: Widget| true;
     for w in Widget::ALL.iter().copied() {
         SHOW.with(|s| s.borrow_mut()[w.index()] = present(w));
     }
@@ -209,6 +217,22 @@ pub fn set_taskbar_width_px(px: i64) {
 
 pub fn taskbar_width_px() -> u16 {
     TASKBAR_WIDTH_PX.load(Ordering::Relaxed)
+}
+
+pub fn set_taskbar_rows(rows: i64) {
+    TASKBAR_ROWS.store(rows.clamp(1, 4) as u8, Ordering::Relaxed);
+}
+
+pub fn taskbar_rows() -> u16 {
+    u16::from(TASKBAR_ROWS.load(Ordering::Relaxed).max(1))
+}
+
+pub fn set_taskbar_locked(v: bool) {
+    TASKBAR_LOCKED.store(v, Ordering::Relaxed);
+}
+
+pub fn taskbar_locked() -> bool {
+    TASKBAR_LOCKED.load(Ordering::Relaxed)
 }
 
 pub fn set_taskbar_preview(v: bool) {

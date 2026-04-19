@@ -102,3 +102,43 @@ fn test_crowded_rows_fall_back_to_half_the_default() {
     let widths = TaskPane::spread_widths(50, 4, 2, 30, 120);
     assert_eq!(widths, vec![60, 60, 60, 60]);
 }
+
+#[test]
+fn test_two_rows_split_the_buttons() {
+    crate::layout_preferences::set_taskbar_rows(2);
+    let (mut pane, _d) = make_pane();
+    for i in 0..5u32 {
+        pane.add_button(400 + i, &format!("w{i}"));
+    }
+    pane.layout_buttons(1000, 44);
+    crate::layout_preferences::set_taskbar_rows(1);
+    let first_y = pane.buttons[0].rect.1;
+    let top: Vec<_> = pane.buttons.iter().filter(|b| b.rect.1 == first_y).collect();
+    assert_eq!(top.len(), 3, "ceil(5/2) buttons on the first row");
+    assert!(pane.buttons[3].rect.1 > first_y, "the rest drop to row two");
+    assert_eq!(pane.buttons[3].rect.0, pane.buttons[0].rect.0);
+}
+
+#[test]
+fn test_the_vertical_list_scrolls_when_it_overflows() {
+    let (mut pane, _d) = make_pane();
+    pane.set_vertical(true);
+    for i in 0..8u32 {
+        pane.add_button(500 + i, &format!("w{i}"));
+    }
+    pane.pane_w = 100;
+    pane.pane_h = 60;
+    pane.scroll = 40;
+    pane.layout_buttons(100, 60);
+    assert!(pane.buttons[0].rect.1 < 0, "scrolled rows sit above the pane");
+    pane.scroll = 10_000;
+    pane.layout_buttons(100, 60);
+    let last = pane.buttons.last().expect("buttons exist");
+    assert!(
+        i32::from(last.rect.1) < 60,
+        "the clamp keeps the tail on screen"
+    );
+    pane.scroll = -5;
+    pane.layout_buttons(100, 60);
+    assert_eq!(pane.buttons[0].rect.1, antibox_ui::metrics::button_inset() as i16);
+}
