@@ -316,7 +316,7 @@ impl Server {
                 announced: false,
             },
         );
-        self.publish_decor_hint(id, false);
+        self.publish_decor_hint(id, true);
         self.adopt_kde_decoration(surface);
         self.hook(
             std::ptr::addr_of_mut!((*toplevel).events.request_move),
