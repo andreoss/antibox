@@ -38,6 +38,30 @@ fn colour(v: &toml::Value, field: &str) -> Result<ColourRef> {
         .ok_or_else(|| Error::message(format!("bad colour {field}: {raw}")))
 }
 
+fn parse_stops(v: &toml::Value) -> Result<Vec<(f32, ColourRef)>> {
+    let Some(raw) = v.get("stops").and_then(toml::Value::as_array) else {
+        return Ok(Vec::new());
+    };
+    let mut stops = Vec::with_capacity(raw.len());
+    for pair in raw {
+        let pair = pair
+            .as_array()
+            .filter(|a| a.len() == 2)
+            .ok_or_else(|| Error::message("stop must be a position and a colour"))?;
+        let at = match &pair[0] {
+            toml::Value::Float(f) => *f as f32,
+            toml::Value::Integer(n) => *n as f32,
+            other => return Err(Error::message(format!("bad stop position {other}"))),
+        };
+        let c = pair[1]
+            .as_str()
+            .and_then(parse_colour_ref)
+            .ok_or_else(|| Error::message(format!("bad stop colour {}", pair[1])))?;
+        stops.push((at, c));
+    }
+    Ok(stops)
+}
+
 fn parse_op(v: &toml::Value) -> Result<Op> {
     let kind = v
         .get("op")
@@ -69,12 +93,30 @@ fn parse_op(v: &toml::Value) -> Result<Op> {
             from: colour(v, "from")?,
             to: colour(v, "to")?,
             kind: match v.get("kind").and_then(as_str) {
+                Some("angle") => GradKind::Angle(
+                    v.get("degrees")
+                        .and_then(toml::Value::as_integer)
+                        .and_then(|n| i16::try_from(n).ok())
+                        .unwrap_or(0),
+                ),
                 Some(k) => GradKind::parse(k),
                 None if v.get("vertical").and_then(toml::Value::as_bool) == Some(false) => {
                     GradKind::Horizontal
                 }
                 None => GradKind::Vertical,
             },
+            repeat: v
+                .get("repeat")
+                .and_then(toml::Value::as_integer)
+                .and_then(|n| u16::try_from(n).ok())
+                .unwrap_or(1),
+            stops: parse_stops(v)?,
+            x: coord(v, "x")?,
+            y: coord(v, "y")?,
+            w: coord(v, "w")?,
+            h: coord(v, "h")?,
+        }),
+        "parent" => Ok(Op::Parent {
             x: coord(v, "x")?,
             y: coord(v, "y")?,
             w: coord(v, "w")?,

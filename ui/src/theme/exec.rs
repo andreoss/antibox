@@ -10,6 +10,30 @@ fn clamp_u16(v: i32) -> u16 {
     v.clamp(0, i32::from(u16::MAX)) as u16
 }
 
+fn stop_colour(
+    stops: &[(f32, antibox_gfx::colour::Colour)],
+    t: f32,
+    from: antibox_gfx::colour::Colour,
+    to: antibox_gfx::colour::Colour,
+) -> antibox_gfx::colour::Colour {
+    if stops.len() < 2 {
+        return lerp(from, to, t);
+    }
+    let first = stops[0];
+    if t <= first.0 {
+        return first.1;
+    }
+    for pair in stops.windows(2) {
+        let (t0, c0) = pair[0];
+        let (t1, c1) = pair[1];
+        if t <= t1 {
+            let span = (t1 - t0).max(f32::EPSILON);
+            return lerp(c0, c1, (t - t0) / span);
+        }
+    }
+    stops[stops.len() - 1].1
+}
+
 pub fn draw_ops(
     g: &dyn GraphicsContext,
     def: &ThemeDef,
@@ -96,6 +120,8 @@ pub fn draw_ops_on(
                 from,
                 to,
                 kind,
+                repeat,
+                stops,
                 x,
                 y,
                 w: gw,
@@ -103,6 +129,10 @@ pub fn draw_ops_on(
             } => {
                 let Some(fc) = resolve_colour(from) else { continue };
                 let Some(tc) = resolve_colour(to) else { continue };
+                let stops: Vec<(f32, antibox_gfx::colour::Colour)> = stops
+                    .iter()
+                    .filter_map(|(at, c)| resolve_colour(c).map(|rc| (*at, rc)))
+                    .collect();
                 let gx = ox + clamp_i16(x.eval(i32::from(w), i32::from(h), i32::from(s)));
                 let gy = oy + clamp_i16(y.eval(i32::from(w), i32::from(h), i32::from(s)));
                 let gw = clamp_u16(gw.eval(i32::from(w), i32::from(h), i32::from(s)));
@@ -110,10 +140,10 @@ pub fn draw_ops_on(
                 if gw == 0 || gh == 0 {
                     continue;
                 }
-                let (nx, ny) = match kind {
-                    GradKind::Vertical => (1, gh),
-                    GradKind::Horizontal => (gw, 1),
-                    GradKind::Diagonal => (gw.min(48), gh.min(48)),
+                let (nx, ny) = match kind.flat() {
+                    (true, _) => (1, gh),
+                    (_, true) => (gw, 1),
+                    _ => (gw.min(48), gh.min(48)),
                 };
                 let denx = f32::from(nx.saturating_sub(1).max(1));
                 let deny = f32::from(ny.saturating_sub(1).max(1));
@@ -129,11 +159,28 @@ pub fn draw_ops_on(
                             - i32::from(i) * i32::from(gw) / i32::from(nx))
                         .max(1) as u16;
                         let fx = if nx == 1 { 0.5 } else { f32::from(i) / denx };
-                        let _ = g.set_foreground(lerp(fc, tc, kind.at(fx, fy)));
+                        let t = repeat_t(kind.at(fx, fy), *repeat);
+                        let _ = g.set_foreground(stop_colour(&stops, t, fc, tc));
                         if g.fill_rect(cx, cy, cw, ch).is_ok() {
                             painted = true;
                         }
                     }
+                }
+            }
+            Op::Parent {
+                x,
+                y,
+                w: pw,
+                h: ph,
+            } => {
+                let Some(c) = bg else { continue };
+                let _ = g.set_foreground(c);
+                let rx = clamp_i16(x.eval(i32::from(w), i32::from(h), i32::from(s)));
+                let ry = clamp_i16(y.eval(i32::from(w), i32::from(h), i32::from(s)));
+                let rw = clamp_u16(pw.eval(i32::from(w), i32::from(h), i32::from(s)));
+                let rh = clamp_u16(ph.eval(i32::from(w), i32::from(h), i32::from(s)));
+                if g.fill_rect(ox + rx, oy + ry, rw, rh).is_ok() {
+                    painted = true;
                 }
             }
             Op::Polygon { colour, points } => {

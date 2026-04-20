@@ -1,4 +1,4 @@
-use antibox_gfx::colour::{lerp as mix_rgb, Colour};
+use antibox_gfx::colour::{lerp as mix_rgb, tint as tint_rgb, Colour};
 use std::collections::HashMap;
 
 #[derive(Clone, PartialEq, Debug)]
@@ -34,6 +34,13 @@ pub enum GradKind {
     Vertical,
     Horizontal,
     Diagonal,
+    CrossDiagonal,
+    Pyramid,
+    MirrorVertical,
+    MirrorHorizontal,
+    Radial,
+    Conic,
+    Angle(i16),
 }
 
 impl GradKind {
@@ -41,6 +48,12 @@ impl GradKind {
         match name {
             "horizontal" => Self::Horizontal,
             "diagonal" => Self::Diagonal,
+            "crossdiagonal" => Self::CrossDiagonal,
+            "pyramid" => Self::Pyramid,
+            "mirrorvertical" => Self::MirrorVertical,
+            "mirrorhorizontal" => Self::MirrorHorizontal,
+            "radial" => Self::Radial,
+            "conic" => Self::Conic,
             _ => Self::Vertical,
         }
     }
@@ -50,7 +63,43 @@ impl GradKind {
             Self::Vertical => fy,
             Self::Horizontal => fx,
             Self::Diagonal => (fx + fy) * 0.5,
+            Self::CrossDiagonal => ((1.0 - fx) + fy) * 0.5,
+            Self::Pyramid => (fx - 0.5).abs().max((fy - 0.5).abs()) * 2.0,
+            Self::MirrorVertical => 1.0 - (fy * 2.0 - 1.0).abs(),
+            Self::MirrorHorizontal => 1.0 - (fx * 2.0 - 1.0).abs(),
+            Self::Radial => {
+                let (dx, dy) = (fx - 0.5, fy - 0.5);
+                ((dx * dx + dy * dy).sqrt() / std::f32::consts::FRAC_1_SQRT_2 * 2.0)
+                    .clamp(0.0, 1.0)
+            }
+            Self::Conic => {
+                ((fy - 0.5).atan2(fx - 0.5) / std::f32::consts::TAU + 0.5).clamp(0.0, 1.0)
+            }
+            Self::Angle(degrees) => {
+                let rad = f32::from(degrees).to_radians();
+                (((fx - 0.5) * rad.cos() + (fy - 0.5) * rad.sin()) + 0.5).clamp(0.0, 1.0)
+            }
         }
+    }
+
+    pub const fn flat(self) -> (bool, bool) {
+        match self {
+            Self::Vertical | Self::MirrorVertical => (true, false),
+            Self::Horizontal | Self::MirrorHorizontal => (false, true),
+            _ => (false, false),
+        }
+    }
+}
+
+pub fn repeat_t(t: f32, repeat: u16) -> f32 {
+    if repeat <= 1 {
+        return t;
+    }
+    let v = t * f32::from(repeat);
+    if v >= f32::from(repeat) {
+        1.0
+    } else {
+        v.fract()
     }
 }
 
@@ -59,6 +108,7 @@ pub enum ColourRef {
     Named(String),
     Literal(u32),
     Scale(String, f32),
+    Tint(String, f32),
     Blend(String, String, f32),
 }
 
@@ -89,6 +139,14 @@ pub enum Op {
         from: ColourRef,
         to: ColourRef,
         kind: GradKind,
+        repeat: u16,
+        stops: Vec<(f32, ColourRef)>,
+        x: Coord,
+        y: Coord,
+        w: Coord,
+        h: Coord,
+    },
+    Parent {
         x: Coord,
         y: Coord,
         w: Coord,
@@ -265,6 +323,9 @@ pub fn parse_colour_ref(src: &str) -> Option<ColourRef> {
     if let Some(idx) = s.find('~') {
         let (a, rest) = s.split_at(idx);
         let rest = &rest[1..];
+        if let Ok(f) = rest.trim().parse::<f32>() {
+            return Some(ColourRef::Tint(a.trim().to_string(), f));
+        }
         let (b, f) = rest.split_at(rest.find('*').unwrap_or(rest.len()));
         let f = if f.is_empty() {
             0.5
@@ -302,6 +363,7 @@ pub fn resolve_colour_on(def: &ThemeDef, r: &ColourRef, bg: Option<Colour>) -> O
         ColourRef::Named(n) => base(n),
         ColourRef::Literal(c) => Some(*c),
         ColourRef::Scale(n, f) => Some(scale_rgb(base(n)?, *f)),
+        ColourRef::Tint(n, f) => Some(tint_rgb(base(n)?, *f)),
         ColourRef::Blend(a, b, f) => Some(mix_rgb(base(a)?, base(b)?, *f)),
     }
 }

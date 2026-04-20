@@ -46,6 +46,90 @@
     }
 
     #[test]
+    fn colour_ref_tints_toward_white() {
+        assert_eq!(
+            parse_colour_ref("face~0.5").unwrap(),
+            ColourRef::Tint("face".to_string(), 0.5)
+        );
+        let def = nt();
+        let tinted = resolve_colour(&def, &parse_colour_ref("dark~1.0").unwrap());
+        assert_eq!(tinted, Some(0xFFFFFF));
+        let half = resolve_colour(&def, &parse_colour_ref("shadow~0.5").unwrap());
+        assert_eq!(half, Some(0xBFBFBF));
+    }
+
+    #[test]
+    fn gradient_kinds_parse_and_sample() {
+        assert_eq!(GradKind::parse("pyramid"), GradKind::Pyramid);
+        assert_eq!(GradKind::parse("radial"), GradKind::Radial);
+        assert_eq!(GradKind::parse("conic"), GradKind::Conic);
+        assert_eq!(GradKind::parse("crossdiagonal"), GradKind::CrossDiagonal);
+        assert_eq!(GradKind::parse("mirrorvertical"), GradKind::MirrorVertical);
+        assert_eq!(GradKind::parse("mirrorhorizontal"), GradKind::MirrorHorizontal);
+        assert_eq!(GradKind::Pyramid.at(0.5, 0.5), 0.0);
+        assert_eq!(GradKind::Pyramid.at(0.0, 0.5), 1.0);
+        assert_eq!(GradKind::MirrorVertical.at(0.5, 0.0), 0.0);
+        assert_eq!(GradKind::MirrorVertical.at(0.5, 0.5), 1.0);
+        assert_eq!(GradKind::CrossDiagonal.at(1.0, 0.0), 0.0);
+        assert_eq!(GradKind::Radial.at(0.5, 0.5), 0.0);
+        assert_eq!(GradKind::Angle(0).at(1.0, 0.5), 1.0);
+        assert_eq!(GradKind::Angle(90).at(0.5, 1.0), 1.0);
+    }
+
+    #[test]
+    fn repeat_wraps_the_ramp() {
+        assert_eq!(repeat_t(0.5, 1), 0.5);
+        assert_eq!(repeat_t(0.25, 2), 0.5);
+        assert_eq!(repeat_t(0.75, 2), 0.5);
+        assert_eq!(repeat_t(1.0, 2), 1.0);
+    }
+
+    #[test]
+    fn gradient_stops_and_parent_ops_parse() {
+        let def = crate::theme::load::from_toml(
+            r##"
+name = "t"
+[colors]
+face = "202020"
+[elements.striped]
+ops = [
+    { op = "gradient", x = "0", y = "0", w = "w", h = "h", from = "#111111", to = "#333333", repeat = 3, stops = [[0.0, "#111111"], [0.5, "face"], [1.0, "#333333"]] },
+    { op = "parent", x = "0", y = "0", w = "s", h = "s" },
+]
+"##,
+        )
+        .unwrap();
+        let ops = def.element("striped").unwrap();
+        match &ops[0] {
+            Op::Gradient { repeat, stops, .. } => {
+                assert_eq!(*repeat, 3);
+                assert_eq!(stops.len(), 3);
+                assert_eq!(stops[1].1, ColourRef::Named("face".to_string()));
+            }
+            other => panic!("expected a gradient, got {other:?}"),
+        }
+        assert!(matches!(ops[1], Op::Parent { .. }));
+    }
+
+    #[test]
+    fn angle_gradients_carry_their_degrees() {
+        let def = crate::theme::load::from_toml(
+            r##"
+name = "t"
+[elements.slanted]
+ops = [
+    { op = "gradient", x = "0", y = "0", w = "w", h = "h", from = "#000000", to = "#FFFFFF", kind = "angle", degrees = 45 },
+]
+"##,
+        )
+        .unwrap();
+        match &def.element("slanted").unwrap()[0] {
+            Op::Gradient { kind, .. } => assert_eq!(*kind, GradKind::Angle(45)),
+            other => panic!("expected a gradient, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn colour_ref_scales_and_blends() {
         let def = nt();
         let half = resolve_colour(&def, &parse_colour_ref("face*0.5").unwrap());
