@@ -1,0 +1,144 @@
+name = "beos"
+
+[colors]
+face = "#D8D8D8"
+field = "#FFFFFF"
+text = "#000000"
+disabled = "#8A8A8A"
+sel_bg = "#999999"
+sel_fg = "#000000"
+menu_sel_bg = "#999999"
+menu_sel_fg = "#000000"
+light = "#FFFFFF"
+face_light = "#EFEFEF"
+button_face = "#E8E8E8"
+shadow = "#989898"
+dark = "#787878"
+tooltip_bg = "#FFFFD0"
+tooltip_fg = "#000000"
+sel_line = "#999999"
+title_active = "#FFCB00"
+title_text = "#000000"
+title_inactive = "#E8E8E8"
+title_text_inactive = "#505050"
+title_gradient = "#FFCB00"
+title_gradient_inactive = "#E8E8E8"
+check_colour = "#4949F9"
+scrollbar_track = "#C8C8C8"
+graph_bg = "#000000"
+graph1 = "#FFCB00"
+graph2 = "#999999"
+graph3 = "#E8E8E8"
+graph4 = "#787878"
+
+[metrics]
+corner_radius = 0
+button_radius = 0
+check_stroke = 3
+pad = 4
+gap = 2
+item_gap = 2
+title_height = 20
+border = 5
+border_bottom = 5
+scrollbar_base = 16
+button_base = 14
+button_inset = 5
+title_justify = 0
+sunken_depth = 1
+
+[strings]
+menu_label = "Be"
+title_buttons = "xm"
+taskbar_justify = "left"
+
+[flags]
+flat = false
+dotted_sel = false
+underline_focus = false
+override_chrome = true
+tab_title = true
+checkbox_cross = true
+sculpted = false
+outlined = false
+coloured_frame = false
+menu_glyph = false
+title_stipple = false
+title_grad_vertical = false
+grad_buttons = false
+equal_tabs = false
+scroll_arrows_both_ends = true
+bilevel_text = true
+
+[elements.button]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "button_face" },
+    { op = "fill", x = "s", y = "s", w = "w-2*s", h = "s", colour = "light" },
+    { op = "fill", x = "s", y = "s", w = "s", h = "h-2*s", colour = "light" },
+    { op = "fill", x = "s", y = "h-2*s", w = "w-2*s", h = "s", colour = "shadow" },
+    { op = "fill", x = "w-2*s", y = "s", w = "s", h = "h-2*s", colour = "shadow" },
+    { op = "outline", x = "0", y = "0", w = "w-s", h = "h-s", colour = "dark" },
+    { op = "fill", x = "s", y = "s", w = "w-2*s", h = "h-2*s", colour = "button_face" },
+    { op = "fill", x = "2*s", y = "2*s", w = "w-4*s", h = "2*s", colour = "light" },
+    { op = "fill", x = "2*s", y = "h-3*s", w = "w-4*s", h = "s", colour = "#D8D8D8" },
+    { op = "fill", x = "2*s", y = "h-2*s", w = "w-4*s", h = "s", colour = "#989898" },
+    { op = "outline", x = "0", y = "0", w = "w-s", h = "h-s", colour = "#606060" },
+]
+
+[elements.button_pressed]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "button_face*0.9" },
+    { op = "fill", x = "s", y = "s", w = "w-2*s", h = "s", colour = "shadow" },
+    { op = "fill", x = "s", y = "s", w = "s", h = "h-2*s", colour = "shadow" },
+    { op = "fill", x = "s", y = "h-2*s", w = "w-2*s", h = "s", colour = "light" },
+    { op = "fill", x = "w-2*s", y = "s", w = "s", h = "h-2*s", colour = "light" },
+    { op = "outline", x = "0", y = "0", w = "w-s", h = "h-s", colour = "dark" },
+    { op = "fill", x = "s", y = "s", w = "w-2*s", h = "h-2*s", colour = "#B8B8B8" },
+    { op = "fill", x = "2*s", y = "h-4*s", w = "w-4*s", h = "2*s", colour = "#CCCCCC" },
+    { op = "outline", x = "0", y = "0", w = "w-s", h = "h-s", colour = "#606060" },
+]
+
+[elements.scroll_thumb]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "face" },
+    { op = "fill", x = "0", y = "0", w = "w", h = "s", colour = "light" },
+    { op = "fill", x = "0", y = "0", w = "s", h = "h", colour = "light" },
+    { op = "fill", x = "0", y = "h-s", w = "w", h = "s", colour = "shadow" },
+    { op = "fill", x = "w-s", y = "0", w = "s", h = "h", colour = "shadow" },
+    { op = "fill", x = "w/2-s", y = "h/2-5*s", w = "2*s", h = "2*s", colour = "dark" },
+    { op = "fill", x = "w/2-s", y = "h/2-s", w = "2*s", h = "2*s", colour = "dark" },
+    { op = "fill", x = "w/2-s", y = "h/2+3*s", w = "2*s", h = "2*s", colour = "dark" },
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "face" },
+    { op = "fill", x = "s", y = "s", w = "w-2*s", h = "s", colour = "light" },
+    { op = "fill", x = "s", y = "s", w = "s", h = "h-2*s", colour = "light" },
+    { op = "outline", x = "0", y = "0", w = "w-s", h = "h-s", colour = "dark*0.8" },
+    { op = "fill", x = "w/2-s", y = "h/2-5*s", w = "2*s", h = "2*s", colour = "shadow" },
+    { op = "fill", x = "w/2", y = "h/2-4*s", w = "s", h = "s", colour = "light" },
+    { op = "fill", x = "w/2-s", y = "h/2-s", w = "2*s", h = "2*s", colour = "shadow" },
+    { op = "fill", x = "w/2", y = "h/2", w = "s", h = "s", colour = "light" },
+    { op = "fill", x = "w/2-s", y = "h/2+3*s", w = "2*s", h = "2*s", colour = "shadow" },
+    { op = "fill", x = "w/2", y = "h/2+4*s", w = "s", h = "s", colour = "light" },
+]
+
+[elements.scroll_arrow_up]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "button_face" },
+    { op = "fill", x = "s", y = "s", w = "w-2*s", h = "s", colour = "light" },
+    { op = "fill", x = "s", y = "s", w = "s", h = "h-2*s", colour = "light" },
+    { op = "outline", x = "0", y = "0", w = "w-s", h = "h-s", colour = "shadow" },
+    { op = "line", x1 = "w/2", y1 = "3*s", x2 = "2*s", y2 = "h-4*s", colour = "dark" },
+    { op = "line", x1 = "w/2", y1 = "3*s", x2 = "w-2*s", y2 = "h-4*s", colour = "dark" },
+    { op = "line", x1 = "2*s", y1 = "h-4*s", x2 = "w-2*s", y2 = "h-4*s", colour = "dark" },
+]
+
+[elements.scroll_arrow_down]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "button_face" },
+    { op = "fill", x = "s", y = "s", w = "w-2*s", h = "s", colour = "light" },
+    { op = "fill", x = "s", y = "s", w = "s", h = "h-2*s", colour = "light" },
+    { op = "outline", x = "0", y = "0", w = "w-s", h = "h-s", colour = "shadow" },
+    { op = "line", x1 = "2*s", y1 = "3*s", x2 = "w-2*s", y2 = "3*s", colour = "dark" },
+    { op = "line", x1 = "2*s", y1 = "3*s", x2 = "w/2", y2 = "h-4*s", colour = "dark" },
+    { op = "line", x1 = "w-2*s", y1 = "3*s", x2 = "w/2", y2 = "h-4*s", colour = "dark" },
+]
+

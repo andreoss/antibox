@@ -18,9 +18,11 @@ pub const K3_THEME: &str = include_str!("../../../share/themes/2k3.toml");
 pub const KDE_THEME: &str = include_str!("../../../share/themes/kde.toml");
 pub const MACOS9_THEME: &str = include_str!("../../../share/themes/macos9.toml");
 pub const SERENITY_THEME: &str = include_str!("../../../share/themes/serenity.toml");
+pub const BEOS_THEME: &str = include_str!("../../../share/themes/beos.toml");
 pub const CDE_THEME: &str = include_str!("../../../share/themes/cde.toml");
 pub const IRIX_THEME: &str = include_str!("../../../share/themes/irix.toml");
 pub const NEXT_THEME: &str = include_str!("../../../share/themes/next.toml");
+pub const OS2_THEME: &str = include_str!("../../../share/themes/os2.toml");
 
 pub const BUILTIN_THEMES: &[(&str, &str)] = &[
     ("nt", NT_THEME),
@@ -28,13 +30,16 @@ pub const BUILTIN_THEMES: &[(&str, &str)] = &[
     ("kde", KDE_THEME),
     ("macos9", MACOS9_THEME),
     ("serenity", SERENITY_THEME),
+    ("beos", BEOS_THEME),
     ("cde", CDE_THEME),
     ("irix", IRIX_THEME),
     ("next", NEXT_THEME),
+    ("os2", OS2_THEME),
 ];
 
-pub const BUILTIN_THEME_NAMES: &[&str] =
-    &["nt", "2k3", "kde", "macos9", "serenity", "cde", "irix", "next"];
+pub const BUILTIN_THEME_NAMES: &[&str] = &[
+    "nt", "2k3", "kde", "macos9", "serenity", "beos", "cde", "irix", "next", "os2",
+];
 
 pub fn install(def: ThemeDef) {
     if let Ok(mut g) = LOADED.write() {
