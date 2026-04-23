@@ -895,6 +895,15 @@ extern "C" {
         points_len: u32,
         points: *const xcb_point_t,
     ) -> c_uint;
+    pub fn xcb_poly_text_16(
+        c: *mut xcb_connection_t,
+        drawable: xcb_drawable_t,
+        gc: xcb_gcontext_t,
+        x: i16,
+        y: i16,
+        items_len: u32,
+        items: *const u8,
+    ) -> c_uint;
     pub fn xcb_image_text_8(
         c: *mut xcb_connection_t,
         string_len: u8,

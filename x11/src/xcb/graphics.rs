@@ -230,7 +230,33 @@ impl GraphicsContext for XcbGraphics {
         if let Some(f) = self.ft_font() {
             return self.composite_ft(&f, x, y, text);
         }
-        self.draw_text(x, y, text)
+        let chars: Vec<u16> = text
+            .chars()
+            .take(254)
+            .map(|c| if c as u32 <= 0xFFFF { c as u32 as u16 } else { u16::from(b'?') })
+            .collect();
+        if chars.is_empty() {
+            return Ok(());
+        }
+        let mut items: Vec<u8> = Vec::with_capacity(chars.len() * 2 + 2);
+        items.push(chars.len() as u8);
+        items.push(0);
+        for code in &chars {
+            items.push((code >> 8) as u8);
+            items.push((code & 0xFF) as u8);
+        }
+        unsafe {
+            xcb_poly_text_16(
+                self.conn.raw(),
+                self.drawable,
+                self.gc,
+                x,
+                y,
+                items.len() as u32,
+                items.as_ptr(),
+            )
+        };
+        Ok(())
     }
 
     fn draw_text_rotated_ccw(&self, x: i16, y: i16, text: &str) -> Result<()> {
