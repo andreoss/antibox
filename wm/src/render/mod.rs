@@ -191,6 +191,48 @@ pub(crate) fn brighten_colour(
     antibox_core::colour::tint(c, factor)
 }
 
+fn frame_extent(fw: &FrameWindow) -> u16 {
+    if fw.tab_titled() {
+        fw.title_tab_width().max(1) as u16
+    } else {
+        title_bar_height() as u16
+    }
+}
+
+fn measure_tab_width(fw: &FrameWindow, g: &dyn GraphicsContext) -> i32 {
+    let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
+    let text_w = g.text_width(fw.client().title()).unwrap_or(0) as i32;
+    let btn = crate::frame::button_width();
+    let pad = antibox_core::scale::scaled(3);
+    let gap = antibox_core::scale::scaled(4);
+    let want = pad + btn + gap + text_w + gap + btn + pad;
+    let max = fw.frame_rect().w.max(1);
+    let min = (pad * 2 + btn * 2 + gap * 2 + antibox_core::scale::scaled(20)).min(max);
+    want.clamp(min, max)
+}
+
+fn draw_title_tab(
+    fw: &FrameWindow,
+    g: &dyn GraphicsContext,
+    focused: bool,
+    colours: &ThemeColors,
+) {
+    let bg = if fw.state().urgent && !focused {
+        colours.urgent_bg
+    } else if focused {
+        colours.active_title_top
+    } else {
+        colours.inactive_title_top
+    };
+    let border = if focused {
+        colours.border_active
+    } else {
+        colours.border_inactive
+    };
+    let tab_h = (title_bar_height() as u16).min(fw.frame_rect().h.max(1) as u16);
+    antibox_ui::theme::title_tab(g, fw.title_tab_width() as u16, tab_h, bg, border);
+}
+
 pub fn draw_title_scroll(
     fw: &FrameWindow,
     g: &dyn GraphicsContext,
@@ -201,6 +243,11 @@ pub fn draw_title_scroll(
     let fw_w = fw.frame_rect().w as u16;
     let bw = fw.effective_border();
     let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
+    if fw.tab_titled() {
+        draw_title_tab(fw, g, focused, colours);
+        let (text_x, title_right) = fw.title_text_span();
+        return draw_title_text(fw, g, focused, colours, text_x as i16, title_right as i16);
+    }
     draw_title_bar(
         g,
         focused,
@@ -238,22 +285,42 @@ pub fn draw_frame(
     let fw_h = fw.frame_rect().h as u16;
     let bw = fw.effective_border();
     let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
-    if bw > 0 {
-        draw_border(g, focused, 0, fw_w, fw_h, colours);
+    let tab = fw.tab_titled();
+    if tab {
+        let tw = measure_tab_width(fw, g);
+        if fw.tab_width.get() != tw {
+            fw.tab_width.set(tw);
+            fw.set_shape();
+        }
+    } else if antibox_ui::theme::tab_title() && fw.tab_width.get() != fw.frame_rect().w {
+        fw.tab_width.set(fw.frame_rect().w);
+        fw.set_shape();
     }
-    draw_title_bar(
-        g,
-        focused,
-        fw.state().urgent,
-        fw.client().is_xpra(),
-        TitleBarDims {
-            fw_w,
-            bw,
-            split: fw.title_text_span().1,
-        },
-        colours,
-        gradients_enabled,
-    )?;
+    let bar_top = if tab {
+        title_bar_height() - antibox_core::scale::scaled(1).max(1)
+    } else {
+        0
+    };
+    if bw > 0 {
+        draw_border(g, focused, bar_top as i16, fw_w, fw_h, colours, frame_extent(fw));
+    }
+    if tab {
+        draw_title_tab(fw, g, focused, colours);
+    } else {
+        draw_title_bar(
+            g,
+            focused,
+            fw.state().urgent,
+            fw.client().is_xpra(),
+            TitleBarDims {
+                fw_w,
+                bw,
+                split: fw.title_text_span().1,
+            },
+            colours,
+            gradients_enabled,
+        )?;
+    }
     draw_buttons(fw, g, focused, colours)?;
     let (text_x, title_right) = fw.title_text_span();
     draw_title_text(fw, g, focused, colours, text_x as i16, title_right as i16)?;
@@ -548,7 +615,7 @@ fn draw_frame_left_title(
     let bw = fw.effective_border();
     let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
     if bw > 0 {
-        draw_border(g, focused, 0, fw_w, fw_h, colours);
+        draw_border(g, focused, 0, fw_w, fw_h, colours, title_bar_height() as u16);
     }
     let bandr = fw.band_rect();
     let band = bandr.w;
@@ -604,7 +671,7 @@ fn draw_frame_bottom_title(
     let bw = fw.effective_border();
     let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
     if bw > 0 {
-        draw_border(g, focused, 0, fw_w, fw_h, colours);
+        draw_border(g, focused, 0, fw_w, fw_h, colours, title_bar_height() as u16);
     }
     let bandr = fw.band_rect();
     let (fill, urgent) = if fw.state().urgent && !focused {
@@ -660,23 +727,51 @@ fn draw_buttons(
     focused: bool,
     colours: &ThemeColors,
 ) -> Result<()> {
-    if !focused && antibox_ui::theme::hide_buttons_inactive() {
+    let tab = fw.tab_titled();
+    if !focused && !tab && antibox_ui::theme::hide_buttons_inactive() {
         return Ok(());
     }
     let pressed = fw.pressed_button();
-    let (bg, glyph_fg) = (colours.button_bg, colours.button_fg);
+    let (bg, glyph_fg) = if tab
+        || antibox_ui::theme::sculpted()
+        || antibox_ui::theme::flat()
+        || antibox_ui::theme::coloured_frame()
+    {
+        if focused {
+            (colours.active_title_top, colours.active_text)
+        } else {
+            (colours.inactive_title_top, colours.inactive_text)
+        }
+    } else {
+        (colours.button_bg, colours.button_fg)
+    };
 
     for (id, _sym, pix_key, rect) in fw.title_button_layout() {
         let sunken = pressed == Some(id);
         let (x, y, w, h) = (rect.x as i16, rect.y as i16, rect.w as u16, rect.h as u16);
-        if antibox_ui::theme::themed_title_button(
-            g,
-            pix_key,
-            Rect::px(x, y, w, h),
-            bg,
-            focused,
-            sunken,
-        ) {
+        if !tab
+            && antibox_ui::theme::sculpted()
+            && antibox_ui::theme::has_themed_title_button(pix_key)
+        {
+            let knurl_right = rect.x < fw.frame_rect().w / 2;
+            antibox_ui::theme::sculpted_title_plate(
+                g,
+                Rect::px(x, y, w, h),
+                bg,
+                sunken,
+                knurl_right,
+            );
+        }
+        if !tab
+            && antibox_ui::theme::themed_title_button(
+                g,
+                pix_key,
+                Rect::px(x, y, w, h),
+                bg,
+                focused,
+                sunken,
+            )
+        {
             let surround = if focused {
                 colours.active_title_top
             } else {
@@ -687,6 +782,11 @@ fn draw_buttons(
         }
         if pix_key == "menu" {
             draw_menu_button(fw, g, focused, colours, &rect, sunken);
+            continue;
+        }
+        if tab {
+            let zoom = matches!(pix_key, "maximize" | "restore");
+            antibox_ui::theme::tab_button(g, Rect::px(x, y, w, h), bg, zoom, sunken);
             continue;
         }
         let (fg, off) =
@@ -831,6 +931,7 @@ pub(crate) fn draw_border(
     w: u16,
     h: u16,
     colours: &ThemeColors,
+    extent: u16,
 ) {
     let border = if focused {
         colours.border_active
@@ -842,7 +943,6 @@ pub(crate) fn draw_border(
     } else {
         colours.inactive_title_top
     };
-    let extent = title_bar_height() as u16;
     antibox_ui::theme::window_frame(
         g,
         top,

@@ -136,6 +136,7 @@ pub struct FrameWindow {
     pub(crate) shape_known: bool,
     pub(crate) shapes_protect: bool,
     rounded: std::cell::Cell<bool>,
+    pub(crate) tab_width: std::cell::Cell<i32>,
     pub(crate) pointer_windows: Vec<u32>,
     pub(crate) gfx: std::cell::RefCell<Option<Box<dyn GraphicsContext>>>,
     pub(crate) tabbed_clients: Vec<u32>,
@@ -175,6 +176,7 @@ impl FrameWindow {
             shape_known: false,
             shapes_protect: true,
             rounded: std::cell::Cell::new(false),
+            tab_width: std::cell::Cell::new(0),
             pointer_windows: Vec::new(),
             gfx: std::cell::RefCell::new(None),
             tabbed_clients: Vec::new(),
@@ -442,9 +444,25 @@ impl FrameWindow {
         }
     }
 
+    pub fn tab_titled(&self) -> bool {
+        antibox_ui::theme::tab_title() && self.tabbed_clients.is_empty()
+    }
+
+    pub fn title_tab_width(&self) -> i32 {
+        let tw = self.tab_width.get();
+        if tw <= 0 {
+            self.frame_rect.w
+        } else {
+            tw.min(self.frame_rect.w)
+        }
+    }
+
     pub fn title_bar_rect(&self) -> Rect {
         if self.title_offset() {
             return self.band_rect();
+        }
+        if self.tab_titled() {
+            return Rect::new(0, 0, self.title_tab_width(), title_bar_height());
         }
         let bw = self.effective_border();
         let ti = if bw > 0 { title_side_inset() } else { 0 };
@@ -452,6 +470,9 @@ impl FrameWindow {
     }
 
     pub fn sys_menu_rect(&self) -> Rect {
+        if self.tab_titled() || !self.tabbed_clients.is_empty() {
+            return Rect::new(0, 0, 0, 0);
+        }
         let bw = self.effective_border();
         let ti = if bw > 0 { title_side_inset() } else { 0 };
         let sz = (title_bar_height() - 6).max(8);
@@ -653,6 +674,25 @@ impl FrameWindow {
     fn build_title_layout_horizontal(&self) -> (Vec<TitleButton>, (i32, i32)) {
         let btn = button_width();
         let mut out = Vec::new();
+        if self.tab_titled() {
+            let pad = antibox_core::scale::scaled(3);
+            let gap = antibox_core::scale::scaled(4);
+            let btn_y = ((title_bar_height() - btn) / 2).max(0);
+            let mut right = self.title_tab_width() - pad - btn;
+            let mut span_right = self.title_tab_width() - pad;
+            for code in antibox_ui::theme::title_buttons().chars() {
+                if let Some((id, sym, pix)) = self.title_button_for(code) {
+                    if code == 'x' {
+                        out.push((id, sym, pix, Rect::new(pad, btn_y, btn, btn)));
+                    } else {
+                        out.push((id, sym, pix, Rect::new(right, btn_y, btn, btn)));
+                        span_right = span_right.min(right);
+                        right -= btn + antibox_core::scale::scaled(2);
+                    }
+                }
+            }
+            return (out, (pad + btn + gap, span_right));
+        }
         let supported = antibox_ui::theme::title_buttons();
         let allowed = |code: char| code == 's' || supported.contains(code);
         let bw = if self.effective_border() > 0 {
@@ -732,17 +772,23 @@ impl FrameWindow {
                 let full = [(0i16, 0i16, r.w as u16, r.h as u16)];
                 let _ = self.frame.set_shape_rectangles(&full, ShapeOp::Set);
             } else {
+                let tab = self.tab_titled();
+                let top = if tab { th } else { 0 };
                 let mut rects: Vec<(i16, i16, u16, u16)> = Vec::new();
                 let bb = self.effective_bottom_border() as i16;
                 if bw > 0 {
-                    rects.push((0, 0, r.w as u16, bw as u16));
+                    rects.push((0, top, r.w as u16, bw as u16));
                     rects.push((0, r.h as i16 - bb, r.w as u16, bb as u16));
-                    let side_h = (r.h as i16 - bw - bb).max(0) as u16;
-                    rects.push((0, bw, bw as u16, side_h));
-                    rects.push((r.w as i16 - bw, bw, bw as u16, side_h));
+                    let side_h = (r.h as i16 - top - bw - bb).max(0) as u16;
+                    rects.push((0, top + bw, bw as u16, side_h));
+                    rects.push((r.w as i16 - bw, top + bw, bw as u16, side_h));
                 }
-                let ti = if bw > 0 { title_side_inset() as i16 } else { 0 };
-                rects.push((ti, ti, (r.w as i16 - ti * 2) as u16, th as u16));
+                if tab {
+                    rects.push((0, 0, self.title_tab_width().max(1) as u16, th as u16));
+                } else {
+                    let ti = if bw > 0 { title_side_inset() as i16 } else { 0 };
+                    rects.push((ti, ti, (r.w as i16 - ti * 2) as u16, th as u16));
+                }
                 let _ = self.frame.set_shape_rectangles(&rects, ShapeOp::Set);
                 let cr = self.client_rect;
                 let off = ((cr.x - r.x) as i16, (cr.y - r.y) as i16);
@@ -755,6 +801,17 @@ impl FrameWindow {
 
     fn apply_corner_shape(&self) {
         let r = self.frame_rect;
+        if self.decorated() && !self.state.fullscreen && self.tab_titled() {
+            let th = (title_bar_height().min(r.h)).max(1);
+            let tw = self.title_tab_width().clamp(1, r.w);
+            let mut rects = vec![(0i16, 0i16, tw as u16, th as u16)];
+            if r.h > th {
+                rects.push((0, th as i16, r.w as u16, (r.h - th) as u16));
+            }
+            let _ = self.frame.set_shape_rectangles(&rects, ShapeOp::Set);
+            self.rounded.set(true);
+            return;
+        }
         let square = !self.decorated() || self.state.maximized || self.state.fullscreen;
         let region = if square {
             None
