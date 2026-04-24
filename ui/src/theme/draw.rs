@@ -1,6 +1,7 @@
 use super::*;
 use antibox_gfx::backend::GraphicsContext;
-use antibox_gfx::point::Dimension;
+use antibox_gfx::colour::tint as tint_rgb;
+use antibox_gfx::point::{Dimension, Point};
 use antibox_gfx::rect::Rect;
 
 
@@ -462,6 +463,24 @@ pub fn title_button(
     sunken: bool,
 ) -> (u32, i16) {
     let (x, y, w, h) = r.as_px();
+    if flat() {
+        let glyph = if _active { fg } else { title_text_inactive() };
+        let (fill, label) = press_colours(bg, glyph, sunken);
+        fill_surface(g, x, y, w, h, fill);
+        bevel(g, x, y, w, h, sunken);
+        return (label, 0);
+    }
+    if sculpted() {
+        let face = if sunken { scale_rgb(bg, 0.85) } else { bg };
+        let _ = g.set_foreground(face);
+        let _ = g.fill_rect(x, y, w, h);
+        let s = hairline(w, h);
+        let _ = g.set_foreground(scale_rgb(bg, 0.55));
+        dotted_line(g, x, y, false, h);
+        let _ = g.set_foreground(tint_rgb(bg, 0.6));
+        dotted_line(g, x + s as i16, y, false, h);
+        return (fg, i16::from(sunken));
+    }
     if grad_buttons() && !equal_tabs() {
         button_surface(g, Rect::px(x, y, w, h), Fill::new(bg, sunken));
         return (fg, i16::from(sunken));
@@ -490,6 +509,24 @@ pub fn title_button(
         let _ = g.draw_rect(x, y, w, h);
         return (fg, i16::from(sunken));
     }
+    if coloured_frame() {
+        let _ = g.set_foreground(bg);
+        let _ = g.fill_rect(x, y, w, h);
+        let (hi, sh) = if sunken {
+            (scale_rgb(bg, 0.5), tint_rgb(bg, 0.5))
+        } else {
+            (tint_rgb(bg, 0.5), scale_rgb(bg, 0.5))
+        };
+        let s = hairline(w, h);
+        let si = s as i16;
+        let _ = g.set_foreground(hi);
+        let _ = g.fill_rect(x, y, w, s);
+        let _ = g.fill_rect(x, y, s, h);
+        let _ = g.set_foreground(sh);
+        let _ = g.fill_rect(x + w as i16 - si, y, s, h);
+        let _ = g.fill_rect(x, y + h as i16 - si, w, s);
+        return (fg, i16::from(sunken));
+    }
     let face = if sunken { scale_rgb(bg, 0.85) } else { bg };
     let _ = g.set_foreground(face);
     let _ = g.fill_rect(x, y, w, h);
@@ -516,15 +553,24 @@ pub fn window_frame(
         outlined_window_frame(g, top, Dimension::px(w, bh), border, title, title_h, focused);
         return;
     }
-    if element_ops("frame_left").is_some() {
-        element_window_frame(g, top, w, bh, focused);
+    if sculpted() && w >= 8 && bh >= 8 {
+        sculpted_window_frame(g, top, w, bh, border, title_h, focused);
         return;
     }
-    let _ = g.set_foreground(border);
+    if tab_title() && w >= 10 && bh >= 10 {
+        tab_window_frame(g, top, w, bh, border, title_h);
+        return;
+    }
+    let _ = g.set_foreground(if flat() { face() } else { border });
     let _ = g.fill_rect(0, top, w, bh);
     if w < 2 || bh < 2 {
         let _ = g.set_foreground(border);
         let _ = g.draw_rect(0, top, w, bh);
+        return;
+    }
+    if flat() {
+        let _ = g.set_foreground(border);
+        outline_rect(g, 0, top, w, bh);
         return;
     }
     let s = hairline(w, bh);
@@ -533,20 +579,357 @@ pub fn window_frame(
     let y0 = top;
     let yb = top + bh as i16;
 
-    let _ = g.set_foreground(light());
-    let _ = g.fill_rect(si, y0 + si, w.saturating_sub(s * 2), s);
-    let _ = g.fill_rect(si, y0 + si, s, bh.saturating_sub(s * 2));
-    let _ = g.set_foreground(dark());
-    let _ = g.fill_rect(wi - si, y0, s, bh);
-    let _ = g.fill_rect(0, yb - si, w, s);
-    let _ = g.set_foreground(shadow());
-    let _ = g.fill_rect(wi - si * 2, y0 + si, s, bh.saturating_sub(s * 2));
-    let _ = g.fill_rect(si, yb - si * 2, w.saturating_sub(s * 2), s);
-
-    if frame_outline() {
-        let _ = g.set_foreground(dark());
-        let _ = g.draw_rect(0, y0, w.saturating_sub(1), bh.saturating_sub(1));
+    if coloured_frame() {
+        let hi = tint_rgb(border, 0.54);
+        let sh = scale_rgb(border, 0.49);
+        let bw = (antibox_gfx::scale::scaled(i32::from(border_base())) as i16).max(si * 3);
+        let bb = (antibox_gfx::scale::scaled(i32::from(border_bottom_base())) as i16).max(si * 3);
+        let _ = g.set_foreground(hi);
+        let _ = g.fill_rect(0, y0, w, s * 2);
+        let _ = g.fill_rect(0, y0, s * 2, bh);
+        let _ = g.fill_rect(0, yb - bb, w.saturating_sub(s * 2), s);
+        let _ = g.fill_rect(wi - bw + si, y0 + si * 2, s, bh.saturating_sub(s * 4));
+        let _ = g.set_foreground(sh);
+        let _ = g.fill_rect(si * 2, yb - si * 2, w.saturating_sub(s * 2), s * 2);
+        let _ = g.fill_rect(wi - si * 2, y0 + si * 2, s * 2, bh.saturating_sub(s * 2));
+        let _ = g.fill_rect(si * 2, y0 + bw - si * 2, w.saturating_sub(s * 4), s);
+        let _ = g.fill_rect(bw - si * 2, y0 + si * 2, s, bh.saturating_sub(s * 4));
+        let cl = antibox_gfx::scale::scaled(24).max(i32::from(bw) + 6) as i16;
+        if wi > cl * 2 + 2 {
+            for nx in [cl, wi - cl] {
+                let _ = g.set_foreground(sh);
+                let _ = g.fill_rect(nx, y0 + si, s, bw.saturating_sub(si) as u16);
+                let _ = g.fill_rect(nx, yb - bb, s, bb.saturating_sub(si) as u16);
+                let _ = g.set_foreground(hi);
+                let _ = g.fill_rect(nx + si, y0 + si, s, bw.saturating_sub(si) as u16);
+                let _ = g.fill_rect(nx + si, yb - bb, s, bb.saturating_sub(si) as u16);
+            }
+        }
+        if bh as i16 > cl * 2 + 2 {
+            for ny in [y0 + cl, yb - cl] {
+                let _ = g.set_foreground(sh);
+                let _ = g.fill_rect(si, ny, bw.saturating_sub(si) as u16, s);
+                let _ = g.fill_rect(wi - bw + si, ny, bw.saturating_sub(si) as u16, s);
+                let _ = g.set_foreground(hi);
+                let _ = g.fill_rect(si, ny + si, bw.saturating_sub(si) as u16, s);
+                let _ = g.fill_rect(wi - bw + si, ny + si, bw.saturating_sub(si) as u16, s);
+            }
+        }
+        return;
     }
+    if element_ops("frame_left").is_some() {
+        element_window_frame(g, top, w, bh, focused);
+        return;
+    }
+    if frame_well() {
+        let ring2 = scale_rgb(face(), 0.29);
+        let slab_sh = scale_rgb(face(), 0.73);
+        let recess = scale_rgb(face(), 0.35);
+        let rim_sh = scale_rgb(face(), 0.9);
+        let _ = g.set_foreground(face());
+        let _ = g.fill_rect(0, y0, w, bh);
+        let _ = g.set_foreground(ring2);
+        let _ = g.fill_rect(si, y0 + si, w.saturating_sub(s * 2), s);
+        let _ = g.fill_rect(si, y0 + si, s, bh.saturating_sub(s * 2));
+        let _ = g.fill_rect(wi - si * 2, y0 + si, s, bh.saturating_sub(s * 2));
+        let _ = g.fill_rect(si, yb - si * 2, w.saturating_sub(s * 2), s);
+        let side_y = y0 + si * 2;
+        let side_h = bh.saturating_sub(s * 4);
+        let left_cols = [
+            (si * 2, light()),
+            (si * 4, slab_sh),
+            (si * 5, recess),
+            (si * 6, face_light()),
+        ];
+        for (cx, c) in left_cols {
+            let _ = g.set_foreground(c);
+            let _ = g.fill_rect(cx, side_y, s, side_h);
+        }
+        let right_cols = [
+            (wi - si * 3, slab_sh),
+            (wi - si * 5, light()),
+            (wi - si * 6, recess),
+            (wi - si * 7, rim_sh),
+        ];
+        for (cx, c) in right_cols {
+            let _ = g.set_foreground(c);
+            let _ = g.fill_rect(cx, side_y, s, side_h);
+        }
+        let row_x = si * 2;
+        let row_w = w.saturating_sub(s * 4);
+        let bottom_rows = [
+            (yb - si * 3, slab_sh),
+            (yb - si * 5, light()),
+            (yb - si * 6, recess),
+        ];
+        for (ry, c) in bottom_rows {
+            let _ = g.set_foreground(c);
+            let _ = g.fill_rect(row_x, ry, row_w, s);
+        }
+    } else {
+        let _ = g.set_foreground(light());
+        let _ = g.fill_rect(si, y0 + si, w.saturating_sub(s * 2), s);
+        let _ = g.fill_rect(si, y0 + si, s, bh.saturating_sub(s * 2));
+        let _ = g.set_foreground(dark());
+        let _ = g.fill_rect(wi - si, y0, s, bh);
+        let _ = g.fill_rect(0, yb - si, w, s);
+        let _ = g.set_foreground(shadow());
+        let _ = g.fill_rect(wi - si * 2, y0 + si, s, bh.saturating_sub(s * 2));
+        let _ = g.fill_rect(si, yb - si * 2, w.saturating_sub(s * 2), s);
+    }
+    if menu_glyph() || frame_outline() {
+        let _ = g.set_foreground(dark());
+        outline_rect(g, 0, y0, w, bh);
+    }
+    if corner_grip() {
+        let bb = (antibox_gfx::scale::scaled(i32::from(border_base())) as i16).max(si);
+        let glen = (antibox_gfx::scale::scaled(14) as i16).max(bb * 3);
+        if wi > glen + bb && bh as i16 > glen + bb {
+            let _ = g.set_foreground(title_active());
+            let _ = g.fill_rect(wi - glen, yb - bb, glen as u16, bb as u16);
+            let _ = g.fill_rect(wi - bb, yb - glen, bb as u16, glen as u16);
+            let _ = g.set_foreground(tint_rgb(title_active(), 0.4));
+            let _ = g.fill_rect(wi - glen, yb - bb, glen as u16, s);
+            let _ = g.fill_rect(wi - bb, yb - glen, s, glen as u16);
+        }
+    }
+}
+
+fn outline_rect(g: &dyn GraphicsContext, x: i16, y: i16, w: u16, h: u16) {
+    let r = radius_px(w, h);
+    if r > 0 {
+        rounded_stroke(g, x, y, w, h, r);
+    } else {
+        let _ = g.draw_rect(x, y, w.saturating_sub(1), h.saturating_sub(1));
+    }
+}
+
+fn chan_add(c: Colour, dr: u32, dg: u32, db: u32) -> Colour {
+    let r = ((c >> 16) & 0xFF) + dr;
+    let g = ((c >> 8) & 0xFF) + dg;
+    let b = (c & 0xFF) + db;
+    (r.min(255) << 16) | (g.min(255) << 8) | b.min(255)
+}
+
+const fn chan_sub(c: Colour, d: u32) -> Colour {
+    let r = ((c >> 16) & 0xFF).saturating_sub(d);
+    let g = ((c >> 8) & 0xFF).saturating_sub(d);
+    let b = (c & 0xFF).saturating_sub(d);
+    (r << 16) | (g << 8) | b
+}
+
+pub fn title_tab(g: &dyn GraphicsContext, w: u16, h: u16, bg: Colour, border: Colour) {
+    let _ = g.set_foreground(bg);
+    let _ = g.fill_rect(0, 0, w, h);
+    if w < 3 || h < 2 {
+        return;
+    }
+    let s = hairline(w, h);
+    let si = s as i16;
+    let wi = w as i16;
+    let _ = g.set_foreground(chan_add(bg, 52, 52, 80));
+    let _ = g.fill_rect(si, si, w.saturating_sub(s * 2), s);
+    let _ = g.fill_rect(si, si, s, h.saturating_sub(s));
+    let _ = g.set_foreground(chan_sub(bg, 80));
+    let _ = g.fill_rect(wi - si * 2, si * 2, s, h.saturating_sub(s * 2));
+    let _ = g.set_foreground(chan_sub(border, 72));
+    let _ = g.fill_rect(0, 0, w, s);
+    let _ = g.fill_rect(0, 0, s, h);
+    let _ = g.set_foreground(chan_sub(border, 128));
+    let _ = g.fill_rect(wi - si, 0, s, h);
+}
+
+fn tab_window_frame(
+    g: &dyn GraphicsContext,
+    top: i16,
+    w: u16,
+    bh: u16,
+    border: Colour,
+    tab_w: u16,
+) {
+    let s = hairline(w, bh);
+    let si = s as i16;
+    let wi = w as i16;
+    let y0 = top;
+    let yb = top + bh as i16;
+    let _ = g.set_foreground(border);
+    let _ = g.fill_rect(0, y0, w, bh);
+    let tl = [
+        chan_sub(border, 72),
+        chan_add(border, 64, 64, 64),
+        chan_sub(border, 8),
+        chan_sub(border, 88),
+        chan_sub(border, 72),
+    ];
+    let br = [
+        chan_sub(border, 128),
+        chan_sub(border, 88),
+        chan_sub(border, 8),
+        chan_add(border, 64, 64, 64),
+        chan_sub(border, 72),
+    ];
+    for (i, (&ct, &cb)) in tl.iter().zip(br.iter()).enumerate() {
+        let o = i as i16 * si;
+        let span = w.saturating_sub(2 * i as u16 * s);
+        let vspan = bh.saturating_sub(2 * i as u16 * s);
+        let _ = g.set_foreground(ct);
+        let _ = g.fill_rect(o, y0 + o, span, s);
+        let _ = g.fill_rect(o, y0 + o, s, vspan);
+        let _ = g.set_foreground(cb);
+        let _ = g.fill_rect(o, yb - o - si, span, s);
+        let _ = g.fill_rect(wi - o - si, y0 + o, s, vspan);
+    }
+    if tab_w as i16 > si * 4 {
+        let _ = g.set_foreground(tl[2]);
+        let _ = g.fill_rect(si * 2, y0 + si, tab_w.saturating_sub(s * 4), s);
+    }
+    let bw = (antibox_gfx::scale::scaled(i32::from(border_base())) as i16).max(si);
+    let cl = antibox_gfx::scale::scaled(22) as i16;
+    if wi > cl * 3 && (yb - y0) > cl * 3 {
+        let _ = g.set_foreground(tl[0]);
+        let _ = g.fill_rect(wi - cl, yb - bw + si, s, (bw - si * 2).max(si) as u16);
+        let _ = g.fill_rect(wi - bw + si, yb - cl, (bw - si * 2).max(si) as u16, s);
+    }
+}
+
+pub fn dotted_line(g: &dyn GraphicsContext, x: i16, y: i16, hor: bool, len: u16) {
+    let s = antibox_gfx::scale::scaled(1).max(1) as i16;
+    let mut i = 0i16;
+    while (i as u16) < len {
+        let (px, py) = if hor { (x + i, y) } else { (x, y + i) };
+        if ((px / s) + (py / s)) % 2 != 0 {
+            let _ = g.fill_rect(px, py, s as u16, s as u16);
+        }
+        i += s;
+    }
+}
+
+fn sculpted_window_frame(
+    g: &dyn GraphicsContext,
+    top: i16,
+    w: u16,
+    bh: u16,
+    border: Colour,
+    _title_h: u16,
+    focused: bool,
+) {
+    let s = hairline(w, bh);
+    let si = s as i16;
+    let wi = w as i16;
+    let y0 = top;
+    let yb = top + bh as i16;
+    let bw = (antibox_gfx::scale::scaled(i32::from(border_base())) as i16).max(si * 3);
+    let bb = (antibox_gfx::scale::scaled(i32::from(border_bottom_base())) as i16).max(bw);
+    let lt = tint_rgb(border, 0.6);
+    let dk = scale_rgb(border, 0.55);
+
+    let _ = g.set_foreground(border);
+    let _ = g.fill_rect(0, y0, w, bh);
+
+    let zone = |g: &dyn GraphicsContext,
+                x: i16,
+                y: i16,
+                hor: bool,
+                len: u16,
+                off: i16,
+                colour: Colour,
+                solid_first: bool| {
+        let _ = g.set_foreground(colour);
+        if !focused {
+            let o = if solid_first { off } else { off + si };
+            if hor {
+                let _ = g.fill_rect(x, y + o, len, s * 2);
+            } else {
+                let _ = g.fill_rect(x + o, y, s * 2, len);
+            }
+            return;
+        }
+        if solid_first {
+            if hor {
+                let _ = g.fill_rect(x, y + off, len, s);
+                dotted_line(g, x, y + off + si, true, len);
+            } else {
+                let _ = g.fill_rect(x + off, y, s, len);
+                dotted_line(g, x + off + si, y, false, len);
+            }
+            return;
+        }
+        for c in [off, off + si] {
+            if hor {
+                dotted_line(g, x, y + c, true, len);
+            } else {
+                dotted_line(g, x + c, y, false, len);
+            }
+        }
+    };
+
+    let inner_w = w.saturating_sub(s * 2);
+    let inner_h = bh.saturating_sub(s * 2);
+    zone(g, si, y0 + si, true, inner_w, 0, lt, true);
+    zone(g, si, y0 + si, true, inner_w, bw - si * 4, dk, false);
+    let _ = g.set_foreground(0x000000);
+    let _ = g.fill_rect(bw, y0 + bw - si, w.saturating_sub(bw as u16 * 2), s);
+
+    let _ = g.set_foreground(0x000000);
+    let _ = g.fill_rect(si, yb - bb, inner_w, s);
+    zone(g, si, yb - bb + si, true, inner_w, 0, lt, true);
+    let _ = g.set_foreground(dk);
+    dotted_line(g, si, yb - si * 3, true, inner_w);
+    let _ = g.fill_rect(si, yb - si * 2, inner_w, s);
+
+    zone(g, si, y0 + si, false, inner_h, 0, lt, true);
+    let _ = g.set_foreground(lt);
+    dotted_line(g, si * 3, y0 + si, false, inner_h);
+    zone(g, si, y0 + si, false, inner_h, bw - si * 4, dk, false);
+    let _ = g.set_foreground(dk);
+    let _ = g.fill_rect(bw - si, y0 + si, s, inner_h);
+
+    let _ = g.set_foreground(0x000000);
+    let _ = g.fill_rect(wi - bw, y0 + si, s, inner_h);
+    zone(g, wi - bw + si, y0 + si, false, inner_h, 0, lt, true);
+    let _ = g.set_foreground(lt);
+    dotted_line(g, wi - bw + si * 3, y0 + si, false, inner_h);
+    zone(
+        g,
+        wi - bw + si,
+        y0 + si,
+        false,
+        inner_h,
+        bw - si * 4,
+        dk,
+        false,
+    );
+
+    let cl = antibox_gfx::scale::scaled(24) as i16;
+    if wi > cl * 3 && (yb - y0) > cl * 3 {
+        for (x, y, hor) in [
+            (cl, y0 + si, true),
+            (wi - cl - si * 4, y0 + si, true),
+            (cl, yb - bb, true),
+            (wi - cl - si * 4, yb - bb, true),
+            (si, y0 + cl, false),
+            (si, yb - cl - si * 4, false),
+            (wi - bw, y0 + cl, false),
+            (wi - bw, yb - cl - si * 4, false),
+        ] {
+            let (nw, nh, dx, dy) = if hor {
+                let band = if y == y0 + si { bw } else { bb };
+                (s * 2, (band - si) as u16, si * 2, 0)
+            } else {
+                ((bw - si) as u16, s * 2, 0, si * 2)
+            };
+            let _ = g.set_foreground(dk);
+            let _ = g.fill_rect(x, y, nw, nh);
+            let _ = g.set_foreground(lt);
+            let _ = g.fill_rect(x + dx, y + dy, nw, nh);
+        }
+    }
+
+    let _ = g.set_foreground(0x000000);
+    let _ = g.fill_rect(0, y0, w, s);
+    let _ = g.fill_rect(0, yb - si, w, s);
+    let _ = g.fill_rect(0, y0, s, bh);
+    let _ = g.fill_rect(wi - si, y0, s, bh);
 }
 
 fn element_window_frame(g: &dyn GraphicsContext, top: i16, w: u16, bh: u16, focused: bool) {
@@ -859,3 +1242,294 @@ pub fn etched_text(g: &dyn GraphicsContext, x: i16, y: i16, text: &str) {
 #[cfg(test)]
 #[path = "draw_tests.rs"]
 mod tests;
+
+const GLINT_BITS: [u8; 9] = [0, 1, 0, 1, 0, 1, 0, 1, 1];
+const INNER_SHADOW_BITS: [u8; 100] = [
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1,
+    1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0,
+    0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+    0, 0, 0, 0,
+];
+const OUTER_SHADOW_BITS: [u8; 100] = [
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1,
+    1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0,
+    0, 0, 0, 0,
+];
+const BIG_INNER_SHADOW_BITS: [u8; 49] = [
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0,
+    1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+];
+const BIG_OUTER_SHADOW_BITS: [u8; 49] = [
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1,
+    1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0,
+];
+const SMALL_INNER_SHADOW_BITS: [u8; 25] = [
+    1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+];
+const SMALL_OUTER_SHADOW_BITS: [u8; 25] = [
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0,
+];
+
+struct Pattern<'a> {
+    outer: &'a [u8],
+    inner: Option<&'a [u8]>,
+    c_outer: u32,
+    c_inner: u32,
+}
+
+fn blit_pattern(
+    g: &dyn GraphicsContext,
+    at: Point,
+    n: i16,
+    s: i16,
+    pat: &Pattern<'_>,
+    rotated: bool,
+) {
+    let (x, y) = (at.x as i16, at.y as i16);
+    for row in 0..n {
+        for col in 0..n {
+            let (pr, pc) = if rotated {
+                (n - 1 - row, n - 1 - col)
+            } else {
+                (row, col)
+            };
+            let i = (pr * n + pc) as usize;
+            let colour = if pat.outer[i] == 0 {
+                pat.c_outer
+            } else if pat.inner.is_some_and(|p| p[i] == 0) {
+                pat.c_inner
+            } else {
+                continue;
+            };
+            let _ = g.set_foreground(colour);
+            let _ = g.fill_rect(x + col * s, y + row * s, s as u16, s as u16);
+        }
+    }
+}
+
+fn bevel_ring(g: &dyn GraphicsContext, r: Rect, s: u16, light: Colour, shadow: Colour, down: bool) {
+    let (x, y, w, h) = r.as_px();
+    let si = s as i16;
+    let x1 = x + w as i16 - si;
+    let y1 = y + h as i16 - si;
+    if down {
+        let _ = g.set_foreground(shadow);
+        let _ = g.fill_rect(x, y, w, s);
+        let _ = g.fill_rect(x, y, s, h);
+        let _ = g.fill_rect(x + si, y + si, w.saturating_sub(s), s);
+        let _ = g.fill_rect(x + si, y + si, s, h.saturating_sub(s));
+        let _ = g.set_foreground(light);
+        let _ = g.fill_rect(x, y1, w, s);
+        let _ = g.fill_rect(x1, y, s, h);
+        let _ = g.fill_rect(x + si, y1 - si, w.saturating_sub(s), s);
+        let _ = g.fill_rect(x1 - si, y + si, s, h.saturating_sub(s));
+        return;
+    }
+    let _ = g.set_foreground(shadow);
+    let _ = g.fill_rect(x, y, w.saturating_sub(s), s);
+    let _ = g.fill_rect(x, y, s, h.saturating_sub(s));
+    let _ = g.fill_rect(x, y1 - si, w.saturating_sub(s), s);
+    let _ = g.fill_rect(x1 - si, y, s, h.saturating_sub(s));
+    let _ = g.fill_rect(x, y, w, s);
+    let _ = g.fill_rect(x, y, s, h);
+    let _ = g.set_foreground(light);
+    let _ = g.fill_rect(x + si, y + si, w.saturating_sub(s), s);
+    let _ = g.fill_rect(x + si, y + si, s, h.saturating_sub(s));
+    let _ = g.fill_rect(x + si, y1, w.saturating_sub(s), s);
+    let _ = g.fill_rect(x1, y + si, s, h.saturating_sub(s));
+}
+
+pub fn sculpted_title_plate(
+    g: &dyn GraphicsContext,
+    r: Rect,
+    bg: Colour,
+    sunken: bool,
+    right: bool,
+) {
+    let (x, y, w, h) = r.as_px();
+    let face = if sunken { scale_rgb(bg, 0.85) } else { bg };
+    let _ = g.set_foreground(face);
+    let _ = g.fill_rect(x, y, w, h);
+    let s = hairline(w, h);
+    let kx = if right {
+        x + w as i16 - s as i16 * 2
+    } else {
+        x
+    };
+    let _ = g.set_foreground(scale_rgb(bg, 0.55));
+    dotted_line(g, kx, y, false, h);
+    let _ = g.set_foreground(tint_rgb(bg, 0.6));
+    dotted_line(g, kx + s as i16, y, false, h);
+}
+
+pub fn tab_button(g: &dyn GraphicsContext, r: Rect, bg: Colour, zoom: bool, sunken: bool) {
+    let (x, y, w, h) = r.as_px();
+    let side = w.min(h);
+    let x = x + (w as i16 - side as i16) / 2;
+    let y = y + (h as i16 - side as i16) / 2;
+    let w = side;
+    let h = side;
+    let s = hairline(w, h);
+    let si = s as i16;
+    let grey = {
+        let (r, gc, b) = ((bg >> 16) & 0xFF, (bg >> 8) & 0xFF, bg & 0xFF);
+        r == gc && gc == b
+    };
+    let light1 = chan_add(bg, 33, 33, 33);
+    let light2 = chan_add(bg, 52, 52, if grey { 52 } else { 63 });
+    let shadow1 = chan_sub(bg, 21);
+    let _ = g.set_foreground(bg);
+    let _ = g.fill_rect(x, y, w, h);
+    if !zoom {
+        let shadow2 = chan_sub(bg, 72);
+        bevel_ring(g, Rect::px(x, y, w, h), s, light2, shadow2, sunken);
+        let fx = x + si * 2;
+        let fy = y + si * 2;
+        let fw = w.saturating_sub(s * 4);
+        let _ = g.set_foreground(light1);
+        let _ = g.fill_rect(fx, fy, fw, fw);
+        let fi = fw as i16;
+        if sunken {
+            blit_pattern(
+                g,
+                Point::new((fx + fi - si * 3) as i32, (fy + fi - si * 3) as i32),
+                3,
+                si,
+                &Pattern {
+                    outer: &GLINT_BITS,
+                    inner: None,
+                    c_outer: light2,
+                    c_inner: 0,
+                },
+                true,
+            );
+            blit_pattern(
+                g,
+                Point::new(fx as i32, fy as i32),
+                10,
+                si,
+                &Pattern {
+                    outer: &OUTER_SHADOW_BITS,
+                    inner: Some(&INNER_SHADOW_BITS),
+                    c_outer: shadow1,
+                    c_inner: bg,
+                },
+                true,
+            );
+        } else {
+            blit_pattern(
+                g,
+                Point::new(fx as i32, fy as i32),
+                3,
+                si,
+                &Pattern {
+                    outer: &GLINT_BITS,
+                    inner: None,
+                    c_outer: light2,
+                    c_inner: 0,
+                },
+                false,
+            );
+            blit_pattern(
+                g,
+                Point::new((fx + fi - si * 10) as i32, (fy + fi - si * 10) as i32),
+                10,
+                si,
+                &Pattern {
+                    outer: &OUTER_SHADOW_BITS,
+                    inner: Some(&INNER_SHADOW_BITS),
+                    c_outer: shadow1,
+                    c_inner: bg,
+                },
+                false,
+            );
+        }
+        return;
+    }
+    let shadow2 = chan_sub(bg, 45);
+    let off3 = ((w as i32 * 3) / 14) as i16;
+    let off5 = ((w as i32 * 5) / 14) as u16;
+    let bx = x + off3;
+    let by = y + off3;
+    let bw = w.saturating_sub(off3 as u16);
+    bevel_ring(g, Rect::px(bx, by, bw, bw), s, light2, shadow2, sunken);
+    let bfx = bx + si * 2;
+    let bfy = by + si * 2;
+    let bfw = bw.saturating_sub(s * 4);
+    let _ = g.set_foreground(light1);
+    let _ = g.fill_rect(bfx, bfy, bfw, bfw);
+    let bfi = bfw as i16;
+    if sunken {
+        blit_pattern(
+            g,
+            Point::new((bfx + bfi - si * 3) as i32, (bfy + bfi - si * 3) as i32),
+            3,
+            si,
+            &Pattern {
+                outer: &GLINT_BITS,
+                inner: None,
+                c_outer: light2,
+                c_inner: 0,
+            },
+            true,
+        );
+    } else {
+        blit_pattern(
+            g,
+            Point::new((bfx + bfi - si * 7) as i32, (bfy + bfi - si * 7) as i32),
+            7,
+            si,
+            &Pattern {
+                outer: &BIG_OUTER_SHADOW_BITS,
+                inner: Some(&BIG_INNER_SHADOW_BITS),
+                c_outer: shadow1,
+                c_inner: bg,
+            },
+            false,
+        );
+    }
+    let sw = w.saturating_sub(off5);
+    bevel_ring(g, Rect::px(x, y, sw, sw), s, light2, shadow2, sunken);
+    if !sunken {
+        let _ = g.set_foreground(bg);
+        let swi = sw as i16;
+        let _ = g.fill_rect(x, y + swi - si, s, s);
+        let _ = g.fill_rect(x + swi - si, y, s, s);
+    }
+    let sfx = x + si * 2;
+    let sfy = y + si * 2;
+    let sfw = sw.saturating_sub(s * 4);
+    let _ = g.set_foreground(light1);
+    let _ = g.fill_rect(sfx, sfy, sfw, sfw);
+    let sfi = sfw as i16;
+    if sunken {
+        blit_pattern(
+            g,
+            Point::new(sfx as i32, sfy as i32),
+            5,
+            si,
+            &Pattern {
+                outer: &SMALL_OUTER_SHADOW_BITS,
+                inner: Some(&SMALL_INNER_SHADOW_BITS),
+                c_outer: shadow1,
+                c_inner: bg,
+            },
+            true,
+        );
+    } else {
+        blit_pattern(
+            g,
+            Point::new((sfx + sfi - si * 5) as i32, (sfy + sfi - si * 5) as i32),
+            5,
+            si,
+            &Pattern {
+                outer: &SMALL_OUTER_SHADOW_BITS,
+                inner: Some(&SMALL_INNER_SHADOW_BITS),
+                c_outer: shadow1,
+                c_inner: bg,
+            },
+            false,
+        );
+    }
+}

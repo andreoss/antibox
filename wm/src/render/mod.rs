@@ -53,8 +53,30 @@ impl Default for ThemeColors {
         let inactive_bottom = theme::title_gradient_inactive();
         let active_text = theme::title_text();
         let inactive_text = theme::title_text_inactive();
-        let border_active = theme::face();
-        let border_inactive = theme::face();
+        let border_active = if theme::coloured_frame() {
+            theme::title_active()
+        } else if theme::tab_title() {
+            brighten_colour(theme::face(), 0.21)
+        } else if theme::outlined() {
+            theme::face()
+        } else if theme::sculpted() {
+            theme::title_active()
+        } else if theme::flat() {
+            theme::shadow()
+        } else {
+            theme::face()
+        };
+        let border_inactive = if theme::coloured_frame() || theme::tab_title() {
+            theme::title_inactive()
+        } else if theme::outlined() {
+            theme::face()
+        } else if theme::sculpted() {
+            theme::title_inactive()
+        } else if theme::flat() {
+            theme::disabled()
+        } else {
+            theme::face()
+        };
         let button_bg = theme::button_face();
         let button_fg = theme::text();
         let task_bar_colour = theme::face();

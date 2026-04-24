@@ -146,6 +146,34 @@ pub fn outlined() -> bool {
     flag_or("outlined", false)
 }
 
+pub fn flat() -> bool {
+    flag_or("flat", false)
+}
+
+pub fn tab_title() -> bool {
+    flag_or("tab_title", false)
+}
+
+pub fn sculpted() -> bool {
+    flag_or("sculpted", false)
+}
+
+pub fn coloured_frame() -> bool {
+    flag_or("coloured_frame", false)
+}
+
+pub fn frame_well() -> bool {
+    flag_or("frame_well", false)
+}
+
+pub fn corner_grip() -> bool {
+    flag_or("corner_grip", false)
+}
+
+pub fn menu_glyph() -> bool {
+    flag_or("menu_glyph", false)
+}
+
 pub fn grad_buttons() -> bool {
     flag_or("grad_buttons", false)
 }
