@@ -410,6 +410,15 @@ impl App {
         combo.selected = opts.iter().position(|o| *o == self.fields[i].text);
         combo.set_rect(cx, cy, cw, ch);
         combo.open = true;
+        let rh = i32::from(ch).max(1);
+        let below = (i32::from(self.l.h) - i32::from(cy) - rh) / rh;
+        let above = i32::from(cy) / rh;
+        combo.max_visible = opts.len().min(below.max(above).max(1) as usize);
+        if let Some(s) = combo.selected {
+            if s >= combo.max_visible {
+                combo.first_visible = s + 1 - combo.max_visible;
+            }
+        }
         let dh = combo.dropdown_height();
         combo.open_upward = cy + ch as i16 + dh as i16 > self.l.h as i16 && cy - dh as i16 >= 0;
         let (dx, dy, dw, _) = combo.dropdown_rect();
@@ -781,6 +790,23 @@ fn handle(app: &mut App, ev: &BackendEvent, mapping: Option<&KeyboardMapping>) -
             button,
             ..
         } => {
+            if *button == 4 || *button == 5 {
+                let on_popup = app
+                    .popup
+                    .as_mut()
+                    .filter(|p| *window == p.win.id())
+                    .map(|p| {
+                        p.combo.scroll(if *button == 4 { -1 } else { 1 });
+                        let (_, dy, _, _) = p.combo.dropdown_rect();
+                        p.hover = p.combo.item_at(i32::from(dy) + point.y);
+                    })
+                    .is_some();
+                if on_popup {
+                    app.paint_popup();
+                    let _ = app.conn.flush();
+                }
+                return true;
+            }
             if *button != 1 {
                 return true;
             }
