@@ -9,7 +9,7 @@
 
     #[test]
     fn label_is_stable() {
-        assert_eq!(antibox_ui::theme::start_label(), "Start");
+        assert_eq!(antibox_ui::theme::menu_label(), "Start");
     }
 
     #[test]

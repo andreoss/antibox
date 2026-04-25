@@ -19,7 +19,7 @@ pub struct MenuApplet {
 
 impl MenuApplet {
     pub fn new(conn: &Arc<dyn DisplayBackend>, parent: u32) -> Result<Self> {
-        let label = antibox_ui::theme::start_label();
+        let label = antibox_ui::theme::menu_label();
         let w = antibox_ui::metrics::text_w(label.chars().count().max(4)) + antibox_ui::metrics::pad() * 4;
         let h = antibox_ui::metrics::panel_height();
         let window = conn.create_window(
@@ -67,7 +67,7 @@ impl Applet for MenuApplet {
             false,
         );
         let _ = g.set_font(&font);
-        let label = antibox_ui::theme::start_label();
+        let label = antibox_ui::theme::menu_label();
         let vin = antibox_ui::metrics::button_inset();
         let bh = (i32::from(self.h) - 2 * vin).max(2);
         let mut b = antibox_ui::widget::PanelButton::new(

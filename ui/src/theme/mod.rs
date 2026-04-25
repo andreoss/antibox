@@ -648,8 +648,8 @@ pub fn language_fg() -> Colour {
     colour_or("language_fg", sel_fg())
 }
 
-pub fn start_label() -> String {
-    string_or("start_label", "Start")
+pub fn menu_label() -> String {
+    string_or("menu_label", "Start")
 }
 
 pub fn volume_bar() -> Colour {
