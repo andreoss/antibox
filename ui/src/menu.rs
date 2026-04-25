@@ -857,6 +857,9 @@ impl<T: Clone> MenuView<T> {
                     fg,
                 );
             }
+            if idx + 1 < self.items.len() && !self.items[idx + 1].is_separator() {
+                crate::menurender::draw_menu_row_rule(&*g, 2, y + ih as i16 - 1, w - 4);
+            }
         }
         if self.scrollable {
             self.paint_scroll_bands(&*g, w, h);

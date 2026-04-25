@@ -1208,14 +1208,28 @@ pub fn menu_border(g: &dyn GraphicsContext, w: u16, h: u16, _face: Colour) -> (u
 }
 
 pub fn menu_selection(g: &dyn GraphicsContext, x: i16, y: i16, w: u16, h: u16, sel_bg: Colour) {
+    if let Some(ops) = element_ops("menu_sel") {
+        paint_element(g, &ops, x, y, w, h, sel_bg);
+        return;
+    }
     let _ = g.set_foreground(sel_bg);
     let _ = g.fill_rect(x, y, w, h);
 }
 
-pub fn menu_row_rule(_g: &dyn GraphicsContext, _x: i16, _y: i16, _w: u16) {}
+pub fn menu_row_rule(g: &dyn GraphicsContext, x: i16, y: i16, w: u16) {
+    if let Some(ops) = element_ops("menu_rule") {
+        let s = antibox_gfx::scale::scaled(1).max(1) as u16;
+        paint_element(g, &ops, x, y, w, 2 * s, 0);
+    }
+}
 
 pub fn submenu_indicator(g: &dyn GraphicsContext, x: i16, cy: i16, size: i16, colour: Colour) {
     if size <= 0 {
+        return;
+    }
+    if let Some(ops) = element_ops("submenu_arrow") {
+        let half = (size / 2).max(0) as u16;
+        paint_element(g, &ops, x, cy - size / 2, half, size.max(0) as u16, colour);
         return;
     }
     let a = (size / 2).max(1);
