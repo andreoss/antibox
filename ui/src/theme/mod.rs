@@ -174,6 +174,10 @@ pub fn menu_glyph() -> bool {
     flag_or("menu_glyph", false)
 }
 
+pub fn menu_header() -> bool {
+    flag_or("menu_header", false)
+}
+
 pub fn grad_buttons() -> bool {
     flag_or("grad_buttons", false)
 }

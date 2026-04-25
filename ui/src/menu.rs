@@ -73,6 +73,7 @@ pub struct MenuView<T> {
     vis_rows: usize,
     scrollable: bool,
     submenu: Option<Box<MenuView<T>>>,
+    title: Option<String>,
     pub colours: MenuColors,
 }
 
@@ -102,8 +103,25 @@ impl<T: Clone> MenuView<T> {
             vis_rows: 0,
             scrollable: false,
             submenu: None,
+            title: None,
             colours: MenuColors::default(),
         }
+    }
+
+    pub fn set_title(&mut self, title: &str) {
+        self.title = Some(crate::menurender::parse_mnemonic(title).0);
+    }
+
+    fn header_h(&self) -> i32 {
+        if self.title.is_some() && crate::theme::menu_header() {
+            item_h() as i32
+        } else {
+            0
+        }
+    }
+
+    fn top_off(&self) -> i32 {
+        self.header_h() + self.bar_off() as i32
     }
 
     pub fn with_nodes(nodes: Vec<MenuNode<T>>) -> Self {
@@ -134,8 +152,9 @@ impl<T: Clone> MenuView<T> {
         let w = self.menu_w();
         let m = crate::metrics::pad() as i16;
         let bw = (w as i16 - m * 2).max(1) as u16;
+        let by = m + self.header_h() as i16;
         if let Ok(mut bar) =
-            crate::searchbar::SearchBar::new(rb, win_id, m, m, bw, bar_h() as u16)
+            crate::searchbar::SearchBar::new(rb, win_id, m, by, bw, bar_h() as u16)
         {
             bar.set_focus(true);
             bar.show();
@@ -147,7 +166,7 @@ impl<T: Clone> MenuView<T> {
     fn fit_rows(&mut self, sh: i32) {
         let n = self.items.len();
         let ih = item_h() as i32;
-        let avail = sh - frame_pad() * 2 - self.bar_off() as i32;
+        let avail = sh - frame_pad() * 2 - self.top_off();
         if n as i32 * ih <= avail {
             self.vis_rows = n;
             self.scrollable = false;
@@ -345,7 +364,7 @@ impl<T: Clone> MenuView<T> {
         } else {
             (self.items.len().max(1) as i32) * ih
         };
-        rows + frame_pad() * 2 + self.bar_off() as i32
+        rows + frame_pad() * 2 + self.top_off()
     }
 
     fn contains(&self, root: Point) -> bool {
@@ -364,9 +383,7 @@ impl<T: Clone> MenuView<T> {
     }
 
     fn rows_top(&self) -> i32 {
-        frame_pad()
-            + self.bar_off() as i32
-            + if self.scrollable { band_h() } else { 0 }
+        frame_pad() + self.top_off() + if self.scrollable { band_h() } else { 0 }
     }
 
     fn row_y(&self, idx: usize) -> i32 {
@@ -377,7 +394,7 @@ impl<T: Clone> MenuView<T> {
         if !self.contains(root) {
             return Hit::Inert;
         }
-        let wy = root.y - self.pos.y - frame_pad() - self.bar_off() as i32;
+        let wy = root.y - self.pos.y - frame_pad() - self.top_off();
         if wy < 0 {
             return Hit::Inert;
         }
@@ -500,6 +517,7 @@ impl<T: Clone> MenuView<T> {
         }
         let mut sub = Self::with_nodes(sub_items);
         sub.colours = self.colours;
+        sub.set_title(self.items[idx].title());
         let sub_pos = Point::new(
             self.pos.x + self.menu_w() as i32 - antibox_core::scale::scaled(2),
             self.pos.y + self.row_y(idx),
@@ -808,6 +826,19 @@ impl<T: Clone> MenuView<T> {
             crate::metrics::font_pt(),
         ));
         let (light, dark) = crate::menurender::draw_menu_frame(&*g, w, h, c.bg);
+        let hdr = self.header_h() as i16;
+        if hdr > 0 {
+            let hb = crate::theme::title_active();
+            let hf = crate::theme::title_text();
+            let _ = g.set_foreground(hb);
+            let _ = g.fill_rect(1, 1, w.saturating_sub(2), hdr as u16);
+            let _ = g.set_foreground(hf);
+            let _ = g.set_background(hb);
+            let baseline = crate::metrics::baseline(1, hdr as i32) as i16;
+            if let Some(title) = self.title.as_deref() {
+                let _ = g.draw_text(8, baseline, title);
+            }
+        }
         let ih = item_h();
         let icon_col = self.icon_col();
         let top = self.rows_top() as i16;
@@ -880,7 +911,7 @@ impl<T: Clone> MenuView<T> {
         let c = self.colours;
         let bh = band_h();
         let ih = item_h() as i32;
-        let top_y = frame_pad() + self.bar_off() as i32;
+        let top_y = frame_pad() + self.top_off();
         let bot_y = top_y + bh + self.vis_rows as i32 * ih;
         let cx = (w / 2) as i16;
         let asz = antibox_core::scale::scaled(7).max(5) as i16;
