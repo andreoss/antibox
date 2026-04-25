@@ -178,6 +178,10 @@ pub fn menu_header() -> bool {
     flag_or("menu_header", false)
 }
 
+pub fn menu_mnemonics() -> bool {
+    flag_or("menu_mnemonics", false)
+}
+
 pub fn grad_buttons() -> bool {
     flag_or("grad_buttons", false)
 }

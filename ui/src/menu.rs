@@ -74,6 +74,7 @@ pub struct MenuView<T> {
     scrollable: bool,
     submenu: Option<Box<MenuView<T>>>,
     title: Option<String>,
+    gate_mnemonics: bool,
     pub colours: MenuColors,
 }
 
@@ -104,12 +105,17 @@ impl<T: Clone> MenuView<T> {
             scrollable: false,
             submenu: None,
             title: None,
+            gate_mnemonics: false,
             colours: MenuColors::default(),
         }
     }
 
     pub fn set_title(&mut self, title: &str) {
         self.title = Some(crate::menurender::parse_mnemonic(title).0);
+    }
+
+    pub fn gate_mnemonics(&mut self) {
+        self.gate_mnemonics = true;
     }
 
     fn header_h(&self) -> i32 {
@@ -518,6 +524,7 @@ impl<T: Clone> MenuView<T> {
         let mut sub = Self::with_nodes(sub_items);
         sub.colours = self.colours;
         sub.set_title(self.items[idx].title());
+        sub.gate_mnemonics = self.gate_mnemonics;
         let sub_pos = Point::new(
             self.pos.x + self.menu_w() as i32 - antibox_core::scale::scaled(2),
             self.pos.y + self.row_y(idx),
@@ -872,13 +879,25 @@ impl<T: Clone> MenuView<T> {
                 let _ = g.draw_pixmap(tx, y + (ih as i16 - ico.height as i16) / 2, ico);
             }
             tx += icon_col;
-            crate::menurender::draw_text_mnemonic(
-                &*g,
-                tx,
-                crate::metrics::baseline(y as i32, ih as i32) as i16,
-                item.title(),
-                fg,
-            );
+            if self.gate_mnemonics && !crate::theme::menu_mnemonics() {
+                let (text, _) = crate::menurender::parse_mnemonic(item.title());
+                crate::menurender::draw_text_underline(
+                    &*g,
+                    tx,
+                    crate::metrics::baseline(y as i32, ih as i32) as i16,
+                    &text,
+                    None,
+                    fg,
+                );
+            } else {
+                crate::menurender::draw_text_mnemonic(
+                    &*g,
+                    tx,
+                    crate::metrics::baseline(y as i32, ih as i32) as i16,
+                    item.title(),
+                    fg,
+                );
+            }
             if item.children().is_some() {
                 crate::menurender::draw_submenu_arrow(
                     &*g,

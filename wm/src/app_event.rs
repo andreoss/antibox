@@ -1238,6 +1238,7 @@ impl App {
         }
         let mut menu = crate::menu::MenuView::with_nodes(nodes);
         menu.set_title("antibox");
+        menu.gate_mnemonics();
         menu.show(&*self.backend, anchor);
         if let Some(rb) = self.wm.render_backend.clone() {
             menu.enable_filter(&rb);
