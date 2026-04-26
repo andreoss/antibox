@@ -34,6 +34,7 @@ pub mod error;
 pub mod keysyms;
 pub mod mock;
 pub mod point;
+pub mod raster;
 pub mod rect;
 pub mod scale;
 pub mod sync;

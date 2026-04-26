@@ -37,7 +37,7 @@ pub mod libc;
 pub mod paths;
 pub mod text;
 
-pub use antibox_gfx::{colour, error, keysyms, point, rect, scale, sync, xpm};
+pub use antibox_gfx::{colour, error, keysyms, point, raster, rect, scale, sync, xpm};
 pub mod cursor;
 pub mod time;
 
