@@ -381,6 +381,12 @@ impl<T: Clone> ListView<T> {
         }
     }
 
+    pub fn set_filter_placeholder(&mut self, text: &str) {
+        if let Some(bar) = self.bar.as_mut() {
+            bar.set_placeholder(text);
+        }
+    }
+
     pub fn hide<H: DisplayBackend + ?Sized>(&mut self, conn: &H) {
         render::menu_destroy_window(&mut self.window, &mut self.visible);
         self.bar = None;

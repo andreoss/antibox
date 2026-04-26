@@ -817,6 +817,8 @@ impl Omni {
         }
         if let Some(rb) = wm.render_backend.clone() {
             self.view.enable_filter(&rb);
+            self.view
+                .set_filter_placeholder("Run a program or command…");
         }
         self.reselect();
         self.paint(conn);

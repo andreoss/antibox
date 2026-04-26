@@ -18,6 +18,7 @@
             edit,
             focused: false,
             frameless: false,
+            placeholder: String::new(),
             dragging: false,
             x: 0,
             y: 0,

@@ -10,6 +10,7 @@ pub struct InputLine {
     pub edit: EditCore,
     pub focused: bool,
     pub frameless: bool,
+    pub placeholder: String,
     pub dragging: bool,
     pub x: i16,
     pub y: i16,
@@ -46,6 +47,7 @@ impl InputLine {
             edit: EditCore::new(),
             focused: false,
             frameless: false,
+            placeholder: String::new(),
             dragging: false,
             x,
             y,
@@ -124,6 +126,10 @@ impl InputLine {
             let _ = g.set_foreground(theme::text());
             let _ = g.set_background(field_bg);
             let _ = g.draw_text(sel_x + selw, baseline, &text[hi..]);
+        } else if text.is_empty() && !self.placeholder.is_empty() {
+            let _ = g.set_foreground(theme::disabled());
+            let _ = g.set_background(field_bg);
+            let _ = g.draw_text(text_x, baseline, &self.placeholder);
         } else {
             let _ = g.set_foreground(theme::text());
             let _ = g.set_background(field_bg);

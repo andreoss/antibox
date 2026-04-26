@@ -144,6 +144,7 @@ impl WindowActionMenu {
 
     pub fn enable_filter(&mut self, rb: &std::sync::Arc<dyn RenderBackend>) {
         self.view.enable_filter(rb);
+        self.view.set_filter_placeholder("Filter");
     }
 
     pub fn hide<H: DisplayBackend + ?Sized>(&mut self, conn: &H) {

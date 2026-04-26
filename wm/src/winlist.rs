@@ -234,6 +234,7 @@ impl WinListMenu {
         );
         if let Some(rb) = wm.render_backend.clone() {
             self.view.enable_filter(&rb);
+            self.view.set_filter_placeholder("Search windows");
         }
         self.view.pos_set(Point::new(x, y));
         self.switcher = switcher;

@@ -43,6 +43,7 @@ impl SearchBar {
         let (ix, iy, iw, ih) = Self::input_layout(w, h);
         let mut input = InputLine::new(conn, window.id(), ix, iy, iw, ih)?;
         input.frameless = true;
+        input.placeholder = "Search".to_string();
         Ok(Self {
             conn: Arc::clone(conn),
             window,
@@ -61,10 +62,15 @@ impl SearchBar {
     fn input_layout(w: u16, h: u16) -> (i16, i16, u16, u16) {
         let gz = Self::zone_w();
         let vpad = crate::metrics::gap() as i16;
-        let lp = crate::metrics::gap() as i16 + 2;
+        let lp = gz;
         let iw = (w as i16 - lp - gz).max(1) as u16;
         let ih = (h as i16 - vpad * 2).max(1) as u16;
         (lp, vpad, iw, ih)
+    }
+
+    pub fn set_placeholder(&mut self, text: &str) {
+        self.input.placeholder = text.to_string();
+        self.input.repaint();
     }
 
     pub fn set_rect(&mut self, x: i16, y: i16, w: u16, h: u16) {
@@ -183,6 +189,20 @@ impl SearchBar {
         let Ok(g) = self.conn.create_graphics(self.window.id()) else { return };
         use crate::theme;
         theme::sunken_field(&*g, 0, 0, self.w, self.h);
+        let zw = Self::zone_w();
+        let cy = self.h as i16 / 2;
+        let r = (self.h as i16 / 4).max(3);
+        let gcx = zw / 2 - (r * 3) / 4;
+        let gcy = cy - r / 2 - r / 4;
+        let d = r as u16;
+        let _ = g.set_foreground(theme::disabled());
+        let _ = g.draw_rect(gcx, gcy, d, d);
+        let _ = g.draw_line(
+            gcx + r,
+            gcy + r,
+            gcx + r + r / 2,
+            gcy + r + r / 2,
+        );
         if !self.input.text().is_empty() {
             let cz = self.clear_zone();
             let m = (self.h as i16 / 3).max(3);

@@ -118,6 +118,12 @@ impl<T: Clone> MenuView<T> {
         self.gate_mnemonics = true;
     }
 
+    pub fn set_filter_placeholder(&mut self, text: &str) {
+        if let Some(bar) = self.bar.as_mut() {
+            bar.set_placeholder(text);
+        }
+    }
+
     fn header_h(&self) -> i32 {
         if self.title.is_some() && crate::theme::menu_header() {
             item_h() as i32
@@ -162,6 +168,7 @@ impl<T: Clone> MenuView<T> {
         if let Ok(mut bar) =
             crate::searchbar::SearchBar::new(rb, win_id, m, by, bw, bar_h() as u16)
         {
+            bar.set_placeholder("Search menu");
             bar.set_focus(true);
             bar.show();
             self.bar = Some(bar);
