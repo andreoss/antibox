@@ -50,6 +50,47 @@ pub fn icon_to_pixmap(
     pm
 }
 
+pub fn composite_over(src: &PixmapData, bg: antibox_core::colour::Colour) -> PixmapData {
+    let (br, bgc, bb) = ((bg >> 16) & 0xff, (bg >> 8) & 0xff, bg & 0xff);
+    let mut data = Vec::with_capacity(src.data.len());
+    for px in src.data.chunks_exact(4) {
+        let (r, g, b, a) = (
+            u32::from(px[0]),
+            u32::from(px[1]),
+            u32::from(px[2]),
+            u32::from(px[3]),
+        );
+        let blend = |fg: u32, bgv: u32| ((fg * a + bgv * (255 - a)) / 255) as u8;
+        data.push(blend(r, br));
+        data.push(blend(g, bgc));
+        data.push(blend(b, bb));
+        data.push(255);
+    }
+    PixmapData::new(src.width, src.height, data)
+}
+
+pub fn load_named_icon(spec: &str, size: u32) -> Option<PixmapData> {
+    if spec.is_empty() {
+        return None;
+    }
+    let looks_like_path = spec.contains('/')
+        || spec.ends_with(".png")
+        || spec.ends_with(".xpm")
+        || spec.ends_with(".jpg");
+    if looks_like_path {
+        let p = std::path::Path::new(spec);
+        if p.exists() {
+            if let Some(img) = antibox_core::raster::load_file(p) {
+                return antibox_ui::icon_lookup::fit_to_size(&img, size);
+            }
+        }
+        if spec.contains('/') {
+            return None;
+        }
+    }
+    antibox_ui::icon_lookup::find_icon(spec, size)
+}
+
 pub fn default_icon(size: u32, bg: antibox_core::colour::Colour) -> PixmapData {
     let s = size.max(4).min(u16::MAX as u32) as u16;
     let colours = [

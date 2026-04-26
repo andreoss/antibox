@@ -875,7 +875,12 @@ impl<T: Clone> MenuView<T> {
             let fg = if sel { c.sel_fg } else { c.fg };
             let _ = g.set_background(if sel { c.sel_bg } else { c.bg });
             let mut tx = 8;
-            if let Some(ico) = item.icon() {
+            let ico = if sel {
+                item.icon_sel().or_else(|| item.icon())
+            } else {
+                item.icon()
+            };
+            if let Some(ico) = ico {
                 let _ = g.draw_pixmap(tx, y + (ih as i16 - ico.height as i16) / 2, ico);
             }
             tx += icon_col;

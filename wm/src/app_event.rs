@@ -1180,6 +1180,26 @@ impl App {
         use crate::action::WorkspaceOp;
         use crate::menu_tree::MenuNode;
 
+        let text_only = antibox_ui::theme::menu_text_only();
+        let sz = antibox_core::scale::scaled(16).max(8) as u32;
+        let bg = antibox_ui::theme::menu_bg();
+        let sel = antibox_ui::theme::menu_sel_bg();
+        let icons = |name: &str| -> (Option<PixmapData>, Option<PixmapData>) {
+            if text_only {
+                return (None, None);
+            }
+            let raw = crate::icon_render::load_named_icon(name, sz);
+            match raw {
+                Some(p) => (
+                    Some(crate::icon_render::composite_over(&p, bg)),
+                    Some(crate::icon_render::composite_over(&p, sel)),
+                ),
+                None => (
+                    Some(crate::icon_render::default_icon(sz, bg)),
+                    Some(crate::icon_render::default_icon(sz, sel)),
+                ),
+            }
+        };
         let mut nodes: Vec<MenuNode<Action>> = Vec::new();
         for (section, members) in
             crate::desktop_apps::grouped(&crate::desktop_apps::scan())
@@ -1187,25 +1207,36 @@ impl App {
             let children = members
                 .iter()
                 .map(|a| {
+                    let (ic, ic_sel) = icons(&a.icon);
                     MenuNode::leaf(
                         a.name.clone(),
                         Action::Misc(MiscOp::Command(a.command.join(" "))),
                     )
+                    .with_icons(ic, ic_sel)
                 })
                 .collect();
-            nodes.push(MenuNode::group(section, children));
+            let (ic, ic_sel) = icons("folder");
+            nodes.push(MenuNode::group(section, children).with_icons(ic, ic_sel));
         }
         if !nodes.is_empty() {
             nodes.push(MenuNode::separator());
         }
-        nodes.push(MenuNode::leaf(
-            "Show Desktop",
-            Action::Workspace(WorkspaceOp::ShowDesktop),
-        ));
-        nodes.push(MenuNode::leaf(
-            "Se_ttings",
-            Action::Misc(MiscOp::Command(settings_command())),
-        ));
+        let (ic, ic_sel) = icons("user-desktop");
+        nodes.push(
+            MenuNode::leaf(
+                "Show Desktop",
+                Action::Workspace(WorkspaceOp::ShowDesktop),
+            )
+            .with_icons(ic, ic_sel),
+        );
+        let (ic, ic_sel) = icons("preferences-system");
+        nodes.push(
+            MenuNode::leaf(
+                "Se_ttings",
+                Action::Misc(MiscOp::Command(settings_command())),
+            )
+            .with_icons(ic, ic_sel),
+        );
         nodes
     }
 

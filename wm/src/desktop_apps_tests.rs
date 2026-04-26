@@ -78,6 +78,7 @@ fn test_section_for_uses_the_first_category() {
         name: "x".to_string(),
         command: vec!["x".to_string()],
         categories: cats.iter().map(|c| (*c).to_string()).collect(),
+        icon: String::new(),
     };
     assert_eq!(section_for(&app(&["Network", "WebBrowser"])), "Network");
     assert_eq!(section_for(&app(&["Game"])), "Game");
@@ -90,6 +91,7 @@ fn test_grouped_buckets_by_category_and_sorts_sections() {
         name: name.to_string(),
         command: vec![name.to_string()],
         categories: cats.iter().map(|c| (*c).to_string()).collect(),
+        icon: String::new(),
     };
     let apps = vec![
         a("Zed", &["Utility"]),

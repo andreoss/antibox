@@ -244,6 +244,7 @@ fn test_windows_mode_groups_windows_applications_and_actions() {
         name: "Editor".into(),
         command: vec!["ed".into()],
         categories: Vec::new(),
+        icon: String::new(),
     }]);
     let nodes = o.window_nodes();
     assert_eq!(group_children(&nodes, "Windows").map(<[_]>::len), Some(1));

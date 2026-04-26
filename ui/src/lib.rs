@@ -30,6 +30,7 @@
 )]
 pub mod combobox;
 pub mod editcore;
+pub mod icon_lookup;
 pub mod inputline;
 pub mod listcore;
 pub mod metrics;

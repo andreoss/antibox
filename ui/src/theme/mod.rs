@@ -182,6 +182,10 @@ pub fn menu_mnemonics() -> bool {
     flag_or("menu_mnemonics", false)
 }
 
+pub fn menu_text_only() -> bool {
+    flag_or("menu_text_only", false)
+}
+
 pub fn grad_buttons() -> bool {
     flag_or("grad_buttons", false)
 }

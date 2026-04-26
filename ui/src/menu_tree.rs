@@ -6,11 +6,13 @@ pub enum MenuNode<T> {
         title: String,
         payload: T,
         icon: Option<PixmapData>,
+        icon_sel: Option<PixmapData>,
         class: Option<String>,
     },
     Group {
         title: String,
         icon: Option<PixmapData>,
+        icon_sel: Option<PixmapData>,
         children: Vec<MenuNode<T>>,
         expanded: bool,
     },
@@ -65,6 +67,7 @@ impl<T: Clone> MenuNode<T> {
             title: title.into(),
             payload,
             icon: None,
+            icon_sel: None,
             class: None,
         }
     }
@@ -73,6 +76,7 @@ impl<T: Clone> MenuNode<T> {
         Self::Group {
             title: title.into(),
             icon: None,
+            icon_sel: None,
             children,
             expanded: false,
         }
@@ -82,6 +86,7 @@ impl<T: Clone> MenuNode<T> {
         Self::Group {
             title: title.into(),
             icon: None,
+            icon_sel: None,
             children,
             expanded: true,
         }
@@ -94,6 +99,17 @@ impl<T: Clone> MenuNode<T> {
     pub fn with_icon(mut self, ic: Option<PixmapData>) -> Self {
         match &mut self {
             Self::Leaf { icon, .. } | Self::Group { icon, .. } => *icon = ic,
+            Self::Separator => {}
+        }
+        self
+    }
+
+    pub fn with_icons(mut self, ic: Option<PixmapData>, sel: Option<PixmapData>) -> Self {
+        match &mut self {
+            Self::Leaf { icon, icon_sel, .. } | Self::Group { icon, icon_sel, .. } => {
+                *icon = ic;
+                *icon_sel = sel;
+            }
             Self::Separator => {}
         }
         self
@@ -138,6 +154,13 @@ impl<T: Clone> MenuNode<T> {
         }
     }
 
+    pub const fn icon_sel(&self) -> Option<&PixmapData> {
+        match self {
+            Self::Leaf { icon_sel, .. } | Self::Group { icon_sel, .. } => icon_sel.as_ref(),
+            Self::Separator => None,
+        }
+    }
+
     pub fn flatten(&self, depth: u16) -> Vec<FlatRow<T>> {
         let mut out = Vec::new();
         let mut path = Vec::new();
@@ -163,6 +186,7 @@ impl<T: Clone> MenuNode<T> {
             Self::Group {
                 title,
                 icon,
+                icon_sel,
                 children,
                 ..
             } => {
@@ -177,6 +201,7 @@ impl<T: Clone> MenuNode<T> {
                 (!kept.is_empty()).then(|| Self::Group {
                     title: title.clone(),
                     icon: icon.clone(),
+                    icon_sel: icon_sel.clone(),
                     children: kept,
                     expanded: true,
                 })
@@ -197,7 +222,7 @@ fn flatten_into<T: Clone>(
                 title,
                 payload,
                 icon,
-                class: _,
+                ..
             } => out.push(FlatRow {
                 title: title.clone(),
                 icon: icon.clone(),
@@ -219,6 +244,7 @@ fn flatten_into<T: Clone>(
                 icon,
                 children,
                 expanded,
+                ..
             } => {
                 path.push(i);
                 out.push(FlatRow {

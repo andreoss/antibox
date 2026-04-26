@@ -4,6 +4,7 @@ pub struct DesktopApp {
     pub name: String,
     pub command: Vec<String>,
     pub categories: Vec<String>,
+    pub icon: String,
 }
 
 fn xdg_app_dirs() -> Vec<PathBuf> {
@@ -158,6 +159,7 @@ fn parse_desktop(content: &str) -> Option<DesktopApp> {
         name,
         command: tokens,
         categories,
+        icon,
     })
 }
 
