@@ -335,12 +335,20 @@ impl Omni {
                     .with_class(Some(it.class.clone()))
             })
             .collect();
+        let isz = icon_size();
+        let bg = antibox_ui::theme::field();
         let apps: Vec<MenuNode<OmniAct>> = self
             .apps
             .as_deref()
             .unwrap_or(&[])
             .iter()
-            .map(|app| MenuNode::leaf(app.name.clone(), OmniAct::Launch(app.command.clone())))
+            .map(|app| {
+                let icon = crate::icon_render::load_named_icon(&app.icon, u32::from(isz))
+                    .map(|p| crate::icon_render::composite_over(&p, bg))
+                    .unwrap_or_else(|| crate::icon_render::default_icon(u32::from(isz), bg));
+                MenuNode::leaf(app.name.clone(), OmniAct::Launch(app.command.clone()))
+                    .with_icon(Some(icon))
+            })
             .collect();
         let mut nodes = Vec::new();
         if !wins.is_empty() {
