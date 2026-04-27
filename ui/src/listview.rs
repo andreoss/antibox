@@ -66,6 +66,11 @@ pub struct ListView<T> {
     managed: bool,
     cap: i32,
     frame_chrome: bool,
+    band_headers: bool,
+    plain_field: bool,
+    switch_font: bool,
+    thin_sb: bool,
+    empty_note: Option<&'static str>,
 }
 
 impl<T: Clone> Default for ListView<T> {
@@ -90,12 +95,37 @@ impl<T: Clone> ListView<T> {
             anchor: None,
             w: 0,
             h: 0,
-            colours: crate::menu::MenuColors::default(),
+            colours: crate::menu::MenuColors::list(),
             fixed: false,
             managed: false,
             cap: 0,
             frame_chrome: false,
+            band_headers: false,
+            plain_field: false,
+            switch_font: false,
+            thin_sb: false,
+            empty_note: None,
         }
+    }
+
+    pub fn set_band_headers(&mut self) {
+        self.band_headers = true;
+    }
+
+    pub fn set_plain_field(&mut self) {
+        self.plain_field = true;
+    }
+
+    pub fn set_switch_font(&mut self) {
+        self.switch_font = true;
+    }
+
+    pub fn set_thin_sb(&mut self) {
+        self.thin_sb = true;
+    }
+
+    pub fn set_empty_note(&mut self, note: &'static str) {
+        self.empty_note = Some(note);
     }
 
     pub fn set_window_frame(&mut self) {
@@ -752,11 +782,20 @@ impl<T: Clone> ListView<T> {
     fn paint_to(&self, g: &dyn GraphicsContext) {
         let (w, h) = (self.w.max(1), self.h.max(1));
         let c = self.colours;
-        let _ = g.set_font(&FontSpec::role(
-            FontRole::Menu,
-            crate::metrics::font_pt(),
-        ));
-        let (light, dark) = render::draw_menu_frame(g, w, h, c.bg);
+        let role = if self.switch_font {
+            FontRole::Switch
+        } else {
+            FontRole::Menu
+        };
+        let _ = g.set_font(&FontSpec::role(role, crate::metrics::font_pt()));
+        let field = crate::theme::field();
+        let (light, dark) = if self.plain_field {
+            let _ = g.set_foreground(field);
+            let _ = g.fill_rect(0, 0, w, h);
+            (crate::theme::light(), crate::theme::dark())
+        } else {
+            render::draw_menu_frame(g, w, h, c.bg)
+        };
         let e = self.chrome_extra();
         if self.frame_chrome {
             crate::theme::window_frame(
@@ -769,22 +808,29 @@ impl<T: Clone> ListView<T> {
                 true,
             );
         }
-        let field = crate::theme::field();
         let top = self.list_top();
+        let (in_x, in_w, in_h) = if self.plain_field {
+            (e, (self.list_w() - 2 * e).max(1), (h as i16 - top - e).max(0))
+        } else {
+            (
+                2 + e,
+                (self.list_w() - 4 - 2 * e).max(1),
+                (h as i16 - top - 2 - e).max(0),
+            )
+        };
         let _ = g.set_foreground(field);
-        let _ = g.fill_rect(
-            2 + e,
-            top,
-            (w as i16 - 4 - 2 * e).max(1) as u16,
-            (h as i16 - top - 2 - e).max(0) as u16,
-        );
-        let clip = Rect::new(
-            (2 + e) as i32,
-            top as i32,
-            (self.list_w() - 4 - 2 * e).max(1) as i32,
-            (self.h as i16 - top - 2 - e).max(0) as i32,
-        );
+        let _ = g.fill_rect(in_x, top, in_w.max(1) as u16, in_h as u16);
+        let clip = Rect::new(in_x as i32, top as i32, in_w.max(1) as i32, in_h as i32);
         let _ = g.push_clip(&clip);
+        if self.items.is_empty() {
+            if let Some(note) = self.empty_note {
+                let _ = g.set_foreground(crate::theme::disabled());
+                let _ = g.set_background(c.bg);
+                let baseline =
+                    crate::metrics::baseline(top as i32, row_h() as i32) as i16;
+                let _ = g.draw_text(pad() * 2, baseline, note);
+            }
+        }
         let vis = self.vis_rows();
         for v in 0..vis {
             let idx = (self.offset + v) as usize;
@@ -803,6 +849,25 @@ impl<T: Clone> ListView<T> {
                 continue;
             }
             let is_group = matches!(row.entry, FlatEntry::Group { .. });
+            if is_group && self.band_headers {
+                let _ = g.set_foreground(c.sel_bg);
+                let _ = g.fill_rect(e, y, (self.list_w() - 2 * e).max(1) as u16, row_h() as u16);
+                let _ = g.set_font(&FontSpec::role_styled(
+                    FontRole::Switch,
+                    crate::metrics::font_pt(),
+                    true,
+                    false,
+                ));
+                let _ = g.set_foreground(c.sel_fg);
+                let _ = g.set_background(c.sel_bg);
+                let _ = g.draw_text(
+                    6,
+                    crate::metrics::baseline(y as i32, row_h() as i32) as i16,
+                    &row.title,
+                );
+                let _ = g.set_font(&FontSpec::role(role, crate::metrics::font_pt()));
+                continue;
+            }
             if is_group {
                 let _ = g.set_foreground(c.bg);
                 let _ = g.fill_rect(
@@ -821,14 +886,12 @@ impl<T: Clone> ListView<T> {
             }
             let sel = self.selected == Some(idx);
             if sel {
-                render::fill_menu_selection(
-                    g,
-                    2 + e,
-                    y,
-                    (self.list_w() - 4 - 2 * e).max(1) as u16,
-                    row_h() as u16,
-                    c.sel_bg,
-                );
+                let (sx, sw) = if self.plain_field {
+                    (e, (self.list_w() - 2 * e).max(1))
+                } else {
+                    (2 + e, (self.list_w() - 4 - 2 * e).max(1))
+                };
+                render::fill_menu_selection(g, sx, y, sw as u16, row_h() as u16, c.sel_bg);
             }
             let fg = if sel { c.sel_fg } else { c.fg };
             let _ = g.set_background(if sel {
@@ -838,12 +901,17 @@ impl<T: Clone> ListView<T> {
             } else {
                 field
             });
-            let mut tx = x0;
+            let mut tx = if self.band_headers { 20 } else { x0 };
             if let FlatEntry::Group { expanded, .. } = &row.entry {
                 draw_expander(g, x0, y, *expanded, fg);
                 tx += expander_w() + crate::metrics::gap() as i16;
             }
-            if let Some(ref ico) = row.icon {
+            let ico = if sel {
+                row.icon_sel.as_ref().or(row.icon.as_ref())
+            } else {
+                row.icon.as_ref()
+            };
+            if let Some(ico) = ico {
                 let _ = g.draw_pixmap(tx, y + (row_h() - ico.height as i16) / 2, ico);
                 tx += ico.width as i16 + crate::metrics::gap() as i16;
             }
@@ -870,7 +938,23 @@ impl<T: Clone> ListView<T> {
         }
         let _ = g.pop_clip();
         if self.needs_sb() {
-            draw_scrollbar(g, self.sb_x(), self.sb_top(), self.sb_bottom(), self.thumb());
+            if self.thin_sb {
+                let top = self.list_top();
+                let vis = i32::from(self.vis_rows());
+                let track_h = i32::from(row_h()) * vis;
+                let sbw = scaled(3).max(2) as u16;
+                let sb_x = self.w as i16 - pad() + (pad() - sbw as i16) / 2;
+                let t = crate::thumb::Thumb::new(
+                    i32::from(top),
+                    vis,
+                    i32::from(self.offset),
+                    i32::from(self.total_rows()),
+                );
+                let _ = g.set_foreground(crate::theme::shadow());
+                let _ = g.fill_rect(sb_x, t.start(track_h) as i16, sbw, t.len(track_h) as u16);
+            } else {
+                draw_scrollbar(g, self.sb_x(), self.sb_top(), self.sb_bottom(), self.thumb());
+            }
         }
     }
 }

@@ -23,6 +23,14 @@ impl Default for MenuColors {
 }
 
 impl MenuColors {
+    pub fn list() -> Self {
+        Self {
+            sel_bg: crate::theme::list_sel_bg(),
+            sel_fg: crate::theme::list_sel_fg(),
+            ..Self::default()
+        }
+    }
+
     pub fn with_bg(bg: antibox_core::colour::Colour) -> Self {
         Self {
             bg,

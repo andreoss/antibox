@@ -571,6 +571,14 @@ pub fn menu_sel_fg() -> Colour {
     }
 }
 
+pub fn list_sel_bg() -> Colour {
+    distinct(menu_sel_bg(), field())
+}
+
+pub fn list_sel_fg() -> Colour {
+    contrast(menu_sel_fg(), list_sel_bg())
+}
+
 pub fn title_layout() -> (String, String) {
     (
         string_or("title_layout_left", "sp"),

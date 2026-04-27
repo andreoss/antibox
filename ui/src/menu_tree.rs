@@ -30,6 +30,7 @@ pub enum FlatEntry<T> {
 pub struct FlatRow<T> {
     pub title: String,
     pub icon: Option<PixmapData>,
+    pub icon_sel: Option<PixmapData>,
     pub depth: u16,
     pub entry: FlatEntry<T>,
     pub marker: Option<PixmapData>,
@@ -222,10 +223,11 @@ fn flatten_into<T: Clone>(
                 title,
                 payload,
                 icon,
-                ..
+                icon_sel,
             } => out.push(FlatRow {
                 title: title.clone(),
                 icon: icon.clone(),
+                icon_sel: icon_sel.clone(),
                 depth,
                 entry: FlatEntry::Leaf(payload.clone()),
                 marker: None,
@@ -234,6 +236,7 @@ fn flatten_into<T: Clone>(
             MenuNode::Separator => out.push(FlatRow {
                 title: String::new(),
                 icon: None,
+                icon_sel: None,
                 depth,
                 entry: FlatEntry::Separator,
                 marker: None,
@@ -242,14 +245,15 @@ fn flatten_into<T: Clone>(
             MenuNode::Group {
                 title,
                 icon,
+                icon_sel,
                 children,
                 expanded,
-                ..
             } => {
                 path.push(i);
                 out.push(FlatRow {
                     title: title.clone(),
                     icon: icon.clone(),
+                    icon_sel: icon_sel.clone(),
                     depth,
                     entry: FlatEntry::Group {
                         expanded: *expanded,
