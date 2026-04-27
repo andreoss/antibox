@@ -224,6 +224,7 @@ fn flatten_into<T: Clone>(
                 payload,
                 icon,
                 icon_sel,
+                class: _,
             } => out.push(FlatRow {
                 title: title.clone(),
                 icon: icon.clone(),

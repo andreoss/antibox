@@ -19,6 +19,7 @@ pub struct OmniItem {
     pub client_id: u32,
     pub workspace: u32,
     pub icon: PixmapData,
+    pub icon_sel: PixmapData,
     pub run: bool,
     pub marked: bool,
     pub command: Vec<String>,
@@ -234,8 +235,11 @@ fn icon_size() -> u16 {
 
 impl Omni {
     pub fn new() -> Self {
+        let mut view = ListView::new();
+        view.set_thin_sb();
+        view.set_empty_note("No matches");
         Self {
-            view: ListView::new(),
+            view,
             items: Vec::new(),
             run_items: Vec::new(),
             run_history: load_run_history(),
@@ -320,48 +324,81 @@ impl Omni {
     }
 
     fn window_nodes(&self) -> Vec<MenuNode<OmniAct>> {
-        let wins: Vec<MenuNode<OmniAct>> = self
+        let isz = icon_size();
+        let bg = antibox_ui::theme::field();
+        let sel = self.view.colours.sel_bg;
+        let mut nodes: Vec<MenuNode<OmniAct>> = self
             .items
             .iter()
             .filter(|it| !it.run)
             .map(|it| {
-                let title = if it.marked {
-                    format!("{} \u{25A0}", it.title)
-                } else {
-                    it.title.clone()
-                };
-                MenuNode::leaf(title, OmniAct::Window(it.client_id))
-                    .with_icon(Some(it.icon.clone()))
+                MenuNode::leaf(it.title.clone(), OmniAct::Window(it.client_id))
+                    .with_icons(Some(it.icon.clone()), Some(it.icon_sel.clone()))
                     .with_class(Some(it.class.clone()))
             })
             .collect();
-        let isz = icon_size();
-        let bg = antibox_ui::theme::field();
-        let apps: Vec<MenuNode<OmniAct>> = self
-            .apps
-            .as_deref()
-            .unwrap_or(&[])
-            .iter()
-            .map(|app| {
-                let icon = crate::icon_render::load_named_icon(&app.icon, u32::from(isz))
-                    .map(|p| crate::icon_render::composite_over(&p, bg))
-                    .unwrap_or_else(|| crate::icon_render::default_icon(u32::from(isz), bg));
+        for app in self.apps.as_deref().unwrap_or(&[]) {
+            let raw = crate::icon_render::load_named_icon(&app.icon, u32::from(isz));
+            let (icon, icon_sel) = match raw {
+                Some(p) => (
+                    crate::icon_render::composite_over(&p, bg),
+                    crate::icon_render::composite_over(&p, sel),
+                ),
+                None => (
+                    crate::icon_render::default_icon(u32::from(isz), bg),
+                    crate::icon_render::default_icon(u32::from(isz), sel),
+                ),
+            };
+            nodes.push(
                 MenuNode::leaf(app.name.clone(), OmniAct::Launch(app.command.clone()))
-                    .with_icon(Some(icon))
-            })
-            .collect();
-        let mut nodes = Vec::new();
-        if !wins.is_empty() {
-            nodes.push(MenuNode::group_expanded("Windows", wins));
+                    .with_icons(Some(icon), Some(icon_sel)),
+            );
         }
-        if !apps.is_empty() {
-            nodes.push(MenuNode::group("Applications", apps));
-        }
-        nodes.push(MenuNode::group_expanded(
-            "Actions",
-            vec![MenuNode::leaf("Run\u{2026}", OmniAct::RunEntry)],
-        ));
+        let run_raw = crate::icon_render::load_named_icon("system-run", u32::from(isz));
+        let (run_icon, run_icon_sel) = match run_raw {
+            Some(p) => (
+                crate::icon_render::composite_over(&p, bg),
+                crate::icon_render::composite_over(&p, sel),
+            ),
+            None => (
+                crate::icon_render::default_icon(u32::from(isz), bg),
+                crate::icon_render::default_icon(u32::from(isz), sel),
+            ),
+        };
+        nodes.push(
+            MenuNode::leaf("Run\u{2026}", OmniAct::RunEntry)
+                .with_icons(Some(run_icon), Some(run_icon_sel)),
+        );
         nodes
+    }
+
+    fn mark_squares(&mut self) {
+        let sq = |c: antibox_core::colour::Colour| {
+            let s = scaled(8).max(4) as u16;
+            let mut data = Vec::with_capacity(usize::from(s) * usize::from(s) * 4);
+            for _ in 0..u32::from(s) * u32::from(s) {
+                data.extend_from_slice(&[
+                    ((c >> 16) & 0xff) as u8,
+                    ((c >> 8) & 0xff) as u8,
+                    (c & 0xff) as u8,
+                    255,
+                ]);
+            }
+            PixmapData::new(s, s, data)
+        };
+        let normal = sq(antibox_ui::theme::check_colour());
+        let selected = sq(self.view.colours.sel_fg);
+        for row in &mut self.view.items {
+            let is_marked = matches!(row.payload(), Some(OmniAct::Window(id))
+                if self.items.iter().any(|it| it.client_id == *id && it.marked));
+            if is_marked {
+                row.marker = Some(normal.clone());
+                row.marker_sel = Some(selected.clone());
+            } else {
+                row.marker = None;
+                row.marker_sel = None;
+            }
+        }
     }
 
     fn run_nodes(&self) -> Vec<MenuNode<OmniAct>> {
@@ -461,28 +498,7 @@ impl Omni {
     }
 
     fn mark_previous(&mut self) {
-        for row in &mut self.view.items {
-            row.marker = None;
-            row.marker_sel = None;
-        }
-        if self.prev_focus_xid == 0 {
-            return;
-        }
-        let want = self.prev_focus_xid;
-        let Some(row) = self.view.items.iter().position(|r| {
-            matches!(r.payload(), Some(OmniAct::Window(x)) if *x == want)
-        }) else { return };
-        let sz = crate::listview::row_icon_px();
-        self.view.items[row].marker = Some(crate::icon_render::back_marker(
-            sz,
-            antibox_ui::theme::field(),
-            antibox_ui::theme::title_active(),
-        ));
-        self.view.items[row].marker_sel = Some(crate::icon_render::back_marker(
-            sz,
-            self.view.colours.sel_bg,
-            self.view.colours.sel_fg,
-        ));
+        self.mark_squares();
     }
 
     fn reload(&mut self, conn: &Arc<dyn DisplayBackend>) {
@@ -511,6 +527,7 @@ impl Omni {
 
     fn refilter(&mut self, conn: &Arc<dyn DisplayBackend>) {
         self.view.refilter(conn.as_ref());
+        self.mark_squares();
         self.reselect();
         self.view.paint(conn.as_ref());
     }
@@ -719,6 +736,11 @@ impl Omni {
                     isz,
                     antibox_ui::theme::field(),
                 );
+                let icon_sel = crate::icon_render::resolve_client_icon(
+                    fw.client().icons(),
+                    isz,
+                    antibox_ui::theme::list_sel_bg(),
+                );
                 let count = if grouping {
                     *counts.get(&(class.clone(), fw.workspace())).unwrap_or(&1)
                 } else {
@@ -736,6 +758,7 @@ impl Omni {
                     client_id: wm.xid_index.xid_of(id),
                     workspace: fw.workspace(),
                     icon,
+                    icon_sel,
                     marked: false,
                     run: false,
                     command: Vec::new(),
@@ -758,6 +781,11 @@ impl Omni {
                 client_id: 0,
                 workspace: !0,
                 icon: crate::icon_render::resolve_client_icon(&[], isz, antibox_ui::theme::field()),
+                icon_sel: crate::icon_render::resolve_client_icon(
+                    &[],
+                    isz,
+                    antibox_ui::theme::list_sel_bg(),
+                ),
                 marked: false,
                 run: false,
                 command: app.command.clone(),
@@ -772,6 +800,11 @@ impl Omni {
                 client_id: 0,
                 workspace: !0,
                 icon: crate::icon_render::resolve_client_icon(&[], isz, antibox_ui::theme::field()),
+                icon_sel: crate::icon_render::resolve_client_icon(
+                    &[],
+                    isz,
+                    antibox_ui::theme::list_sel_bg(),
+                ),
                 marked: false,
                 run: false,
                 command: vec!["sh".to_string(), "-c".to_string(), line.clone()],
@@ -828,6 +861,7 @@ impl Omni {
             self.view
                 .set_filter_placeholder("Run a program or command…");
         }
+        self.mark_squares();
         self.reselect();
         self.paint(conn);
         let _ = conn.flush();

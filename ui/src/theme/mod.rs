@@ -275,6 +275,13 @@ pub fn menu_bg() -> Colour {
         colour_or("face", 0xC0C0C0)
     }
 }
+pub fn check_colour() -> Colour {
+    if colour_or("check_colour", 0x0) != 0 {
+        colour_or("check_colour", 0x0)
+    } else {
+        contrast(colour_or("text", 0x000000), colour_or("face", 0xC0C0C0))
+    }
+}
 pub fn arrow_colour() -> Colour {
     if colour_or("arrow_colour", 0x0) != 0 {
         colour_or("arrow_colour", 0x0)

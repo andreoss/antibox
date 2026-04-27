@@ -8,7 +8,6 @@ use antibox_core::rect::Rect;
 use antibox_core::scale::scaled;
 use std::sync::Arc;
 
-use antibox_ui::theme;
 
 pub(crate) use crate::listview::row_icon_px;
 
@@ -81,7 +80,7 @@ impl WinListMenu {
                 return (x, y);
             }
         }
-        (((sw - w) / 2).max(0), ((sh - h) / 2).max(0))
+        (((sw - w) / 2).max(0), (sh / 4).max(0))
     }
 
     fn build_tree(&mut self, wm: &WindowManager<dyn DisplayBackend>) -> Vec<MenuNode<WinListItem>> {
@@ -96,11 +95,7 @@ impl WinListMenu {
                 title: fw.client().title().to_string(),
                 client_id: wm.xid_index.xid_of(*id),
                 workspace: fw.workspace(),
-                icon: Some(crate::icon_render::resolve_client_icon(
-                    fw.client().icons(),
-                    row_icon_px(),
-                    theme::field(),
-                )),
+                icon: None,
             })
             .collect();
         entries.sort_by(|a, b| a.workspace.cmp(&b.workspace).then(a.title.cmp(&b.title)));
@@ -110,15 +105,13 @@ impl WinListMenu {
         for e in entries {
             if e.workspace != cur {
                 cur = e.workspace;
-                let label = if cur == self.active_ws {
-                    format!("Workspace {} *", cur + 1)
-                } else {
-                    format!("Workspace {}", cur + 1)
-                };
-                nodes.push(MenuNode::group_expanded(label, Vec::new()));
+                nodes.push(MenuNode::group_expanded(
+                    format!("Workspace {}", cur + 1),
+                    Vec::new(),
+                ));
             }
             if let Some(MenuNode::Group { children, .. }) = nodes.last_mut() {
-                children.push(MenuNode::leaf(e.title.clone(), e.clone()).with_icon(e.icon.clone()));
+                children.push(MenuNode::leaf(e.title.clone(), e.clone()));
             }
         }
         nodes
@@ -183,13 +176,15 @@ impl WinListMenu {
             let max_h = (conn.screen_height() as i32 * 3 / 4).max(scaled(120));
             want.clamp(scaled(120), max_h) as u16
         } else {
-            want.clamp(scaled(120), scaled(340)) as u16
+            scaled(340) as u16
         };
+        self.view.set_band_headers();
+        self.view.set_plain_field();
+        self.view.set_switch_font();
         self.view.set_size(w, h);
         let (x, y) = self.placement(conn.as_ref());
         let atoms_state = wm.atoms.get("_NET_WM_STATE");
         let atoms_skip = wm.atoms.get("_NET_WM_STATE_SKIP_TASKBAR");
-        let atoms_mwm = wm.atoms.get("_MOTIF_WM_HINTS");
         self.view.show_with(
             conn.as_ref(),
             nodes,
@@ -204,21 +199,6 @@ impl WinListMenu {
                 }
                 if let (Some(state), Some(skip)) = (atoms_state, atoms_skip) {
                     let _ = c.change_property32(PropMode::Replace, id, state, 4, &[skip]);
-                }
-                if let Some(mwm) = atoms_mwm {
-                    let _ = c.change_property32(
-                        PropMode::Replace,
-                        id,
-                        mwm,
-                        mwm,
-                        &[
-                            mwm_hints_flags::FUNCTIONS,
-                            mwm_func::ALL | mwm_func::MAXIMIZE | mwm_func::MINIMIZE,
-                            0,
-                            0,
-                            0,
-                        ],
-                    );
                 }
                 if switcher {
                     let _ = c.grab_keyboard(
@@ -254,22 +234,11 @@ impl WinListMenu {
         self.paint(conn);
     }
 
-    fn mark_previous_focus(&mut self, wm: &WindowManager<dyn DisplayBackend>) {
+    fn mark_previous_focus(&mut self, _wm: &WindowManager<dyn DisplayBackend>) {
         for row in &mut self.view.items {
             row.marker = None;
             row.marker_sel = None;
         }
-        let Some(prev) = wm.previous_focus() else { return };
-        let xid = wm.xid_index.xid_of(prev);
-        let Some(row) = self.row_of_client(xid) else { return };
-        let sz = row_icon_px();
-        self.view.items[row].marker =
-            Some(crate::icon_render::back_marker(sz, theme::field(), theme::title_active()));
-        self.view.items[row].marker_sel = Some(crate::icon_render::back_marker(
-            sz,
-            self.view.colours.sel_bg,
-            self.view.colours.sel_fg,
-        ));
     }
 
     fn build_switch_order(&mut self, wm: &WindowManager<dyn DisplayBackend>) {

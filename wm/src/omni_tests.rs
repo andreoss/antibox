@@ -13,6 +13,7 @@ fn item(title: &str, class: &str, ws: u32, id: u32, run: bool) -> OmniItem {
         client_id: id,
         workspace: ws,
         icon: PixmapData::new(0, 0, Vec::new()),
+        icon_sel: PixmapData::new(0, 0, Vec::new()),
         run,
         marked: false,
         command: Vec::new(),
@@ -237,7 +238,7 @@ fn test_cycle_sort_updates_the_ops_menu_row_label() {
 }
 
 #[test]
-fn test_windows_mode_groups_windows_applications_and_actions() {
+fn test_windows_mode_lists_windows_applications_then_run() {
     let mut o = Omni::new();
     o.items = vec![item("beta", "b", 0, 2, false)];
     o.apps = Some(vec![crate::desktop_apps::DesktopApp {
@@ -247,13 +248,10 @@ fn test_windows_mode_groups_windows_applications_and_actions() {
         icon: String::new(),
     }]);
     let nodes = o.window_nodes();
-    assert_eq!(group_children(&nodes, "Windows").map(<[_]>::len), Some(1));
-    assert_eq!(
-        group_children(&nodes, "Applications").map(<[_]>::len),
-        Some(1)
-    );
-    let actions = group_children(&nodes, "Actions").expect("actions group");
-    assert!(matches!(leaf_payload(&actions[0]), Some(OmniAct::RunEntry)));
+    assert_eq!(nodes.len(), 3);
+    assert!(matches!(leaf_payload(&nodes[0]), Some(OmniAct::Window(2))));
+    assert!(matches!(leaf_payload(&nodes[1]), Some(OmniAct::Launch(_))));
+    assert!(matches!(leaf_payload(&nodes[2]), Some(OmniAct::RunEntry)));
 }
 
 #[test]
