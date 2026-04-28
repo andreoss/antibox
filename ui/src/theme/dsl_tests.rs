@@ -151,13 +151,12 @@ ops = [
         assert_eq!(def.metric("title_height"), Some(18));
         assert_eq!(def.metric("sunken_depth"), Some(2));
         assert_eq!(def.string("title_buttons"), Some("xmi"));
-        assert_eq!(def.string("title_layout_right"), Some("xmir"));
     }
 
     #[test]
     fn nt_theme_defines_elements() {
         let def = nt();
-        for name in &["panel", "field", "well", "button", "button_pressed", "menu_sel", "tooltip", "progress"] {
+        for name in &["field", "well", "menu_border", "panel_edge"] {
             assert!(
                 def.element(name).is_some_and(|o| !o.is_empty()),
                 "element {name} must have ops"
@@ -198,8 +197,8 @@ ops = [
     #[test]
     fn draw_element_paints_known_elements() {
         let g = antibox_gfx::mock::MockGraphics::new(1);
-        assert!(crate::theme::draw_element(&g, "panel", 0, 0, 20, 20));
-        assert!(crate::theme::draw_element(&g, "button", 0, 0, 20, 20));
+        assert!(crate::theme::draw_element(&g, "field", 0, 0, 20, 20));
+        assert!(crate::theme::draw_element(&g, "well", 0, 0, 20, 20));
         assert!(!crate::theme::draw_element(&g, "nope", 0, 0, 20, 20));
     }
 

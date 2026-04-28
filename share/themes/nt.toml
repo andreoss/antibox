@@ -1,111 +1,118 @@
 name = "nt"
 
 [colors]
-face = "C0C0C0"
-field = "FFFFFF"
-text = "000000"
-disabled = "808080"
-sel_bg = "000080"
-sel_fg = "FFFFFF"
-light = "FFFFFF"
-face_light = "C0C0C0"
-button_face = "C0C0C0"
-shadow = "808080"
-dark = "000000"
-tooltip_bg = "FFFFE1"
-tooltip_fg = "000000"
-sel_line = "000080"
-title_active = "000080"
-title_text = "FFFFFF"
-title_inactive = "808080"
-menu_sel_bg = "000000"
-menu_sel_fg = "000000"
-taskbar_face = "000000"
-tray_face = "000000"
-list_bg = "000000"
-menu_bg = "000000"
-arrow_colour = "000000"
-volume_bar = "008000"
-volume_mute = "FF0000"
-mic_on = "008000"
-battery_ok = "008000"
-battery_low = "808000"
-battery_critical = "FF0000"
+volume_bar = "#008000"
+volume_mute = "#FF0000"
+mic_on = "#008000"
+battery_ok = "#008000"
+battery_low = "#808000"
+battery_critical = "#FF0000"
+face = "#C0C0C0"
+field = "#FFFFFF"
+text = "#000000"
+disabled = "#808080"
+sel_bg = "#000080"
+sel_fg = "#FFFFFF"
+light = "#FFFFFF"
+face_light = "#C0C0C0"
+button_face = "#C0C0C0"
+shadow = "#808080"
+dark = "#000000"
+tooltip_bg = "#FFFFE1"
+tooltip_fg = "#000000"
+sel_line = "#000080"
+title_active = "#000080"
+title_text = "#FFFFFF"
+title_inactive = "#808080"
+title_text_inactive = "#C0C0C0"
+title_gradient = "#000080"
+title_gradient_inactive = "#808080"
+graph_bg = "#000000"
+graph1 = "#00FF00"
+graph2 = "#FF0000"
+graph3 = "#FFFF00"
+graph4 = "#00FFFF"
 
 [metrics]
 corner_radius = 0
-frame_radius = 0
-button_radius = 0
-button_ring = 0
-title_inset = 0
-title_overlap = 0
-close_gap = 0
 pad = 4
 gap = 2
 item_gap = 2
 title_height = 18
 border = 4
 border_bottom = 4
+scrollbar_base = 16
 button_base = 16
 button_inset = 4
-title_button_inset = 0
-title_end_pad = 0
 title_justify = 0
 sunken_depth = 2
-taskbar_item_chars = 0
-taskbar_item_pct = 0
 
 [strings]
+menu_label = "Start"
 title_buttons = "xmi"
-ui_font_name = ""
 taskbar_justify = "left"
-title_layout_left = "sp"
-title_layout_right = "xmir"
-title_side = "top"
-clock_format = ""
 
-[elements.panel]
+[flags]
+flat = false
+dotted_sel = false
+underline_focus = false
+override_chrome = false
+tab_title = false
+sculpted = false
+outlined = false
+coloured_frame = false
+menu_glyph = false
+menu_mnemonics = true
+title_stipple = false
+title_grad_vertical = false
+grad_buttons = false
+equal_tabs = false
+slider_pointer = true
+scrollbar_dither = true
+bilevel_text = true
+
+[glyphs]
+minimize = [0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x007E, 0x007E, 0x0000]
+maximize = [0x01FF, 0x01FF, 0x0101, 0x0101, 0x0101, 0x0101, 0x0101, 0x0101, 0x01FF, 0x0000]
+restore = [0x03FC, 0x03FC, 0x0204, 0x02FF, 0x02FF, 0x0381, 0x0081, 0x0081, 0x00FF, 0x0000]
+close = [0x0000, 0x0186, 0x00CC, 0x0078, 0x0030, 0x0078, 0x00CC, 0x0186, 0x0000, 0x0000]
+
+[elements.well]
 ops = [
-    { op = "fill", colour = "face" },
+    { op = "fill", x = "0", y = "0", w = "w", h = "s", colour = "shadow" },
+    { op = "fill", x = "0", y = "0", w = "s", h = "h", colour = "shadow" },
+    { op = "fill", x = "0", y = "h-s", w = "w", h = "s", colour = "light" },
+    { op = "fill", x = "w-s", y = "0", w = "s", h = "h", colour = "light" },
+]
+
+[elements.menu_border]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "s", colour = "face" },
+    { op = "fill", x = "0", y = "0", w = "s", h = "h", colour = "face" },
+    { op = "fill", x = "0", y = "h-s", w = "w", h = "s", colour = "dark" },
+    { op = "fill", x = "w-s", y = "0", w = "s", h = "h", colour = "dark" },
+    { op = "fill", x = "s", y = "s", w = "w-2*s", h = "s", colour = "light" },
+    { op = "fill", x = "s", y = "s", w = "s", h = "h-2*s", colour = "light" },
+    { op = "fill", x = "s", y = "h-2*s", w = "w-2*s", h = "s", colour = "shadow" },
+    { op = "fill", x = "w-2*s", y = "s", w = "s", h = "h-2*s", colour = "shadow" },
+]
+
+[elements.panel_edge]
+ops = [
+    { op = "fill", x = "0", y = "0", w = "w", h = "s", colour = "face" },
+    { op = "fill", x = "0", y = "s", w = "w", h = "s", colour = "light" },
 ]
 
 [elements.field]
 ops = [
-    { op = "fill", colour = "field" },
-    { op = "bevel", raised = false, light = "light", shadow = "shadow", depth = "s" },
+    { op = "fill", x = "0", y = "0", w = "w", h = "h", colour = "field" },
+    { op = "fill", x = "0", y = "0", w = "w", h = "s", colour = "shadow" },
+    { op = "fill", x = "0", y = "0", w = "s", h = "h", colour = "shadow" },
+    { op = "fill", x = "0", y = "h-s", w = "w", h = "s", colour = "light" },
+    { op = "fill", x = "w-s", y = "0", w = "s", h = "h", colour = "light" },
+    { op = "fill", x = "s", y = "s", w = "w-2*s", h = "s", colour = "dark" },
+    { op = "fill", x = "s", y = "s", w = "s", h = "h-2*s", colour = "dark" },
+    { op = "fill", x = "s", y = "h-2*s", w = "w-2*s", h = "s", colour = "face" },
+    { op = "fill", x = "w-2*s", y = "s", w = "s", h = "h-2*s", colour = "face" },
 ]
 
-[elements.well]
-ops = [
-    { op = "fill", colour = "field" },
-    { op = "bevel", raised = false, light = "shadow", shadow = "light", depth = "s" },
-]
-
-[elements.button]
-ops = [
-    { op = "fill", colour = "button_face" },
-    { op = "bevel", raised = true, light = "light", shadow = "shadow", depth = "s" },
-]
-
-[elements.button_pressed]
-ops = [
-    { op = "fill", colour = "button_face" },
-    { op = "bevel", raised = false, light = "light", shadow = "shadow", depth = "s" },
-]
-
-[elements.menu_sel]
-ops = [
-    { op = "fill", colour = "sel_bg" },
-]
-
-[elements.tooltip]
-ops = [
-    { op = "fill", colour = "tooltip_bg" },
-    { op = "outline", colour = "text", x = 0, y = 0, w = "w-1*s", h = "h-1*s" },
-]
-
-[elements.progress]
-ops = [
-    { op = "fill", colour = "field" },
-    { op = "bevel", raised = false, light = "shadow", shadow = "light", depth = "s" },
-]
