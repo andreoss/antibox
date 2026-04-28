@@ -127,7 +127,7 @@ pub fn panel_button(g: &dyn GraphicsContext, b: &PanelButton<'_>, target: u32) {
     } = *b;
     let (fill, label_fg) = theme::press_colours(face, fg, sunken);
     if on_bar {
-        theme::button_surface(g, Rect::px(x, y, w, h), theme::Fill::new(fill, sunken));
+        theme::panel_button_surface(g, Rect::px(x, y, w, h), theme::Fill::new(fill, sunken));
     } else {
         theme::button_surface(g, Rect::px(x, y, w, h), theme::Fill::new(fill, sunken));
         theme::round_button_corners(g, x, y, w, h, theme::face());
@@ -154,7 +154,9 @@ pub fn panel_button(g: &dyn GraphicsContext, b: &PanelButton<'_>, target: u32) {
     let _ = g.set_background(fill);
     let baseline = metrics::baseline(y as i32, h as i32) as i16 + off;
 
-    let transparent = theme::pressed_dither(sunken);
+    let transparent = theme::pressed_dither(sunken)
+        || (on_bar && theme::themed_bar_button())
+        || (!on_bar && theme::themed_button());
     let draw = |lx: i16, text: &str| {
         if transparent {
             let _ = g.set_foreground(label_fg);

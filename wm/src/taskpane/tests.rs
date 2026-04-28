@@ -45,11 +45,19 @@ fn test_layout_buttons_use_theme_item_gap() {
 #[test]
 fn test_button_bg_differs_between_active_and_inactive() {
     let face = antibox_ui::theme::tray_face();
-    assert_ne!(
-        TaskPane::button_bg(face, true),
-        TaskPane::button_bg(face, false),
-        "icon blend background must follow the active button surface"
-    );
+    if antibox_ui::theme::pressed_dither(true) {
+        assert_eq!(
+            TaskPane::button_bg(face, true),
+            TaskPane::button_bg(face, false),
+            "dithered themes keep the face and let the surface dither"
+        );
+    } else {
+        assert_ne!(
+            TaskPane::button_bg(face, true),
+            TaskPane::button_bg(face, false),
+            "icon blend background must follow the active button surface"
+        );
+    }
 }
 
 #[test]
@@ -57,7 +65,7 @@ fn test_active_button_bg_matches_pressed_surface() {
     let face = antibox_ui::theme::tray_face();
     let active = TaskPane::button_bg(face, true);
     let expected = if antibox_ui::theme::pressed_dither(true) {
-        antibox_core::colour::lerp(antibox_ui::theme::face(), antibox_ui::theme::light(), 0.5)
+        face
     } else {
         antibox_ui::theme::pressed_face(face)
     };
@@ -123,27 +131,64 @@ fn test_two_rows_split_the_buttons() {
 }
 
 #[test]
-fn test_the_vertical_list_scrolls_when_it_overflows() {
+fn test_the_vertical_list_overflows_with_buttons() {
     let (mut pane, _d) = make_pane();
     pane.set_vertical(true);
-    for i in 0..8u32 {
+    for i in 0..40u32 {
         pane.add_button(500 + i, &format!("w{i}"));
     }
-    pane.pane_w = 100;
-    pane.pane_h = 60;
-    pane.scroll = 40;
-    pane.layout_buttons(100, 60);
-    assert!(pane.buttons[0].rect.1 < 0, "scrolled rows sit above the pane");
-    pane.scroll = 10_000;
-    pane.layout_buttons(100, 60);
-    let last = pane.buttons.last().expect("buttons exist");
+    pane.layout_buttons(100, 200);
     assert!(
-        i32::from(last.rect.1) < 60,
-        "the clamp keeps the tail on screen"
+        pane.overflow.is_some(),
+        "a short vertical bar overflows 40 windows"
     );
-    pane.scroll = -5;
-    pane.layout_buttons(100, 60);
-    assert_eq!(pane.buttons[0].rect.1, antibox_ui::metrics::button_inset() as i16);
+    assert!(pane.visible_count < pane.buttons.len());
+    assert_eq!(
+        pane.overflow_before_ids.len() + pane.overflow_ids.len(),
+        pane.buttons.len() - pane.visible_count,
+        "every hidden window sits before or after the visible strip"
+    );
+    let vin = antibox_ui::metrics::button_inset() as i16;
+    for btn in &pane.buttons {
+        if btn.rect.2 > 0 {
+            assert_eq!(btn.rect.0, vin, "visible rows share the one column");
+        }
+    }
+    pane.set_active(520);
+    pane.layout_buttons(100, 200);
+    assert!(
+        pane.overflow_before.is_some() && pane.overflow.is_some(),
+        "a mid-list active window hides rows both above and below"
+    );
+}
+
+#[test]
+fn test_overflow_splits_around_the_active_window() {
+    let (mut pane, _d) = make_pane();
+    for i in 1..=40u32 {
+        pane.add_button(i, &format!("W{i}"));
+    }
+    pane.set_active(20);
+    pane.layout_buttons(240, 28);
+    assert!(
+        pane.overflow_before.is_some(),
+        "windows before the active one are hidden on the left"
+    );
+    assert!(
+        pane.overflow.is_some(),
+        "windows after the active one are hidden on the right"
+    );
+    assert!(!pane.overflow_before_ids.is_empty());
+    assert!(!pane.overflow_ids.is_empty());
+    assert!(
+        pane.buttons.iter().any(|b| b.active && b.rect.2 > 0),
+        "the active window stays within the visible strip"
+    );
+    assert_eq!(
+        pane.overflow_before_ids.len() + pane.overflow_ids.len(),
+        pane.buttons.len() - pane.visible_count,
+        "every hidden window is accounted for on one side"
+    );
 }
 
 #[test]

@@ -377,6 +377,59 @@ pub fn clock_format() -> String {
     string_or("clock_format", "")
 }
 
+pub fn taskbar_face() -> Colour {
+    if colour_or("taskbar_face", 0x0) != 0 {
+        colour_or("taskbar_face", 0x0)
+    } else {
+        colour_or("face", 0xC0C0C0)
+    }
+}
+
+pub fn taskbar_text_colour() -> Colour {
+    if colour_or("taskbar_text", 0x0) != 0 {
+        colour_or("taskbar_text", 0x0)
+    } else {
+        contrast(colour_or("text", 0x000000), taskbar_face())
+    }
+}
+
+pub fn taskbar_flush() -> bool {
+    flag_or("taskbar_flush", false)
+}
+
+pub fn taskbar_plain() -> bool {
+    flag_or("taskbar_plain", false)
+}
+
+pub fn start_italic() -> bool {
+    flag_or("start_italic", false)
+}
+
+pub fn start_font_pt() -> u16 {
+    metric_or("start_font_pt", 0)
+}
+
+pub fn start_shadow() -> Colour {
+    colour_or("start_shadow", 0x0)
+}
+
+pub fn start_radius_base() -> u16 {
+    metric_or("start_radius", 0)
+}
+
+pub fn start_cap_px() -> u16 {
+    let r = start_radius_base();
+    if r == 0 {
+        0
+    } else {
+        antibox_gfx::scale::scaled(i32::from(r)).max(1) as u16
+    }
+}
+
+pub fn title_text_shadow() -> bool {
+    flag_or("title_text_shadow", false)
+}
+
 pub fn tray_face() -> Colour {
     if colour_or("tray_face", 0x0) != 0 {
         colour_or("tray_face", 0x0)
@@ -669,6 +722,10 @@ pub fn language_fg() -> Colour {
 
 pub fn menu_label() -> String {
     string_or("menu_label", "Start")
+}
+
+pub fn menu_label_raw() -> String {
+    string_or("menu_label", "")
 }
 
 pub fn volume_bar() -> Colour {

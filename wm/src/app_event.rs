@@ -223,7 +223,13 @@ impl App {
                     .as_any_mut()
                     .downcast_mut::<ClockApplet>()
                 {
-                    let _ = c.set_base_format(&prefs.clock.format);
+                    let themed = antibox_ui::theme::clock_format();
+                    let fmt = if themed.is_empty() {
+                        prefs.clock.format.clone()
+                    } else {
+                        themed
+                    };
+                    let _ = c.set_base_format(&fmt);
                 }
                 let w = if a.as_any().is::<crate::cpu_status_applet::CpuStatusApplet>() {
                     Some(prefs.cpu.width)

@@ -77,9 +77,9 @@ impl Default for ThemeColors {
         } else {
             theme::face()
         };
-        let button_bg = theme::button_face();
-        let button_fg = theme::text();
-        let task_bar_colour = theme::face();
+        let button_bg = theme::face();
+        let button_fg = theme::taskbar_text_colour();
+        let task_bar_colour = theme::taskbar_face();
         let ws_active_bg = theme::sel_bg();
         let ws_active_fg = theme::sel_fg();
         let ws_normal_bg = theme::face();

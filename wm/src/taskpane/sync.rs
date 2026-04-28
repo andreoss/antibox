@@ -3,12 +3,10 @@ use super::TaskPane;
 
 impl TaskPane {
     pub(super) fn button_bg(face: antibox_core::colour::Colour, active: bool) -> u32 {
-        if !active {
-            face
-        } else if antibox_ui::theme::pressed_dither(true) {
-            antibox_core::colour::lerp(antibox_ui::theme::face(), antibox_ui::theme::light(), 0.5)
-        } else {
+        if active && !antibox_ui::theme::pressed_dither(true) {
             antibox_ui::theme::pressed_face(face)
+        } else {
+            face
         }
     }
 
@@ -62,32 +60,78 @@ impl TaskPane {
         out
     }
 
+    fn overflow_window(n: usize, capacity: usize, active: usize) -> (usize, usize, usize, usize) {
+        if n <= capacity {
+            return (0, n, 0, 0);
+        }
+        let cap = capacity.max(1);
+        if cap == 1 {
+            return (0, 0, 0, n);
+        }
+        let win = cap - 2;
+        let mut lo = if win == 0 { 0 } else { active.saturating_sub(win / 2) };
+        if lo + win > n {
+            lo = n - win;
+        }
+        let mut hi = lo + win;
+        let mut before = lo;
+        let mut after = n - hi;
+        if before == 0 && after > 0 {
+            hi = (cap - 1).min(n);
+            after = n - hi;
+        } else if after == 0 && before > 0 {
+            lo = n - (cap - 1).min(n);
+            before = lo;
+        }
+        (lo, hi, before, after)
+    }
+
     pub fn layout_buttons(&mut self, pane_w: u16, pane_h: u16) {
         let n = self.buttons.len();
         self.overflow = None;
         self.overflow_ids.clear();
+        self.overflow_before = None;
+        self.overflow_before_ids.clear();
+        self.scroll = 0;
         self.visible_count = n;
         if n == 0 {
             return;
         }
         let vin = antibox_ui::metrics::button_inset() as i16;
-        let btn_h = (pane_h.saturating_sub(vin as u16 * 2)).max(1);
         let gap = antibox_ui::metrics::item_gap();
+        let active = self.buttons.iter().position(|b| b.active).unwrap_or(0);
+
         if self.vertical {
             let cell = antibox_ui::metrics::panel_height() as i16;
             let width = pane_w.saturating_sub(vin as u16 * 2).max(1);
             let step = cell + gap as i16;
-            let content = n as i16 * step - gap as i16;
-            let max_scroll = (content - pane_h as i16 + vin * 2).max(0);
-            self.scroll = self.scroll.clamp(0, max_scroll);
-            let mut y = vin - self.scroll;
+            let avail = (pane_h as i16 - vin * 2).max(1);
+            let capacity = ((i32::from(avail) + gap) / i32::from(step).max(1)).max(1) as usize;
+            let (lo, hi, before, after) = Self::overflow_window(n, capacity, active);
+            let cellrect =
+                |slot: i16| -> (i16, i16, u16, u16) { (vin, vin + slot * step, width, cell.max(1) as u16) };
             for btn in &mut self.buttons {
-                btn.rect = (vin, y, width, cell.max(1) as u16);
-                y += step;
+                btn.rect = (0, 0, 0, cell.max(1) as u16);
             }
+            let mut slot = 0i16;
+            if before > 0 {
+                self.overflow_before = Some(cellrect(slot));
+                self.overflow_before_ids = self.buttons[..lo].iter().map(|b| b.window_id).collect();
+                slot += 1;
+            }
+            for i in lo..hi {
+                self.buttons[i].rect = cellrect(slot);
+                slot += 1;
+            }
+            if after > 0 {
+                self.overflow = Some(cellrect(slot));
+                self.overflow_ids = self.buttons[hi..].iter().map(|b| b.window_id).collect();
+            }
+            self.visible_count = hi - lo;
             return;
         }
-        self.scroll = 0;
+
+        let btn_h = (pane_h.saturating_sub(vin as u16 * 2)).max(1);
         let min_w = Self::min_task_w().max(antibox_ui::metrics::panel_height());
         let max_w = match antibox_ui::theme::taskbar_item_pct() {
             0 => Self::max_button_w(),
@@ -98,11 +142,10 @@ impl TaskPane {
 
         let per_row_cap = (((pane_w as i32 + gap) / (min_w + gap)).max(1)) as usize;
         let capacity = per_row_cap.saturating_mul(rows).max(1);
-        let overflowing = n > capacity;
-        let visible = if overflowing { capacity - 1 } else { n };
-        let slots = visible + usize::from(overflowing);
+        let (lo, hi, before, after) = Self::overflow_window(n, capacity, active);
+        let used = usize::from(before > 0) + (hi - lo) + usize::from(after > 0);
 
-        let per_row = slots.div_ceil(rows).max(1);
+        let per_row = used.div_ceil(rows).max(1);
         let row_h = ((i32::from(btn_h) - gap * (rows as i32 - 1)) / rows as i32).max(1) as u16;
         let ni = per_row as i32;
         let widths = if fill {
@@ -127,18 +170,24 @@ impl TaskPane {
             let y = vin + row as i16 * (row_h as i16 + gap as i16);
             (x, y, widths[col].max(1) as u16, row_h)
         };
-        for (i, btn) in self.buttons.iter_mut().enumerate() {
-            btn.rect = if i < visible {
-                cell_rect(i)
-            } else {
-                (0, 0, 0, row_h)
-            };
+        for btn in &mut self.buttons {
+            btn.rect = (0, 0, 0, row_h);
         }
-        self.visible_count = visible;
-        if overflowing {
-            self.overflow = Some(cell_rect(visible));
-            self.overflow_ids = self.buttons[visible..].iter().map(|b| b.window_id).collect();
+        let mut slot = 0usize;
+        if before > 0 {
+            self.overflow_before = Some(cell_rect(slot));
+            self.overflow_before_ids = self.buttons[..lo].iter().map(|b| b.window_id).collect();
+            slot += 1;
         }
+        for i in lo..hi {
+            self.buttons[i].rect = cell_rect(slot);
+            slot += 1;
+        }
+        if after > 0 {
+            self.overflow = Some(cell_rect(slot));
+            self.overflow_ids = self.buttons[hi..].iter().map(|b| b.window_id).collect();
+        }
+        self.visible_count = hi - lo;
     }
 
     pub fn set_active(&mut self, id: u32) {
@@ -337,16 +386,24 @@ impl TaskPane {
     }
 
     pub fn overflow_at(&self, x: i32, y: i32) -> Option<Vec<u32>> {
-        let (ox, oy, ow, oh) = self.overflow?;
-        let hit = x >= i32::from(ox)
-            && x < i32::from(ox) + i32::from(ow)
-            && y >= i32::from(oy)
-            && y < i32::from(oy) + i32::from(oh);
-        if hit && !self.overflow_ids.is_empty() {
-            Some(self.overflow_ids.clone())
-        } else {
-            None
+        let inside = |r: (i16, i16, u16, u16)| {
+            let (ox, oy, ow, oh) = r;
+            x >= i32::from(ox)
+                && x < i32::from(ox) + i32::from(ow)
+                && y >= i32::from(oy)
+                && y < i32::from(oy) + i32::from(oh)
+        };
+        if let Some(r) = self.overflow_before {
+            if inside(r) && !self.overflow_before_ids.is_empty() {
+                return Some(self.overflow_before_ids.clone());
+            }
         }
+        if let Some(r) = self.overflow {
+            if inside(r) && !self.overflow_ids.is_empty() {
+                return Some(self.overflow_ids.clone());
+            }
+        }
+        None
     }
 
     pub fn members_at(&self, x: i32, y: i32) -> Option<Vec<u32>> {

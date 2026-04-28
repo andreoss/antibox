@@ -76,13 +76,25 @@ impl TaskPane {
     }
 
     pub(super) fn draw_overflow(&self, g: &dyn GraphicsContext) {
-        let Some((x, y, w, h)) = self.overflow else {
-            return;
-        };
-        let n = self.buttons.len().saturating_sub(self.visible_count);
-        if n == 0 {
+        if let Some(rect) = self.overflow_before {
+            self.draw_overflow_button(g, rect, self.overflow_before_ids.len(), false);
+        }
+        if let Some(rect) = self.overflow {
+            self.draw_overflow_button(g, rect, self.overflow_ids.len(), true);
+        }
+    }
+
+    fn draw_overflow_button(
+        &self,
+        g: &dyn GraphicsContext,
+        rect: (i16, i16, u16, u16),
+        count: usize,
+        after: bool,
+    ) {
+        if count == 0 {
             return;
         }
+        let (x, y, w, h) = rect;
         let bg = Self::button_bg(self.colours.task_bar_colour, false);
         let font = antibox_core::backend::FontSpec::role_styled(
             antibox_core::backend::FontRole::NormalTaskBar,
@@ -91,7 +103,7 @@ impl TaskPane {
             false,
         );
         let fg = self.colours.button_fg;
-        let count = n.to_string();
+        let count = count.to_string();
         let mut b = antibox_ui::widget::PanelButton::new(
             antibox_core::rect::Rect::px(x, y, w, h),
             bg,
@@ -107,7 +119,7 @@ impl TaskPane {
         let agap = antibox_ui::metrics::gap() as i16;
         let bx = x + ((w as i16 - asize - agap - tw) / 2).max(0);
         let cy = y + h as i16 / 2;
-        antibox_ui::theme::arrow_glyph(g, bx + asize / 2, cy, asize, overflow_arrow(), fg);
+        antibox_ui::theme::arrow_glyph(g, bx + asize / 2, cy, asize, overflow_arrow(self.vertical, after), fg);
         let baseline = antibox_ui::metrics::baseline(y as i32, h as i32) as i16;
         let _ = g.set_foreground(fg);
         let _ = g.draw_text_transparent(bx + asize + agap, baseline, &count);
@@ -125,12 +137,12 @@ impl TaskPane {
     }
 }
 
-fn overflow_arrow() -> antibox_ui::theme::Arrow {
+fn overflow_arrow(vertical: bool, after: bool) -> antibox_ui::theme::Arrow {
     use antibox_ui::theme::Arrow;
-    match crate::layout_preferences::taskbar_position() {
-        crate::taskbar::TaskBarPosition::Top => Arrow::Down,
-        crate::taskbar::TaskBarPosition::LeftVertical => Arrow::Right,
-        crate::taskbar::TaskBarPosition::RightVertical => Arrow::Left,
-        _ => Arrow::Up,
+    match (vertical, after) {
+        (true, false) => Arrow::Up,
+        (true, true) => Arrow::Down,
+        (false, false) => Arrow::Left,
+        (false, true) => Arrow::Right,
     }
 }

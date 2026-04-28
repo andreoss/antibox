@@ -30,6 +30,8 @@ pub struct TaskPane {
     pub(crate) visible_count: usize,
     pub(crate) overflow: Option<(i16, i16, u16, u16)>,
     pub(crate) overflow_ids: Vec<u32>,
+    pub(crate) overflow_before: Option<(i16, i16, u16, u16)>,
+    pub(crate) overflow_before_ids: Vec<u32>,
 }
 
 impl TaskPane {
@@ -67,6 +69,8 @@ impl TaskPane {
             visible_count: 0,
             overflow: None,
             overflow_ids: Vec::new(),
+            overflow_before: None,
+            overflow_before_ids: Vec::new(),
         })
     }
 
@@ -91,8 +95,8 @@ impl Applet for TaskPane {
         antibox_ui::theme::panel_surface(g, self.pane_w, self.pane_h, self.colours.task_bar_colour);
         let floating = self.drag.as_ref().filter(|d| d.moved);
         let float_idx = floating.map(|d| d.index);
-        for (i, btn) in self.buttons.iter().enumerate().take(self.visible_count) {
-            if Some(i) == float_idx {
+        for (i, btn) in self.buttons.iter().enumerate() {
+            if btn.rect.2 == 0 || Some(i) == float_idx {
                 continue;
             }
             self.draw_button(g, btn, btn.rect.0, btn.rect.1, btn.active, btn.active);

@@ -130,8 +130,12 @@ pub fn round_title_button_corners(
     fill_corner_arcs(g, x, y, w, h, surround, r);
 }
 
-pub const fn press_colours(face: Colour, fg: Colour, _sunken: bool) -> (u32, u32) {
-    (face, fg)
+pub fn press_colours(face: Colour, fg: Colour, sunken: bool) -> (u32, u32) {
+    if flat() && sunken {
+        (fg, face)
+    } else {
+        (face, fg)
+    }
 }
 
 pub fn disabled_colours(face: Colour, fg: Colour) -> (u32, u32) {
@@ -324,8 +328,8 @@ pub fn themed_combo_button(
     true
 }
 
-pub const fn pressed_dither(sunken: bool) -> bool {
-    sunken
+pub fn pressed_dither(sunken: bool) -> bool {
+    sunken && flag_or("scrollbar_dither", false) && !flat() && !grad_buttons()
 }
 
 #[derive(Clone, Copy)]
@@ -383,6 +387,106 @@ fn grad_button_frame(g: &dyn GraphicsContext, x: i16, y: i16, w: u16, h: u16, bg
     let _ = g.fill_rect(x1 - si * 2, y + si, s, h.saturating_sub(s * 2));
     let _ = g.set_foreground(scale_rgb(bg, 0.45));
     let _ = g.draw_rect(x, y, w.saturating_sub(s), h.saturating_sub(s));
+}
+
+fn taskbar_surround() -> u32 {
+    if colour_or("taskbar_face", 0x0) != 0 {
+        colour_or("taskbar_face", 0x0)
+    } else {
+        face()
+    }
+}
+
+pub fn panel_button_surface(g: &dyn GraphicsContext, r: Rect, style: Fill) {
+    let (x, y, w, h) = r.as_px();
+    let key = if style.sunken {
+        "panel_button_pressed"
+    } else {
+        "panel_button"
+    };
+    if let Some(ops) = element_ops(key) {
+        paint_element(g, &ops, x, y, w, h, style.colour);
+        round_button_corners(g, x, y, w, h, taskbar_surround());
+        return;
+    }
+    button_surface(g, r, style);
+}
+
+pub fn themed_button() -> bool {
+    element_ops("button").is_some() || grad_buttons()
+}
+
+pub fn themed_panel_button() -> bool {
+    element_ops("panel_button").is_some() || grad_buttons()
+}
+
+pub fn themed_bar_button() -> bool {
+    themed_panel_button() || themed_button()
+}
+
+pub fn has_start_button_element() -> bool {
+    element_ops("start_button").is_some()
+}
+
+pub fn has_start_glyph() -> bool {
+    element_ops("start_glyph").is_some()
+}
+
+pub fn themed_start_glyph(g: &dyn GraphicsContext, x: i16, y: i16, size: u16) -> bool {
+    if let Some(ops) = element_ops("start_glyph") {
+        paint_element(g, &ops, x, y, size, size, face());
+        return true;
+    }
+    false
+}
+
+pub fn themed_start_button(
+    g: &dyn GraphicsContext,
+    x: i16,
+    y: i16,
+    w: u16,
+    h: u16,
+    pressed: bool,
+) -> bool {
+    let ops = if pressed {
+        element_ops("start_button_pressed").or_else(|| element_ops("start_button"))
+    } else {
+        element_ops("start_button")
+    };
+    if let Some(ops) = ops {
+        paint_element(g, &ops, x, y, w, h, face());
+        if start_radius_base() == 0 {
+            round_button_corners(g, x, y, w, h, taskbar_surround());
+        }
+        return true;
+    }
+    false
+}
+
+pub fn start_cap_slivers(w: u16, h: u16) -> Option<Vec<(i16, i16, u16, u16)>> {
+    let sr = start_radius_base();
+    if sr == 0 {
+        return None;
+    }
+    let r = (antibox_gfx::scale::scaled(i32::from(sr)) as i16)
+        .min(((w.min(h) as i16 - 2) / 2).max(0));
+    if r <= 0 {
+        return None;
+    }
+    let mut out = Vec::with_capacity(r as usize * 2);
+    let x1 = w as i16;
+    let y1 = h as i16;
+    for row in 0..r {
+        let dy = f64::from(r - row) - 0.5;
+        let reach = (f64::from(r * r) - dy * dy).max(0.0).sqrt();
+        let inset = (f64::from(r) - reach).ceil() as i16;
+        if inset <= 0 {
+            continue;
+        }
+        out.push((x1 - inset, row, inset as u16, 1));
+        out.push((x1 - inset, y1 - 1 - row, inset as u16, 1));
+    }
+    Some(out)
 }
 
 pub fn button_surface(g: &dyn GraphicsContext, r: Rect, style: Fill) {
@@ -1146,6 +1250,10 @@ pub fn pressed_face(face: Colour) -> u32 {
 }
 
 pub fn well(g: &dyn GraphicsContext, x: i16, y: i16, w: u16, h: u16) {
+    if let Some(ops) = element_ops("well") {
+        paint_element(g, &ops, x, y, w, h, face());
+        return;
+    }
     bevel(g, x, y, w, h, true);
 }
 
