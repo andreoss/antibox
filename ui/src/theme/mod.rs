@@ -721,7 +721,7 @@ pub fn language_fg() -> Colour {
 }
 
 pub fn menu_label() -> String {
-    string_or("menu_label", "Start")
+    string_or("menu_label", "Menu")
 }
 
 pub fn menu_label_raw() -> String {
