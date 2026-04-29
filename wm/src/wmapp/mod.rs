@@ -108,6 +108,9 @@ pub fn apply_font_prefs(b: &Arc<dyn DisplayBackend>, prefs: &wmconfig::Prefs) {
     } else {
         set_ui_font(name);
     }
+    if !ui_font().starts_with('-') {
+        return;
+    }
     if let Ok(g) = b.create_graphics(b.root().read_id()) {
         let _ = g.set_font(&FontSpec::ui(antibox_ui::metrics::font_pt()));
         let (_, _, fh) = g.font_metrics();

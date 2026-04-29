@@ -188,7 +188,7 @@ impl Default for Prefs {
     fn default() -> Self {
         Self {
             font: FontPrefs {
-                name: "-misc-fixed-medium-r-semicondensed--13-*-*-*-*-*-iso10646-1".to_string(),
+                name: "sans-serif".to_string(),
             },
             workspace: WorkspacePrefs {
                 count: 4,

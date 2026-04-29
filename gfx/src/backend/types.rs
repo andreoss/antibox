@@ -225,7 +225,7 @@ pub enum ShapeOp {
     Subtract,
 }
 
-pub const DEFAULT_UI_FONT: &str = "fixed";
+pub const DEFAULT_UI_FONT: &str = "sans-serif";
 
 static UI_FONT: crate::sync::atomic::LazyRwLock<Option<String>> = crate::sync::atomic::LazyRwLock::new();
 

@@ -97,7 +97,8 @@ pub fn register_global_width_provider(conn: &std::sync::Arc<XcbConnection>) {
     let conn = std::sync::Arc::clone(conn);
     let provider = std::sync::Arc::new(move |spec: &FontSpec, text: &str| {
         let px = (spec.size as f32 * 96.0 / 72.0).round() as u16;
-        resolve_font(&conn, &spec.family, px).map_or(0, |cf| cf.text_width(text))
+        resolve_font_styled(&conn, &spec.family, px, spec.bold, spec.italic)
+            .map_or(0, |cf| cf.text_width(text))
     });
     let _ = set_global_font_providers(provider);
 }
@@ -227,37 +228,53 @@ fn query_font_metrics(conn: *mut xcb_connection_t, id: u32) -> Option<FontMetric
 }
 
 pub fn resolve_font(conn: &XcbConnection, family: &str, px: u16) -> Option<ResolvedFont> {
-    if let Some(f) = resolve(conn, family, px) {
+    resolve_font_styled(conn, family, px, false, false)
+}
+
+pub fn resolve_font_styled(
+    conn: &XcbConnection,
+    family: &str,
+    px: u16,
+    bold: bool,
+    italic: bool,
+) -> Option<ResolvedFont> {
+    if let Some(f) = resolve(conn, family, px, bold, italic) {
         return Some(f);
     }
-    let primary = resolve(conn, "fixed", px);
+    let primary = resolve(conn, "fixed", px, false, false);
     if let Some(f) = &primary {
         if f.metrics().2 + 2 >= px {
             return primary;
         }
     }
-    let scaled = resolve(conn, "helvetica", px);
+    let scaled = resolve(conn, "helvetica", px, false, false);
     let overshoot = scaled.as_ref().map_or(0, |f| f.metrics().2);
     if overshoot > px + px / 8 {
         let px2 = ((px as u32 * px as u32) / overshoot as u32).max(1) as u16;
-        return resolve(conn, "helvetica", px2).or(scaled).or(primary);
+        return resolve(conn, "helvetica", px2, false, false).or(scaled).or(primary);
     }
     scaled.or(primary)
 }
 
-fn resolve(conn: &XcbConnection, family: &str, px: u16) -> Option<ResolvedFont> {
-    let key = (family.to_ascii_lowercase(), px);
+fn resolve(
+    conn: &XcbConnection,
+    family: &str,
+    px: u16,
+    bold: bool,
+    italic: bool,
+) -> Option<ResolvedFont> {
+    let key = (family.to_ascii_lowercase(), px, bold, italic);
     if let Some(hit) = cache().lock().ok().and_then(|g| g.get(&key).cloned()) {
         return hit;
     }
-    let resolved = resolve_uncached(conn, family, px);
+    let resolved = resolve_uncached(conn, family, px, bold, italic);
     if let Ok(mut g) = cache().lock() {
         g.insert(key, resolved.clone());
     }
     resolved
 }
 
-type FontCache = Mutex<std::collections::HashMap<(String, u16), Option<ResolvedFont>>>;
+type FontCache = Mutex<std::collections::HashMap<(String, u16, bool, bool), Option<ResolvedFont>>>;
 
 fn cache() -> &'static FontCache {
     static CACHE: OnceLock<FontCache> = OnceLock::new();
@@ -282,16 +299,32 @@ fn open_xlfd(conn: &XcbConnection, pattern: &str) -> Option<XcbFont> {
     })
 }
 
-fn resolve_uncached(conn: &XcbConnection, family: &str, px: u16) -> Option<ResolvedFont> {
+fn resolve_uncached(
+    conn: &XcbConnection,
+    family: &str,
+    px: u16,
+    bold: bool,
+    italic: bool,
+) -> Option<ResolvedFont> {
     if family.starts_with('-') {
         return open_xlfd(conn, family).map(ResolvedFont::Core);
     }
     if family.trim().is_empty() {
         return None;
     }
-    let want_ft = family.contains(':');
+    let mut pattern = family.to_string();
+    if !family.contains(":pixelsize=") {
+        pattern.push_str(&format!(":pixelsize={px}"));
+    }
+    if bold {
+        pattern.push_str(":weight=bold");
+    }
+    if italic {
+        pattern.push_str(":slant=italic");
+    }
+    let want_ft = family.contains(':') || bold || italic;
     if want_ft && conn.render_a8_format() != 0 {
-        if let Some(f) = super::ft::open(family) {
+        if let Some(f) = super::ft::open(&pattern) {
             return Some(ResolvedFont::Ft(f));
         }
     }
@@ -299,7 +332,7 @@ fn resolve_uncached(conn: &XcbConnection, family: &str, px: u16) -> Option<Resol
         return Some(ResolvedFont::Core(f));
     }
     if !want_ft && conn.render_a8_format() != 0 {
-        if let Some(f) = super::ft::open(family) {
+        if let Some(f) = super::ft::open(&pattern) {
             return Some(ResolvedFont::Ft(f));
         }
     }

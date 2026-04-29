@@ -55,7 +55,7 @@
         assert_eq!(p.workspace.count, 4);
         assert_eq!(
             p.font.name,
-            "-misc-fixed-medium-r-semicondensed--13-*-*-*-*-*-iso10646-1"
+            "sans-serif"
         );
     }
 

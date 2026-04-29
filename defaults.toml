@@ -2,7 +2,7 @@
 name = "nt"
 
 [font]
-name = "-misc-fixed-medium-r-semicondensed--13-*-*-*-*-*-iso10646-1"
+name = "sans-serif"
 
 [workspace]
 count = 4
