@@ -46,6 +46,7 @@ title_justify = 0
 sunken_depth = 2
 
 [strings]
+chrome_font = "sans-serif 12 bold italic"
 menu_label = "Toolchest"
 title_buttons = "mi"
 taskbar_justify = "left"

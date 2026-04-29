@@ -373,6 +373,10 @@ pub fn ui_font_name() -> String {
     string_or("ui_font_name", "")
 }
 
+pub fn chrome_font() -> String {
+    string_or("chrome_font", "")
+}
+
 pub fn clock_format() -> String {
     string_or("clock_format", "")
 }
@@ -428,6 +432,10 @@ pub fn start_cap_px() -> u16 {
 
 pub fn title_text_shadow() -> bool {
     flag_or("title_text_shadow", false)
+}
+
+pub fn title_plain() -> bool {
+    flag_or("title_plain", false)
 }
 
 pub fn tray_face() -> Colour {

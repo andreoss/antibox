@@ -46,6 +46,7 @@ title_justify = 50
 sunken_depth = 1
 
 [strings]
+chrome_font = "sans-serif 11"
 title_buttons = "mi"
 title_layout_left = "s"
 title_layout_right = "mi"

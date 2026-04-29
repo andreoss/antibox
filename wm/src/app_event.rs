@@ -163,6 +163,7 @@ impl App {
             crate::handler::redraw_all_frames(&self.wm);
         }
 
+        crate::fonts::apply_fonts();
         apply_font_prefs(&self.backend, &prefs);
         apply_graph_prefs(&prefs);
 

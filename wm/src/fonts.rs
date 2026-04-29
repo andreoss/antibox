@@ -2,9 +2,10 @@ use antibox_core::backend::{set_element_font, set_ui_font, FontRole};
 
 pub fn apply_fonts() {
     set_ui_font(&antibox_ui::theme::ui_font_name());
+    let themed = antibox_ui::theme::chrome_font();
+    set_element_font(FontRole::Title, &themed);
+    set_element_font(FontRole::Menu, &themed);
     for role in [
-        FontRole::Title,
-        FontRole::Menu,
         FontRole::Switch,
         FontRole::NormalTaskBar,
         FontRole::ActiveTaskBar,
