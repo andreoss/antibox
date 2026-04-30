@@ -336,8 +336,7 @@ impl FontSpec {
     }
 
     pub fn ui(size: u16) -> Self {
-        let scaled = crate::scale::scaled(size as i32).clamp(1, 255) as u16;
-        Self::new(&ui_font(), scaled)
+        Self::new(&ui_font(), size.clamp(1, 255))
     }
 
     pub fn role(role: FontRole, size: u16) -> Self {
@@ -348,10 +347,9 @@ impl FontSpec {
         let overridden = ELEMENT_FONTS.with(|g| g.borrow()[role as usize].clone());
         if let Some(ef) = overridden {
             let pt = if ef.size > 0 { ef.size } else { size };
-            let scaled = crate::scale::scaled(pt as i32).clamp(1, 255) as u16;
             return Self {
                 family: ef.family.clone(),
-                size: scaled,
+                size: pt.clamp(1, 255),
                 bold: ef.bold,
                 italic: ef.italic,
             };

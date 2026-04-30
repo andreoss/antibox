@@ -278,7 +278,8 @@ impl GraphicsContext for XcbGraphics {
     }
 
     fn set_font(&self, font: &FontSpec) -> Result<()> {
-        let px = (font.size as f32 * 96.0 / 72.0).round() as u16;
+        let px = antibox_core::scale::scaled((f64::from(font.size) * 96.0 / 72.0).round() as i32)
+            .clamp(6, 192) as u16;
         let cf = super::font::resolve_font_styled(
             &self.conn,
             &font.family,

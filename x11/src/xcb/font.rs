@@ -96,7 +96,8 @@ pub fn register_global_width_provider(conn: &std::sync::Arc<XcbConnection>) {
     use antibox_core::backend::{set_global_font_providers, FontSpec};
     let conn = std::sync::Arc::clone(conn);
     let provider = std::sync::Arc::new(move |spec: &FontSpec, text: &str| {
-        let px = (spec.size as f32 * 96.0 / 72.0).round() as u16;
+        let px = antibox_core::scale::scaled((f64::from(spec.size) * 96.0 / 72.0).round() as i32)
+            .clamp(6, 192) as u16;
         resolve_font_styled(&conn, &spec.family, px, spec.bold, spec.italic)
             .map_or(0, |cf| cf.text_width(text))
     });
