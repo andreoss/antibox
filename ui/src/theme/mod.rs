@@ -373,9 +373,6 @@ pub fn ui_font_name() -> String {
     string_or("ui_font_name", "")
 }
 
-pub fn chrome_font() -> String {
-    string_or("chrome_font", "")
-}
 
 pub fn clock_format() -> String {
     string_or("clock_format", "")
