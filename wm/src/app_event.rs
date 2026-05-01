@@ -156,9 +156,14 @@ impl App {
             self.wm.theme_colours = crate::render::ThemeColors::default();
             let tc = self.wm.theme_colours;
             if let Some(tb) = self.taskbar.as_mut() {
+                tb.task_bar_colour = tc.task_bar_colour;
                 for a in &mut tb.applets {
                     a.set_theme_colours(&tc);
                 }
+            }
+            crate::handler::reframe_all_for_metrics(&mut self.wm);
+            for fw in self.wm.frames.values() {
+                fw.set_shape();
             }
             crate::handler::redraw_all_frames(&self.wm);
         }

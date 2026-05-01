@@ -688,6 +688,97 @@ pub fn redraw_scrolled_frames<H: DisplayBackend + 'static + ?Sized>(
     }
 }
 
+pub(crate) fn reframe_all_for_metrics<H: DisplayBackend + 'static + ?Sized>(
+    wm: &mut WindowManager<H>,
+) {
+    let backend = wm.backend.clone();
+    let Some(b) = backend.as_ref().map(AsRef::as_ref) else { return };
+    let ids: Vec<ClientId> = wm.frames.keys().collect();
+    for id in ids {
+        let Some(f) = wm.frame(id) else { continue };
+        let (fullscreen, shaded, maximized, decorated) = (
+            f.state().fullscreen,
+            f.state().shaded,
+            f.state().maximized,
+            f.decorated(),
+        );
+        if fullscreen {
+            continue;
+        }
+        if !shaded && !maximized {
+            let is_csd = wm.frame(id).is_some_and(|f| f.client().is_csd());
+            if is_csd {
+                apply_csd_extents(wm, id);
+            } else if let Some(fw) = wm.frame_mut(id) {
+                let cr = fw.client_rect();
+                let [il, it, ir, ib] = fw.client_insets();
+                let fr = fw.frame_rect();
+                let new_frame =
+                    Rect::new(fr.x, fr.y, (cr.w + il + ir).max(1), (cr.h + it + ib).max(1));
+                if new_frame != fr {
+                    let fid = fw.frame().id();
+                    fw.set_frame_rect(new_frame);
+                    let ncr = fw.client_rect();
+                    let _ = b.configure_window(
+                        fid,
+                        &[
+                            new_frame.x as u32,
+                            new_frame.y as u32,
+                            new_frame.w.clamp(1, u16::MAX as i32) as u32,
+                            new_frame.h.clamp(1, u16::MAX as i32) as u32,
+                        ],
+                    );
+                    let _ = fw.client().xwindow.configure(
+                        Some((ncr.x - new_frame.x).max(0)),
+                        Some((ncr.y - new_frame.y).max(0)),
+                        Some(ncr.w.clamp(1, u16::MAX as i32) as u16),
+                        Some(ncr.h.clamp(1, u16::MAX as i32) as u16),
+                    );
+                    fw.layout_pointer_windows(b);
+                }
+            }
+            if let Some(fw) = wm.frame(id) {
+                crate::drag::send_client_configure(fw, b);
+                crate::ewmh::set_frame_extents(b, &wm.atoms, wm.xid_index.xid_of(id), decorated);
+            }
+            continue;
+        }
+        let Some(fw) = wm.frame_mut(id) else { continue };
+        let frame_id = fw.frame().id();
+        if shaded {
+            let fr = fw.frame_rect();
+            let nh = crate::frame::title_block_height();
+            if decorated && fr.h != nh {
+                fw.set_frame_rect(Rect::new(fr.x, fr.y, fr.w, nh));
+                let _ = b.configure_window(
+                    frame_id,
+                    &[
+                        fr.x.max(0) as u32,
+                        fr.y.max(0) as u32,
+                        fr.w.max(1) as u32,
+                        nh.max(1) as u32,
+                    ],
+                );
+            }
+            continue;
+        }
+        let fr = fw.frame_rect();
+        fw.set_frame_rect(fr);
+        let cr = fw.client_rect();
+        let th = fw.effective_title();
+        let _ = fw.client().xwindow.configure(
+            Some(0),
+            Some(th),
+            Some(cr.w.max(1) as u16),
+            Some(cr.h.max(1) as u16),
+        );
+        crate::drag::send_client_configure(fw, b);
+        fw.layout_pointer_windows(b);
+        let _ = b.clear_area(true, frame_id, Rect::new(0, 0, 0, 0));
+    }
+    let _ = b.flush();
+}
+
 pub fn redraw_all_frames<H: DisplayBackend + 'static + ?Sized>(wm: &WindowManager<H>) {
     let Some(b) = wm.backend() else { return };
     for (id, fw) in wm.frames.iter() {
