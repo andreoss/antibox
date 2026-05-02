@@ -96,12 +96,15 @@ fn xlfd_parts(name: &str) -> Option<(String, u16)> {
 }
 
 fn fc_pattern(font: &FontSpec) -> String {
+    let scale_px = |px: u16| -> i32 {
+        antibox_core::scale::scaled(i32::from(px)).clamp(6, 192)
+    };
     match xlfd_parts(&font.family) {
-        Some((family, px)) => format!("{family}:pixelsize={px}"),
+        Some((family, px)) => format!("{family}:pixelsize={}", scale_px(px)),
         None => format!(
             "{}:pixelsize={}",
             font.family,
-            u32::from(font.size.max(1)) * 4 / 3
+            scale_px((u32::from(font.size.max(1)) * 4 / 3) as u16)
         ),
     }
 }
