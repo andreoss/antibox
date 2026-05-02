@@ -236,7 +236,6 @@ fn icon_size() -> u16 {
 impl Omni {
     pub fn new() -> Self {
         let mut view = ListView::new();
-        view.set_thin_sb();
         view.set_empty_note("No matches");
         Self {
             view,
@@ -323,11 +322,28 @@ impl Omni {
             .unwrap_or_else(|| format!("Workspace {}", i + 1))
     }
 
-    fn window_nodes(&self) -> Vec<MenuNode<OmniAct>> {
-        let isz = icon_size();
+    fn themed_icons(
+        &self,
+        name: &str,
+        isz: u16,
+    ) -> (Option<PixmapData>, Option<PixmapData>) {
         let bg = antibox_ui::theme::field();
         let sel = self.view.colours.sel_bg;
-        let mut nodes: Vec<MenuNode<OmniAct>> = self
+        match crate::icon_render::load_named_icon(name, u32::from(isz)) {
+            Some(p) => (
+                Some(crate::icon_render::composite_over(&p, bg)),
+                Some(crate::icon_render::composite_over(&p, sel)),
+            ),
+            None => (
+                Some(crate::icon_render::default_icon(u32::from(isz), bg)),
+                Some(crate::icon_render::default_icon(u32::from(isz), sel)),
+            ),
+        }
+    }
+
+    fn window_nodes(&self) -> Vec<MenuNode<OmniAct>> {
+        let isz = icon_size();
+        let wins: Vec<MenuNode<OmniAct>> = self
             .items
             .iter()
             .filter(|it| !it.run)
@@ -337,38 +353,30 @@ impl Omni {
                     .with_class(Some(it.class.clone()))
             })
             .collect();
-        for app in self.apps.as_deref().unwrap_or(&[]) {
-            let raw = crate::icon_render::load_named_icon(&app.icon, u32::from(isz));
-            let (icon, icon_sel) = match raw {
-                Some(p) => (
-                    crate::icon_render::composite_over(&p, bg),
-                    crate::icon_render::composite_over(&p, sel),
-                ),
-                None => (
-                    crate::icon_render::default_icon(u32::from(isz), bg),
-                    crate::icon_render::default_icon(u32::from(isz), sel),
-                ),
-            };
-            nodes.push(
+        let apps: Vec<MenuNode<OmniAct>> = self
+            .apps
+            .as_deref()
+            .unwrap_or(&[])
+            .iter()
+            .map(|app| {
+                let (icon, icon_sel) = self.themed_icons(&app.icon, isz);
                 MenuNode::leaf(app.name.clone(), OmniAct::Launch(app.command.clone()))
-                    .with_icons(Some(icon), Some(icon_sel)),
-            );
+                    .with_icons(icon, icon_sel)
+            })
+            .collect();
+        let mut nodes = Vec::new();
+        if !wins.is_empty() {
+            nodes.push(MenuNode::group_expanded("Windows", wins));
         }
-        let run_raw = crate::icon_render::load_named_icon("system-run", u32::from(isz));
-        let (run_icon, run_icon_sel) = match run_raw {
-            Some(p) => (
-                crate::icon_render::composite_over(&p, bg),
-                crate::icon_render::composite_over(&p, sel),
-            ),
-            None => (
-                crate::icon_render::default_icon(u32::from(isz), bg),
-                crate::icon_render::default_icon(u32::from(isz), sel),
-            ),
-        };
-        nodes.push(
-            MenuNode::leaf("Run\u{2026}", OmniAct::RunEntry)
-                .with_icons(Some(run_icon), Some(run_icon_sel)),
-        );
+        if !apps.is_empty() {
+            nodes.push(MenuNode::group("Applications", apps));
+        }
+        let (run_icon, run_icon_sel) = self.themed_icons("system-run", isz);
+        nodes.push(MenuNode::group_expanded(
+            "Actions",
+            vec![MenuNode::leaf("Run\u{2026}", OmniAct::RunEntry)
+                .with_icons(run_icon, run_icon_sel)],
+        ));
         nodes
     }
 
