@@ -1211,6 +1211,10 @@ pub fn panel_edge_height() -> u16 {
 
 pub fn panel_edge(g: &dyn GraphicsContext, w: u16) {
     let s = antibox_gfx::scale::scaled(1).max(1) as u16;
+    if let Some(ops) = element_ops("panel_edge") {
+        paint_element(g, &ops, 0, 0, w, s * 2, face());
+        return;
+    }
     let _ = g.set_foreground(light());
     let _ = g.fill_rect(0, 0, w, s);
     let _ = g.set_foreground(face_light());
