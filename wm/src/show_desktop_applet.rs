@@ -53,9 +53,11 @@ impl Applet for ShowDesktopApplet {
     }
 
     fn paint(&self, g: &dyn GraphicsContext) {
-        let _ = g.set_foreground(self.face);
-        let _ = g.fill_rect(0, 0, self.w, self.h);
-        antibox_ui::theme::bevel(g, 0, 0, self.w, self.h, self.pressed);
+        antibox_ui::theme::panel_button_surface(
+            g,
+            Rect::px(0, 0, self.w, self.h),
+            antibox_ui::theme::Fill::new(self.face, self.pressed),
+        );
         let inset = (i32::from(self.w) / 4).max(2) as i16;
         let mw = self.w.saturating_sub(inset as u16 * 2).max(4);
         let mh = self.h.saturating_sub(inset as u16 * 2).max(4);
